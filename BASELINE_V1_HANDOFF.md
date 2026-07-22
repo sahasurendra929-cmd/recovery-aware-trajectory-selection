@@ -77,7 +77,8 @@ python scripts/train_qlora.py \
 python scripts/evaluate_tool_actions.py \
   --test-file data/processed/qlora_v1/shared/test.jsonl \
   --adapter results/qlora_v1/ARM/checkpoint_final \
-  --output results/qlora_v1/ARM/metrics.json
+  --output results/qlora_v1/ARM/metrics.json \
+  --load-in-4bit
 ```
 
 ## Acceptance checks
@@ -86,8 +87,11 @@ python scripts/evaluate_tool_actions.py \
 2. Each GPU trainer completes the 10-example smoke test before the formal run.
 3. Each arm uploads/sends `checkpoint_final`, `run_manifest.json`, training
    log, and `metrics.json`.
-4. If OOM, change only `--max-seq-len 512` to `384`, record it, and flag that
-   the comparison is no longer perfectly controlled.
+4. The unified evaluation mode is NF4 4-bit base-model loading, batch size 1,
+   greedy decoding, and `max_new_tokens=128`. Never shorten prompts, change
+   generation length, or use `--limit` to work around evaluation OOM.
+5. If evaluation still OOMs in this mode, stop and report the full error and
+   peak GPU memory; do not write a partial `metrics.json`.
 
 ## Result collection (Mac)
 
