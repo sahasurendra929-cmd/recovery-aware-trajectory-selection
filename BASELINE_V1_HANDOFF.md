@@ -1,5 +1,34 @@
 # QLoRA baseline v1 handoff
 
+> **Current canonical run: v1.1 clean rerun.** Earlier v1 outputs are kept
+> only for debugging and must not be compared or reported. Every GPU must use
+> `scripts/run_qlora_v1_1.py`; it writes only v1.1 paths and fixes the
+> evaluator to the most recent 512 prompt tokens, matching training context.
+
+## One-command clean rerun (all GPU machines)
+
+After installing a CUDA-compatible PyTorch build and `requirements-gpu.txt`,
+clone the repository and τ-bench at the frozen revision, then run exactly one
+command. The only machine-specific argument is `ARM`.
+
+```bash
+git clone https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git
+cd recovery-aware-trajectory-selection
+git clone https://github.com/sierra-research/tau-bench.git data/raw/tau-bench
+git -C data/raw/tau-bench checkout 59a200c6d575d595120f1cb70fea53cef0632f6b
+
+python scripts/run_qlora_v1_1.py \
+  --arm ARM \
+  --data-dir data/raw/tau-bench/historical_trajectories \
+  --stage all
+```
+
+Use exactly one arm per GPU: `random_success`, `shortest_success`, or
+`recovery_balanced`. The runner builds data, checks 361 validation / 900 test
+examples, runs a smoke test, trains one formal adapter, and evaluates all 900
+test examples in NF4 4-bit mode. Its outputs are under
+`results/qlora_v1_1/<ARM>/`.
+
 ## Frozen contract
 
 Use `configs/qlora_v1.yaml`. Do not alter the seed, group split, tokenizer
