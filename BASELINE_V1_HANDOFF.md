@@ -24,7 +24,9 @@ GPU trainer after checking `build_summary.json`.
 Install compatible CUDA packages in an isolated environment:
 
 ```bash
-pip install torch transformers peft bitsandbytes datasets accelerate
+# Install the CUDA-compatible PyTorch wheel for this machine first.
+pip install -r requirements-gpu.txt
+python -c "import torch; assert torch.cuda.is_available(); print(torch.cuda.get_device_name(0))"
 ```
 
 Run the assigned arm; replace `ARM` with exactly one of
@@ -33,11 +35,13 @@ Run the assigned arm; replace `ARM` with exactly one of
 ```bash
 python scripts/train_qlora.py \
   --train-file data/processed/qlora_v1/ARM/train.jsonl \
+  --validation-file data/processed/qlora_v1/shared/validation.jsonl \
   --output-dir results/qlora_v1/ARM \
   --smoke-test
 
 python scripts/train_qlora.py \
   --train-file data/processed/qlora_v1/ARM/train.jsonl \
+  --validation-file data/processed/qlora_v1/shared/validation.jsonl \
   --output-dir results/qlora_v1/ARM
 
 python scripts/evaluate_tool_actions.py \
