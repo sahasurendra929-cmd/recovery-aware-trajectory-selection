@@ -21,6 +21,8 @@ training:
   qlora: {quantization: nf4_4bit, r: 16, alpha: 32, dropout: 0.05}
 evaluation:
   split: held_out_test_tasks
+  base_model_loading: nf4_4bit
+  generation: {do_sample: false, max_new_tokens: 128, batch_size: 1}
   metrics: [tool_name_accuracy, full_tool_call_exact_match, recovery_subset_metrics]
 claim_boundary:
   valid: offline_held_out_tool_action_sft
