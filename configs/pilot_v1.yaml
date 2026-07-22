@@ -1,0 +1,25 @@
+experiment_name: recovery_sampling_pilot_v1
+seed: 20260722
+
+data:
+  source: tau_bench_historical_retail
+  split_unit: task_id
+  train_ratio: 0.70
+  validation_ratio: 0.10
+  test_ratio: 0.20
+  final_success_only: true
+
+selection:
+  budget_fraction_of_train_pool: 0.30
+  estimated_token_proxy: serialized_characters_divided_by_4
+  methods:
+    - random_success
+    - shortest_success
+    - recovery_balanced
+  recovery_target_budget_fraction: 0.30
+
+claim_boundary:
+  evaluation_type: offline_data_selection_pilot
+  prohibited_claims:
+    - end_to_end_agent_success
+    - autonomous_recovery_without_agent_initiated_label
