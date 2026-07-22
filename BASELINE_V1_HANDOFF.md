@@ -21,6 +21,30 @@ GPU trainer after checking `build_summary.json`.
 
 ## GPU trainer commands
 
+### One-time bootstrap (on every GPU machine)
+
+Either copy `data/processed/qlora_v1/` and `results/selection_v1/` from the
+Mac after it has checked `build_summary.json`, **or reproduce those files from
+the pinned source revision below.** Do not mix the two methods.
+
+```bash
+git clone https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git
+cd recovery-aware-trajectory-selection
+git clone https://github.com/sierra-research/tau-bench.git data/raw/tau-bench
+git -C data/raw/tau-bench checkout 59a200c6d575d595120f1cb70fea53cef0632f6b
+
+python3 scripts/run_data_baseline.py \
+  --data-dir data/raw/tau-bench/historical_trajectories \
+  --output-dir results/selection_v1
+python3 scripts/build_sft_data.py \
+  --data-dir data/raw/tau-bench/historical_trajectories \
+  --manifest-dir results/selection_v1 \
+  --output-dir data/processed/qlora_v1
+```
+
+Confirm the last command reports exactly `validation_examples=361` and
+`test_examples=900` before training.
+
 Install compatible CUDA packages in an isolated environment:
 
 ```bash
