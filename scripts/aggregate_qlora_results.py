@@ -50,6 +50,10 @@ def main():
         if metrics_path.exists() and manifest_path.exists():
             metrics, manifest = json.loads(metrics_path.read_text()), json.loads(manifest_path.read_text())
             errors = compatibility_errors(manifest)
+            if metrics.get("base_model_loading") != "nf4_4bit":
+                errors.append(f"base_model_loading: expected 'nf4_4bit', got {metrics.get('base_model_loading')!r}")
+            if metrics.get("generation") != {"do_sample": False, "max_new_tokens": 128}:
+                errors.append(f"generation: expected greedy max_new_tokens=128, got {metrics.get('generation')!r}")
             row.update({metric: metrics.get(metric) for metric in METRICS})
             row.update({"status": "complete" if not errors else "incompatible", "compatibility": "OK" if not errors else "; ".join(errors)})
         rows.append(row)
