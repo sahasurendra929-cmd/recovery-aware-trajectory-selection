@@ -1,0 +1,27 @@
+experiment_name: qlora_tool_action_baseline_v1
+seed: 20260722
+data:
+  source: tau_bench_historical_retail
+  split_unit: task_id
+  split: [0.70, 0.10, 0.20]
+  successful_trajectories_only: true
+  max_context_chars: 12000
+selection:
+  arms: [random_success, shortest_success, recovery_balanced]
+  equal_estimated_token_budget: true
+model:
+  base: Qwen/Qwen2.5-0.5B-Instruct
+  objective: next_assistant_tool_call_causal_lm
+training:
+  epochs: 1
+  max_seq_len: 512
+  per_device_batch_size: 1
+  gradient_accumulation: 16
+  learning_rate: 1.0e-4
+  qlora: {quantization: nf4_4bit, r: 16, alpha: 32, dropout: 0.05}
+evaluation:
+  split: held_out_test_tasks
+  metrics: [tool_name_accuracy, full_tool_call_exact_match, recovery_subset_metrics]
+claim_boundary:
+  valid: offline_held_out_tool_action_sft
+  invalid: [end_to_end_agent_success, autonomous_recovery_improvement]
