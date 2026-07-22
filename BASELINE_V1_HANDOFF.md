@@ -14,6 +14,12 @@ end-to-end Agent evaluation.
 python3 scripts/run_data_baseline.py --data-dir /PATH/tau-bench/historical_trajectories --output-dir results/selection_v1
 python3 scripts/build_sft_data.py --data-dir /PATH/tau-bench/historical_trajectories --manifest-dir results/selection_v1 --output-dir data/processed/qlora_v1
 python3 scripts/evaluate_tool_actions.py --test-file data/processed/qlora_v1/shared/test.jsonl --adapter /PLACEHOLDER --output results/qlora_v1/dry_run.json --dry-run
+
+# Produce the descriptive Table-1-style audit while GPUs train.
+python3 scripts/audit_selection_data.py \
+  --data-dir /PATH/tau-bench/historical_trajectories \
+  --manifest-dir results/selection_v1 \
+  --output-dir results/analysis_v1
 ```
 
 The Mac must send the three manifests plus `data/processed/qlora_v1/` to every
@@ -82,3 +88,18 @@ python scripts/evaluate_tool_actions.py \
    log, and `metrics.json`.
 4. If OOM, change only `--max-seq-len 512` to `384`, record it, and flag that
    the comparison is no longer perfectly controlled.
+
+## Result collection (Mac)
+
+Copy each GPU's `metrics.json` and `run_manifest.json` into the matching
+`results/qlora_v1/<arm>/` directory on the Mac. Then run:
+
+```bash
+python3 scripts/aggregate_qlora_results.py \
+  --results-root results/qlora_v1 \
+  --output-dir results/analysis_v1/qlora_comparison
+```
+
+Before all three arms finish, the command deliberately exits non-zero and
+lists missing arms. When all outputs are present, it writes `comparison.md`,
+`comparison.csv`, and `comparison.json`, and checks the frozen contract.
