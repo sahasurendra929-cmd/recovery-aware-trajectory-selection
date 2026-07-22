@@ -52,6 +52,8 @@ def main():
             errors = compatibility_errors(manifest)
             if metrics.get("base_model_loading") != "nf4_4bit":
                 errors.append(f"base_model_loading: expected 'nf4_4bit', got {metrics.get('base_model_loading')!r}")
+            if metrics.get("prompt_context") != {"max_tokens": 512, "truncation": "left_keep_most_recent"}:
+                errors.append(f"prompt_context: expected left-truncated 512 tokens, got {metrics.get('prompt_context')!r}")
             if metrics.get("generation") != {"do_sample": False, "max_new_tokens": 128}:
                 errors.append(f"generation: expected greedy max_new_tokens=128, got {metrics.get('generation')!r}")
             row.update({metric: metrics.get(metric) for metric in METRICS})
