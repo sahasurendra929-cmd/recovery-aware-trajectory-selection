@@ -12,11 +12,16 @@ The project is currently at the **offline pilot** stage. It does not claim an en
   its 512-token context protocol is not the paper-quality protocol.
 - **v2:** isolated corrected protocol with tokenizer-exact/source-controlled
   selection budgets, full system-policy retention, fixed compute, resumable
-  evaluation, a zero-shot control, and task-cluster uncertainty. See
-  [`BASELINE_V2_HANDOFF.md`](BASELINE_V2_HANDOFF.md).
+  evaluation, a zero-shot control, and task-cluster uncertainty. Its completed
+  RTX 5060 result is audited in [`V2_RESULT_AUDIT.md`](V2_RESULT_AUDIT.md).
+- **v3:** one-variable constrained-recovery diagnostic. It freezes the V2
+  model, prompts, labels, token/source budgets, compute, and held-out evaluator,
+  then changes only trajectory selection. See
+  [`BASELINE_V3_HANDOFF.md`](BASELINE_V3_HANDOFF.md).
 
-Never compare or merge v1.1 and v2 outputs. Their data construction, context,
-arm definitions, and test-example counts differ.
+Never compare or merge v1.1 with v2/v3 outputs. V3 may be paired only with the
+audited V2 `random_success` result because those two share the frozen examples
+and evaluation protocol.
 
 ## Current evidence-bound claim
 
@@ -69,7 +74,10 @@ The label also records whether a user spoke before the corrective tool call. Thi
 - [x] Task-group split and selected-trajectory manifests
 - [x] Error-resolution audit fields
 - [x] Token-exact, source-controlled QLoRA v2 protocol and audit
-- [ ] Complete QLoRA v2 GPU results across three seeds
+- [x] Complete and audit the single-seed V2 RTX 5060 baseline
+- [x] Freeze the constrained-recovery V3 selector and overnight protocol
+- [ ] Run the V3 diagnostic on RTX 5060 and pair it with V2 Random
+- [ ] Confirm any screened V3 signal on fresh held-out tasks and three seeds
 - [ ] Agent-initiated repair taxonomy and controlled error injection
 - [ ] FACES: coverage over error, failed tool, repair action, arguments, and state transitions
 - [ ] Executable τ³ evaluation and unseen tool-combination tests
