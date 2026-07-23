@@ -1,0 +1,62 @@
+experiment_name: recovery_aware_selection_qlora_v2
+protocol: qlora_v2
+claim_boundary: offline_held_out_next_tool_call_imitation_only
+seed: 20260722
+
+data:
+  source: legacy_tau_bench_historical_retail
+  source_revision: 59a200c6d575d595120f1cb70fea53cef0632f6b
+  successful_trajectories_only: true
+  split_unit: task_key
+  split: [0.70, 0.10, 0.20]
+  deduplication: within_source_task_and_tool_sequence
+
+model:
+  base: Qwen/Qwen2.5-0.5B-Instruct
+  revision: 7ae557604adf67be50417f59c2c2f167def9a775
+  objective: completion_only_causal_language_model_cross_entropy
+
+prompt_protocol:
+  max_sequence_tokens: 2048
+  max_prompt_tokens: 1664
+  max_completion_tokens: 384
+  system_policy: retain_full_or_fail
+  task_anchor: tokenizer_bounded_head_and_tail
+  recent_history: contiguous_message_suffix
+  serialized_message_rule: never_slice_outer_json
+  train_eval_prompt_match: exact_prebuilt_prompt
+
+selection:
+  arms: [random_success, shortest_success, recovery_coverage]
+  token_cost: final_prompt_plus_completion_after_sft_expansion
+  source_model_control: equal_token_quota_per_source_across_arms
+  total_fraction: 0.30
+  exact_equal_budget_required: true
+  recovery_coverage_features: [recovery_mode, error_type, failed_to_repair_tool_transition, joint_signature]
+
+training:
+  schedule: data_derived_equal_microbatches_expose_every_selected_example
+  per_device_batch_size: 1
+  gradient_accumulation: 16
+  optimizer_steps: read_from_build_summary
+  padding: fixed_2048_tokens
+  learning_rate: 1.0e-4
+  quantization: nf4_4bit_double_quant
+  compute_dtype: bfloat16
+  lora: {r: 16, alpha: 32, dropout: 0.05}
+
+evaluation:
+  controls: [zero_shot_base_model, random_success, shortest_success, recovery_coverage]
+  split: held_out_test_task_keys
+  base_model_loading: nf4_4bit
+  prompt_tokens: assert_prebuilt_at_most_1664_no_runtime_truncation
+  generation: {do_sample: false, max_new_tokens: 128, batch_size: 1}
+  resumable_predictions: true
+  metrics: [json_validity, tool_name_accuracy, argument_exact_match, full_call_exact_match]
+  subsets: [all, recovery, agent_initiated, user_assisted]
+  uncertainty: task_cluster_bootstrap_95
+
+invalid_claims:
+  - end_to_end_agent_success
+  - executable_tool_success
+  - autonomous_recovery_improvement

@@ -1,0 +1,139 @@
+{
+  "protocol": "qlora_v2",
+  "seed": 20260722,
+  "claim_boundary": "offline held-out next-tool-call imitation only",
+  "data": {
+    "split_unit": "task_key",
+    "task_counts": {
+      "train": 78,
+      "validation": 11,
+      "test": 22
+    },
+    "successful_trajectories_only": true,
+    "deduplication": "within_source_task_and_tool_sequence"
+  },
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "requested_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "resolved_revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "context": {
+    "max_prompt_tokens": 1664,
+    "max_completion_tokens": 384,
+    "max_sequence_tokens": 2048,
+    "system_policy": "full_required",
+    "history": "bounded_task_anchor_plus_contiguous_recent_messages"
+  },
+  "selection": {
+    "cost": "sum_of_final_prompt_plus_completion_tokens_after_sft_expansion",
+    "fraction": 0.3,
+    "source_token_budgets": {
+      "gpt-4o-retail": 523182,
+      "sonnet-35-new-retail": 1167747
+    },
+    "total_token_budget": 1690929,
+    "arms": [
+      "random_success",
+      "shortest_success",
+      "recovery_coverage"
+    ]
+  },
+  "training": {
+    "microbatches": 1088,
+    "gradient_accumulation": 16,
+    "optimizer_steps": 68,
+    "pad_to_max_sequence_tokens": 2048,
+    "padded_tokens_per_arm": 2228224
+  },
+  "shared_splits": {
+    "validation_examples": 392,
+    "test_examples": 959
+  },
+  "arms": [
+    {
+      "arm": "random_success",
+      "selected_sft_tokens": 1690929,
+      "trajectories": 141,
+      "unique_tasks": 63,
+      "examples": 1066,
+      "scheduled_microbatches": 1088,
+      "scheduled_unique_examples": 1066,
+      "scheduled_nonpad_tokens": 1726539,
+      "scheduled_loss_tokens": 36706,
+      "scheduled_padded_tokens": 2228224,
+      "recovery_targets": 78,
+      "agent_initiated_targets": 13,
+      "user_assisted_targets": 65,
+      "source_trajectory_counts": {
+        "gpt-4o-retail": 48,
+        "sonnet-35-new-retail": 93
+      },
+      "source_token_counts": {
+        "gpt-4o-retail": 523182,
+        "sonnet-35-new-retail": 1167747
+      },
+      "mean_sequence_tokens": 1586.24,
+      "truncated_context_examples": 803,
+      "train_file_sha256": "9270ce58b6ccbedee3c8ce7dbe3f52e1b16ef32b98e8e94c3f8df3335eeb613e",
+      "train_schedule_sha256": "e0bfc19652f339a4ce748acf7f63a5f2f7d0be18658f265b9806345e36012743"
+    },
+    {
+      "arm": "shortest_success",
+      "selected_sft_tokens": 1690929,
+      "trajectories": 195,
+      "unique_tasks": 50,
+      "examples": 1074,
+      "scheduled_microbatches": 1088,
+      "scheduled_unique_examples": 1074,
+      "scheduled_nonpad_tokens": 1712659,
+      "scheduled_loss_tokens": 37268,
+      "scheduled_padded_tokens": 2228224,
+      "recovery_targets": 87,
+      "agent_initiated_targets": 8,
+      "user_assisted_targets": 79,
+      "source_trajectory_counts": {
+        "gpt-4o-retail": 67,
+        "sonnet-35-new-retail": 128
+      },
+      "source_token_counts": {
+        "gpt-4o-retail": 523182,
+        "sonnet-35-new-retail": 1167747
+      },
+      "mean_sequence_tokens": 1574.42,
+      "truncated_context_examples": 698,
+      "train_file_sha256": "372206bf8eb26cde9e45b515cbe1538b5b4b7f0df128ca8e5ffb718695114d8c",
+      "train_schedule_sha256": "3f93383d389d4c0e3289e7dd5192e53e98f787160c7bf7a30577a1ce7a2b5c25"
+    },
+    {
+      "arm": "recovery_coverage",
+      "selected_sft_tokens": 1690929,
+      "trajectories": 140,
+      "unique_tasks": 44,
+      "examples": 1062,
+      "scheduled_microbatches": 1088,
+      "scheduled_unique_examples": 1062,
+      "scheduled_nonpad_tokens": 1732042,
+      "scheduled_loss_tokens": 39577,
+      "scheduled_padded_tokens": 2228224,
+      "recovery_targets": 188,
+      "agent_initiated_targets": 32,
+      "user_assisted_targets": 156,
+      "source_trajectory_counts": {
+        "gpt-4o-retail": 42,
+        "sonnet-35-new-retail": 98
+      },
+      "source_token_counts": {
+        "gpt-4o-retail": 523182,
+        "sonnet-35-new-retail": 1167747
+      },
+      "mean_sequence_tokens": 1592.21,
+      "truncated_context_examples": 792,
+      "train_file_sha256": "d1c7b88494300546d14c952bffabce468239d45b4b7dc316fd728f0650663f05",
+      "train_schedule_sha256": "073f142e4bf13d8ab7a5b9aca580d8f4794f2f227af373a90fbba87a69c3fac0"
+    }
+  ],
+  "hashes": {
+    "validation_jsonl": "71f66c41394a50e3d992b7b860bb444774e7215ada3ad95e7d749b911916057a",
+    "test_jsonl": "0da63463a65d3b377b3ef3a7e0032a8ffabdc8ab3e439c33850a1eea1ee8fd96"
+  }
+}
