@@ -1,0 +1,194 @@
+{
+  "protocol": "qlora_v3",
+  "training_and_evaluation_protocol": "qlora_v2_frozen",
+  "test_file_sha256": "0da63463a65d3b377b3ef3a7e0032a8ffabdc8ab3e439c33850a1eea1ee8fd96",
+  "formal_test_examples": 959,
+  "evaluated_examples": 959,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "checkpoint_fingerprint": "3cdfa858353e8f7ea6da0d5558c21014bacbd58b2092f7095d6b5925f147825c",
+  "base_model_loading": "nf4_4bit",
+  "max_prompt_tokens": 1664,
+  "generation": {
+    "do_sample": false,
+    "max_new_tokens": 128,
+    "batch_size": 1
+  },
+  "limited": false,
+  "claim_boundary": "diagnostic offline held-out next-tool-call imitation on an already inspected V2 test set; not paper-final or executable agent success",
+  "predictions_sha256": "491e1613b20eb11b176d9aac61e19b4e3472257d3a2576125c76c6e03cb24de3",
+  "resume_recovery_events": 0,
+  "resume_recovery_audit": [],
+  "groups": {
+    "overall": {
+      "examples": 959,
+      "tasks": 22,
+      "micro": {
+        "json_valid": 0.9989572471324296,
+        "tool_name_correct": 0.5964546402502607,
+        "arguments_exact": 0.3180396246089677,
+        "full_call_exact": 0.310740354535975
+      },
+      "task_macro": {
+        "json_valid": 0.9994949494949494,
+        "tool_name_correct": 0.6227291264982797,
+        "arguments_exact": 0.3424205337339806,
+        "full_call_exact": 0.3360766877506362
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          0.9968443328647434,
+          1.0
+        ],
+        "tool_name_correct": [
+          0.5620416137734052,
+          0.6335880386930005
+        ],
+        "arguments_exact": [
+          0.27367061228964745,
+          0.3731272466889102
+        ],
+        "full_call_exact": [
+          0.26877241781891326,
+          0.3629263689053841
+        ]
+      }
+    },
+    "non_recovery": {
+      "examples": 906,
+      "tasks": 22,
+      "micro": {
+        "json_valid": 0.9988962472406181,
+        "tool_name_correct": 0.5949227373068433,
+        "arguments_exact": 0.30242825607064017,
+        "full_call_exact": 0.2969094922737307
+      },
+      "task_macro": {
+        "json_valid": 0.9994456762749446,
+        "tool_name_correct": 0.6229789966224918,
+        "arguments_exact": 0.32889563562062785,
+        "full_call_exact": 0.32374048202636624
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          0.9967065524031287,
+          1.0
+        ],
+        "tool_name_correct": [
+          0.5578569674429064,
+          0.638254744105808
+        ],
+        "arguments_exact": [
+          0.25436001913952117,
+          0.35706275557958067
+        ],
+        "full_call_exact": [
+          0.2502489785495403,
+          0.35142262479327036
+        ]
+      }
+    },
+    "recovery": {
+      "examples": 53,
+      "tasks": 15,
+      "micro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.6226415094339622,
+        "arguments_exact": 0.5849056603773585,
+        "full_call_exact": 0.5471698113207547
+      },
+      "task_macro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.6941414141414141,
+        "arguments_exact": 0.619141414141414,
+        "full_call_exact": 0.607020202020202
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          1.0,
+          1.0
+        ],
+        "tool_name_correct": [
+          0.5217164855072464,
+          0.7777777777777778
+        ],
+        "arguments_exact": [
+          0.4716981132075472,
+          0.7441860465116279
+        ],
+        "full_call_exact": [
+          0.4305555555555556,
+          0.7353328173374611
+        ]
+      }
+    },
+    "agent_initiated": {
+      "examples": 13,
+      "tasks": 7,
+      "micro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.0,
+        "arguments_exact": 0.0,
+        "full_call_exact": 0.0
+      },
+      "task_macro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.0,
+        "arguments_exact": 0.0,
+        "full_call_exact": 0.0
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          1.0,
+          1.0
+        ],
+        "tool_name_correct": [
+          0.0,
+          0.0
+        ],
+        "arguments_exact": [
+          0.0,
+          0.0
+        ],
+        "full_call_exact": [
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "user_assisted": {
+      "examples": 40,
+      "tasks": 14,
+      "micro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.825,
+        "arguments_exact": 0.775,
+        "full_call_exact": 0.725
+      },
+      "task_macro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.875,
+        "arguments_exact": 0.7916666666666667,
+        "full_call_exact": 0.7738095238095238
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          1.0,
+          1.0
+        ],
+        "tool_name_correct": [
+          0.7142857142857143,
+          0.9487179487179487
+        ],
+        "arguments_exact": [
+          0.6428113553113554,
+          0.9211032388663964
+        ],
+        "full_call_exact": [
+          0.5882033248081842,
+          0.9117647058823529
+        ]
+      }
+    }
+  }
+}
