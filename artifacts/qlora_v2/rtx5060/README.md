@@ -11,7 +11,7 @@ This directory is a compact, auditable handoff of the completed **v2** experimen
 - Held-out test set: 959 examples, SHA256 `0da63463a65d3b377b3ef3a7e0032a8ffabdc8ab3e439c33850a1eea1ee8fd96`.
 - `random_success`, `shortest_success`, and `recovery_coverage` all completed training and the full 959-example evaluation.
 - The unadapted `base_model` control also completed the same 959-example evaluation.
-- Every evaluation used NF4 4-bit model loading, the most recent 512 prompt tokens with left truncation, greedy decoding, and `max_new_tokens=128`. No CPU or fp16 evaluation fallback was used.
+- Every evaluation used NF4 4-bit model loading and the frozen prebuilt prompt contract (`prompt_tokens <= 1664`) with no evaluator-time truncation, greedy decoding, and `max_new_tokens=128`. No CPU or fp16 evaluation fallback was used.
 - These v2 results must not be directly mixed with results produced by a different evaluator protocol.
 - The experiment measures offline held-out next-tool-call imitation. It does **not** establish end-to-end or executable Agent success.
 
@@ -28,7 +28,7 @@ The authoritative values and bootstrap confidence intervals are in each `metrics
 
 ## Training and runtime notes
 
-- All three arms used the frozen v2 selection and training contract: one epoch, batch size 1, gradient accumulation 16, and learning rate `1e-4`.
+- All three arms used the frozen v2 selection and training contract: exactly 1,088 scheduled microbatches (68 optimizer steps), batch size 1, gradient accumulation 16, and learning rate `1e-4`; this is not described as exactly one epoch because a small number of examples repeat in the fixed schedule.
 - All three arms completed 68 optimizer steps from 1,690,929 selected SFT tokens.
 - No CUDA out-of-memory event occurred.
 - A first smoke attempt stopped before training because a Hugging Face model download was incomplete. The model file was checksum-verified and the smoke test was rerun from zero successfully; no failed-smoke output is included here.
