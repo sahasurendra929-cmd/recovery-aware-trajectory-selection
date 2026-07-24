@@ -205,7 +205,10 @@ def run_condition(
         retry_delay=1.0,
         auto_resume=False,
         hallucination_retries=0,
-        enforce_communication_protocol=True,
+        # OpenAI-compatible tool messages may legally contain short narration
+        # alongside tool_calls. The stock tau2 default is therefore kept off;
+        # routing still executes the parsed tool call deterministically.
+        enforce_communication_protocol=False,
         verbose_logs=True,
     )
     run_tasks(

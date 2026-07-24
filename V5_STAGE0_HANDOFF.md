@@ -54,6 +54,12 @@ The injected call must be one of:
 The clean and error conditions use the same tasks, model, user simulator,
 decoding, seed, maximum steps, and evaluator.
 
+The runner retains τ²-bench's default
+`enforce_communication_protocol=false`. OpenAI-compatible responses may
+contain narration together with a parsed tool call; τ² routes such a response
+to the environment by its tool call. Turning strict validation on would
+misclassify this valid provider response shape as an `agent_error`.
+
 ## Stage-0 gates
 
 Stage 0 passes only if:
