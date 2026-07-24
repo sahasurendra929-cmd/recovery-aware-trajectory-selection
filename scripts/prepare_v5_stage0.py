@@ -34,6 +34,13 @@ SAFE_INJECTIONS = {
     "get_user_details": {"user_id": "v5_stage0_missing_user"},
     "get_reservation_details": {"reservation_id": "ZZZZZZ"},
 }
+DOMAIN_DEFAULT_INJECTION = {
+    "retail": ("get_user_details", SAFE_INJECTIONS["get_user_details"]),
+    "airline": (
+        "get_reservation_details",
+        SAFE_INJECTIONS["get_reservation_details"],
+    ),
+}
 
 
 def canonical_json(value: Any) -> str:
@@ -201,15 +208,49 @@ def prepare(tau2_root: Path, output_dir: Path, seed: int = SEED) -> dict[str, An
         "total_end_to_end_runs": 2 * len(smoke_rows),
         "rows": smoke_rows,
     }
+    formal_rows: list[dict[str, Any]] = []
+    for domain in DOMAINS:
+        tool_name, arguments = DOMAIN_DEFAULT_INJECTION[domain]
+        for task_id in split_manifest["domains"][domain]["inner_train_ids"]:
+            formal_rows.append(
+                {
+                    "pair_id": f"{domain}:{task_id}",
+                    "domain": domain,
+                    "task_id": task_id,
+                    "source_split": "derived_inner_train",
+                    "clean_condition": {"inject_error": False},
+                    "error_condition": {
+                        "inject_error": True,
+                        "tool_name": tool_name,
+                        "tool_call_id": f"v5-stage0-formal-{domain}-{task_id}",
+                        "arguments": arguments,
+                        "expected_tool_error": True,
+                        "expected_state_mutation": False,
+                    },
+                }
+            )
+    formal_manifest = {
+        "protocol": "v5_stage0_formal_data_construction",
+        "seed": seed,
+        "training": False,
+        "scientific_claim_allowed": False,
+        "paired_task_count": len(formal_rows),
+        "rows": formal_rows,
+    }
 
     split_path_out = output_dir / "split_manifest.json"
     smoke_path_out = output_dir / "smoke_manifest.json"
+    formal_path_out = output_dir / "formal_manifest.json"
     split_path_out.write_text(
         json.dumps(split_manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     smoke_path_out.write_text(
         json.dumps(smoke_manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    formal_path_out.write_text(
+        json.dumps(formal_manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
 
@@ -234,8 +275,10 @@ def prepare(tau2_root: Path, output_dir: Path, seed: int = SEED) -> dict[str, An
         ),
         "paired_smoke_tasks": len(smoke_rows),
         "total_smoke_runs": 2 * len(smoke_rows),
+        "formal_inner_train_tasks": len(formal_rows),
         "split_manifest_sha256": sha256_file(split_path_out),
         "smoke_manifest_sha256": sha256_file(smoke_path_out),
+        "formal_manifest_sha256": sha256_file(formal_path_out),
     }
     (output_dir / "audit.json").write_text(
         json.dumps(audit, indent=2, ensure_ascii=False) + "\n",

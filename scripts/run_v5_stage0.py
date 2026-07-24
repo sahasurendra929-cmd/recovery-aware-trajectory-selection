@@ -37,6 +37,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=900.0)
     parser.add_argument("--max-tokens", type=int, default=512)
     parser.add_argument("--seed", type=int, default=20260722)
+    parser.add_argument("--num-trials", type=int, default=1)
+    parser.add_argument(
+        "--agent-mode",
+        choices=("standard", "ground_truth"),
+        default="standard",
+        help="Ground-truth mode exposes official-train resolution steps to the teacher.",
+    )
     return parser.parse_args()
 
 
@@ -49,10 +56,13 @@ def configure_tau2_path(tau2_root: Path) -> None:
 
 def load_manifest(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if payload.get("protocol") != "v5_stage0_paired_clean_error_smoke":
+    if payload.get("protocol") not in {
+        "v5_stage0_paired_clean_error_smoke",
+        "v5_stage0_formal_data_construction",
+    }:
         raise RuntimeError("Unexpected Stage-0 manifest protocol")
-    if payload.get("paired_task_count") != 10:
-        raise RuntimeError("Stage-0 manifest must contain ten paired tasks")
+    if payload.get("paired_task_count") != len(payload.get("rows", [])):
+        raise RuntimeError("Stage-0 manifest count does not match its rows")
     return payload
 
 
@@ -71,7 +81,7 @@ def filter_manifest_rows(
 
 
 def register_fault_agent() -> None:
-    from tau2.agent.llm_agent import LLMAgent
+    from tau2.agent.llm_agent import LLMAgent, LLMGTAgent
     from tau2.data_model.message import AssistantMessage, ToolCall, UserMessage
     from tau2.registry import registry
 
@@ -117,8 +127,63 @@ def register_fault_agent() -> None:
                 )
             return super()._generate_next_message(message, state)
 
+    class DeterministicFaultGTAgent(LLMGTAgent):
+        """Inject one real read-only error, then follow task resolution steps."""
+
+        def __init__(self, tools, domain_policy, task, llm, llm_args):
+            super().__init__(
+                tools=tools,
+                domain_policy=domain_policy,
+                task=task,
+                llm=llm,
+                llm_args=llm_args,
+            )
+            injection = FAULT_INJECTIONS.get(str(task.id))
+            if not injection:
+                raise RuntimeError(f"Task {task.id} is missing Stage-0 injection data")
+            self._stage0_injection = injection
+            self._stage0_injected = False
+
+        def generate_next_message(self, message, state):
+            if not self._stage0_injected and isinstance(message, UserMessage):
+                state.messages.append(message)
+                injection = self._stage0_injection
+                self._stage0_injected = True
+                assistant_message = AssistantMessage(
+                    role="assistant",
+                    content=None,
+                    tool_calls=[
+                        ToolCall(
+                            id=injection["tool_call_id"],
+                            name=injection["tool_name"],
+                            arguments=injection["arguments"],
+                            requestor="assistant",
+                        )
+                    ],
+                    cost=0.0,
+                    usage={"prompt_tokens": 0, "completion_tokens": 0},
+                    raw_data={
+                        "v5_stage0_injected_fault": True,
+                        "expected_tool_error": True,
+                        "teacher_guidance": "ground_truth_resolution_steps",
+                    },
+                    generation_time_seconds=0.0,
+                )
+                state.messages.append(assistant_message)
+                return assistant_message, state
+            return super().generate_next_message(message, state)
+
     def create_fault_agent(tools, domain_policy, **kwargs):
         return DeterministicFaultAgent(
+            tools=tools,
+            domain_policy=domain_policy,
+            task=kwargs.get("task"),
+            llm=kwargs.get("llm"),
+            llm_args=kwargs.get("llm_args"),
+        )
+
+    def create_fault_gt_agent(tools, domain_policy, **kwargs):
+        return DeterministicFaultGTAgent(
             tools=tools,
             domain_policy=domain_policy,
             task=kwargs.get("task"),
@@ -130,6 +195,12 @@ def register_fault_agent() -> None:
         registry.register_agent_factory(
             create_fault_agent,
             "v5_stage0_fault_agent",
+        )
+    if registry.get_agent_factory("v5_stage0_fault_gt_agent") is None:
+        registry.register_agent_factory(
+            create_fault_gt_agent,
+            "v5_stage0_fault_gt_agent",
+            task_filter=LLMGTAgent.check_valid_task,
         )
 
 
@@ -174,7 +245,12 @@ def run_condition(
         "seed": args.seed,
     }
     patch_local_nl_judge(args.model, llm_args)
-    agent_name = "llm_agent" if condition == "clean" else "v5_stage0_fault_agent"
+    if args.agent_mode == "ground_truth":
+        agent_name = (
+            "llm_agent_gt" if condition == "clean" else "v5_stage0_fault_gt_agent"
+        )
+    else:
+        agent_name = "llm_agent" if condition == "clean" else "v5_stage0_fault_agent"
     if condition == "error":
         FAULT_INJECTIONS.clear()
         FAULT_INJECTIONS.update(
@@ -194,7 +270,7 @@ def run_condition(
         llm_args_agent=llm_args,
         llm_user=args.model,
         llm_args_user=llm_args,
-        num_trials=1,
+        num_trials=args.num_trials,
         max_steps=args.max_steps,
         max_errors=10,
         timeout=args.timeout,

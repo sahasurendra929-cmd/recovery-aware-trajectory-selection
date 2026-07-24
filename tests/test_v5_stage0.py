@@ -43,6 +43,9 @@ class V5Stage0ProtocolTests(unittest.TestCase):
         cls.smoke = json.loads(
             (cls.output / "smoke_manifest.json").read_text(encoding="utf-8")
         )
+        cls.formal = json.loads(
+            (cls.output / "formal_manifest.json").read_text(encoding="utf-8")
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -76,6 +79,26 @@ class V5Stage0ProtocolTests(unittest.TestCase):
             self.assertIn(row["task_id"], validation)
             self.assertFalse(row["clean_condition"]["inject_error"])
             self.assertTrue(row["error_condition"]["inject_error"])
+
+    def test_formal_manifest_is_exactly_inner_train(self):
+        self.assertEqual(self.formal["paired_task_count"], 83)
+        actual = {
+            domain: {
+                row["task_id"]
+                for row in self.formal["rows"]
+                if row["domain"] == domain
+            }
+            for domain in ("retail", "airline")
+        }
+        for domain in ("retail", "airline"):
+            self.assertEqual(
+                actual[domain],
+                set(self.split["domains"][domain]["inner_train_ids"]),
+            )
+            self.assertFalse(
+                actual[domain]
+                & set(self.split["domains"][domain]["sealed_test_ids"])
+            )
 
     def test_injections_are_read_only_nonexistent_identifiers(self):
         allowed = set(MODULE.SAFE_INJECTIONS)
