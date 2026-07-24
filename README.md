@@ -16,16 +16,28 @@ The project is currently at the **offline pilot** stage. It does not claim an en
   RTX 5060 result is audited in [`V2_RESULT_AUDIT.md`](V2_RESULT_AUDIT.md).
 - **v3:** one-variable constrained-recovery diagnostic. It freezes the V2
   model, prompts, labels, token/source budgets, compute, and held-out evaluator,
-  then changes only trajectory selection. See
+  then changes only trajectory selection. The completed result preserved the
+  predeclared non-recovery floor but did not improve recovery. See
   [`BASELINE_V3_HANDOFF.md`](BASELINE_V3_HANDOFF.md).
+- **v4:** objective-level follow-up on the exact V3 trajectory set. It compares
+  matched Clean-SFT with Standard V3, then compares DPO with a
+  chosen-exposure-matched continued-SFT control. See
+  [`BASELINE_V4_HANDOFF.md`](BASELINE_V4_HANDOFF.md).
 
-Never compare or merge v1.1 with v2/v3 outputs. V3 may be paired only with the
+Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples
-and evaluation protocol.
+and evaluation protocol. V4 reuses the V3 selection and the same 959-example
+generation evaluator, while adding objective-aligned outcome annotations.
 
 ## Current evidence-bound claim
 
-In the first τ-bench historical-retail pilot, equal-budget sampling changed the amount and type of error-resolution signal retained in the training subset. A coarse recovery quota alone did **not** improve a transparent offline repair-call predictor. This is useful negative evidence: future selection must cover the error type, failed tool, repair action, arguments, and state transition—not merely increase the number of traces that contain an error.
+In the first τ-bench historical-retail pilot, recovery enrichment changed the
+model's action prior but did **not** improve offline repair-call exact match.
+Distribution constraints reduced the overall damage but still produced no
+recovery gain. V4 therefore tests the narrower mechanism suggested by the
+error analysis: failed calls should not remain positive SFT labels, and an
+observed successful repair should be preferred to replaying the failed call in
+the same post-error context.
 
 ## Repository map
 
@@ -76,8 +88,10 @@ The label also records whether a user spoke before the corrective tool call. Thi
 - [x] Token-exact, source-controlled QLoRA v2 protocol and audit
 - [x] Complete and audit the single-seed V2 RTX 5060 baseline
 - [x] Freeze the constrained-recovery V3 selector and overnight protocol
-- [ ] Run the V3 diagnostic on RTX 5060 and pair it with V2 Random
-- [ ] Confirm any screened V3 signal on fresh held-out tasks and three seeds
+- [x] Run the V3 diagnostic on RTX 5060 and pair it with V2 Random
+- [x] Build and audit matched Clean-SFT plus 79 strict V4 preference pairs
+- [ ] Run the V4 Clean-SFT / continued-SFT / DPO diagnostic
+- [ ] Confirm any screened V4 signal on fresh held-out tasks and three seeds
 - [ ] Agent-initiated repair taxonomy and controlled error injection
 - [ ] FACES: coverage over error, failed tool, repair action, arguments, and state transitions
 - [ ] Executable τ³ evaluation and unseen tool-combination tests
@@ -85,7 +99,7 @@ The label also records whether a user spoke before the corrective tool call. Thi
 
 ## Scope and limitations
 
-The legacy τ-bench repository states that its historical tasks are outdated and recommends τ³-bench for current research. We use the historical corpus only for a no-key, overnight offline pilot. The raw benchmark data and model checkpoints are intentionally not committed to this repository.
+The legacy τ-bench repository states that its historical tasks are outdated and recommends τ³-bench for current research. We use the historical corpus only for a no-key, overnight offline pilot. Raw benchmark data and model caches are not committed. Audited formal adapters may appear only on dedicated result branches so that a reported run can be independently checked.
 
 ## License
 
