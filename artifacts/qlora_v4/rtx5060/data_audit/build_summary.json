@@ -1,0 +1,230 @@
+{
+  "protocol": "qlora_v4_clean_sft_recovery_dpo",
+  "claim_boundary": "exploratory offline next-tool-call V4 on the already inspected V2/V3 test; not paper-final or end-to-end Agent success",
+  "seed": 20260722,
+  "model": {
+    "name": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "source": {
+    "v3_arm": "constrained_recovery",
+    "v3_trace_set_sha256": "a65bba64baf7c9a6e816e721b382511211aa9df6f5204e7c4cce74f78b992cc5",
+    "v3_train_sha256": "6b991fe03c7b79132438f8681dccee9e4fab2003a5859bd1abce26ba32ed046d",
+    "v3_schedule_sha256": "46acdd204d3dc213389af9b44ed6884031899a82615f8a9be47e024c30e2ea38",
+    "raw_sha256": {
+      "gpt-4o-retail.json": "df01707894836168ff0ec9616b0bf08f66c7e5afcf313e5fe4f7a2f5c2ec938b",
+      "sonnet-35-new-retail.json": "0df526398e9d2720c32d340815cffb04fe8c4f8a61b1f4f84bf3bb558f760131"
+    }
+  },
+  "counts": {
+    "v3_unique_train": 1069,
+    "clean_unique_train": 965,
+    "failed_unique_train": 104,
+    "clean_validation": 360,
+    "failed_validation": 32,
+    "strict_train_pairs": 79,
+    "strict_validation_pairs": 24,
+    "outcome_success_test": 902,
+    "non_recovery_success_test": 852,
+    "failed_test": 57,
+    "recovery_success_test": 50,
+    "strict_test_pairs": 48,
+    "preference_smoke_pairs": 16
+  },
+  "clean_sft": {
+    "definition": "target assistant tool call has an adjacent, id/name-linked tool result whose content does not start with 'Error:'",
+    "unique_examples": 965,
+    "removed_failed_labels": 104,
+    "scheduled_microbatches": 1088,
+    "gradient_accumulation": 16,
+    "optimizer_steps": 68,
+    "replacement_slots": 104,
+    "recovery_mode_matched_replacements": 103,
+    "recovery_mode_fallback_replacements": 1,
+    "all_unique_clean_examples_exposed": true,
+    "min_exposure": 1,
+    "max_exposure": 3,
+    "exposure_histogram": {
+      "1": 864,
+      "2": 79,
+      "3": 22
+    },
+    "scheduled_source_counts": {
+      "gpt-4o-retail": 338,
+      "sonnet-35-new-retail": 750
+    },
+    "scheduled_target_tool_counts": {
+      "calculate": 21,
+      "cancel_pending_order": 32,
+      "exchange_delivered_order_items": 39,
+      "find_user_id_by_email": 90,
+      "find_user_id_by_name_zip": 148,
+      "get_order_details": 342,
+      "get_product_details": 101,
+      "get_user_details": 141,
+      "list_all_product_types": 10,
+      "modify_pending_order_address": 21,
+      "modify_pending_order_items": 38,
+      "modify_pending_order_payment": 6,
+      "modify_user_address": 12,
+      "return_delivered_order_items": 47,
+      "think": 13,
+      "transfer_to_human_agents": 27
+    },
+    "scheduled_nonpad_tokens": 1720293,
+    "selected_completion_loss_tokens": 32059,
+    "scheduled_loss_tokens": 36681,
+    "v3_scheduled_loss_tokens": 36599,
+    "loss_token_relative_delta": 0.002240498374272521,
+    "replacement_source_target_tool_counts": {
+      "gpt-4o-retail": {
+        "exchange_delivered_order_items": 1,
+        "find_user_id_by_email": 14,
+        "find_user_id_by_name_zip": 4,
+        "get_order_details": 4,
+        "modify_pending_order_items": 3,
+        "modify_pending_order_payment": 1,
+        "return_delivered_order_items": 3
+      },
+      "sonnet-35-new-retail": {
+        "exchange_delivered_order_items": 4,
+        "find_user_id_by_email": 39,
+        "find_user_id_by_name_zip": 13,
+        "get_order_details": 3,
+        "get_product_details": 1,
+        "modify_pending_order_items": 10,
+        "modify_pending_order_payment": 1,
+        "return_delivered_order_items": 3
+      }
+    }
+  },
+  "preference": {
+    "pair_definition": "same post-error prompt; chosen is the observed non-error repair; rejected replays the linked failed call",
+    "train_unique_pairs": 79,
+    "validation_unique_pairs": 24,
+    "test_diagnostic_pairs": 48,
+    "train_mode_counts": {
+      "agent_initiated": 18,
+      "user_assisted": 61
+    },
+    "scheduled_microbatches": 144,
+    "scheduled_mode_counts": {
+      "agent_initiated": 72,
+      "user_assisted": 72
+    },
+    "gradient_accumulation": 8,
+    "optimizer_steps": 18,
+    "smoke_pairs": 16,
+    "longest_pair_id": "sonnet-35-new-retail:task106:trial4:action28:prefer_repair_over_action26",
+    "train_error_type_counts": {
+      "generic_error": 16,
+      "not_found": 63
+    },
+    "train_source_counts": {
+      "gpt-4o-retail": 23,
+      "sonnet-35-new-retail": 56
+    },
+    "train_repair_tool_counts": {
+      "cancel_pending_order": 3,
+      "find_user_id_by_email": 2,
+      "find_user_id_by_name_zip": 52,
+      "get_order_details": 5,
+      "get_product_details": 3,
+      "get_user_details": 2,
+      "list_all_product_types": 1,
+      "modify_pending_order_items": 2,
+      "modify_pending_order_payment": 2,
+      "return_delivered_order_items": 2,
+      "think": 1,
+      "transfer_to_human_agents": 4
+    },
+    "train_filter_reasons": {
+      "accepted": 79,
+      "chosen_failed": 18,
+      "not_recovery": 967,
+      "required_error_context_truncated": 5
+    },
+    "validation_filter_reasons": {
+      "accepted": 24,
+      "chosen_failed": 6,
+      "not_recovery": 360,
+      "required_error_context_truncated": 2
+    },
+    "test_filter_reasons": {
+      "accepted": 48,
+      "chosen_failed": 3,
+      "not_recovery": 906,
+      "required_error_context_truncated": 2
+    }
+  },
+  "evaluation_subsets": {
+    "all_test": 959,
+    "outcome_success": 902,
+    "non_recovery_success": 852,
+    "failed_gold": 57,
+    "recovery_success": 50,
+    "strict_preference": 48
+  },
+  "failed_label_error_templates": [
+    {
+      "content": "Error: insufficient gift card balance to pay for the order",
+      "count": 2
+    },
+    {
+      "content": "Error: insufficient gift card balance to pay for the price difference",
+      "count": 2
+    },
+    {
+      "content": "Error: new item  not found or available",
+      "count": 1
+    },
+    {
+      "content": "Error: new item 3111466194 not found or available",
+      "count": 1
+    },
+    {
+      "content": "Error: new item 3788616824 not found or available",
+      "count": 1
+    },
+    {
+      "content": "Error: non-delivered order cannot be exchanged",
+      "count": 2
+    },
+    {
+      "content": "Error: non-delivered order cannot be returned",
+      "count": 1
+    },
+    {
+      "content": "Error: non-pending order cannot be modified",
+      "count": 1
+    },
+    {
+      "content": "Error: order not found",
+      "count": 7
+    },
+    {
+      "content": "Error: payment method should be either the original payment method or a gift card",
+      "count": 5
+    },
+    {
+      "content": "Error: product not found",
+      "count": 1
+    },
+    {
+      "content": "Error: the number of items to be exchanged should match",
+      "count": 10
+    },
+    {
+      "content": "Error: user not found",
+      "count": 70
+    }
+  ],
+  "invalid_claims": [
+    "paper_final_confirmation",
+    "independent_held_out_confirmation",
+    "end_to_end_agent_success",
+    "executable_tool_success",
+    "cross_seed_robustness",
+    "guaranteed_positive_result"
+  ]
+}

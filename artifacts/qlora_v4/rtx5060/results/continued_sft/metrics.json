@@ -1,0 +1,198 @@
+{
+  "protocol": "qlora_v4",
+  "training_and_evaluation_protocol": "qlora_v2_frozen",
+  "test_file_sha256": "0da63463a65d3b377b3ef3a7e0032a8ffabdc8ab3e439c33850a1eea1ee8fd96",
+  "formal_test_examples": 959,
+  "evaluated_examples": 959,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "checkpoint_fingerprint": "cc98b94c5d848519d020f24acb28dbf7d306fa0b0210d51469b796a123ede139",
+  "base_model_loading": "nf4_4bit",
+  "max_prompt_tokens": 1664,
+  "generation": {
+    "do_sample": false,
+    "max_new_tokens": 128,
+    "batch_size": 1
+  },
+  "limited": false,
+  "claim_boundary": "diagnostic offline held-out next-tool-call imitation on an already inspected V2 test set; not paper-final or executable agent success",
+  "predictions_sha256": "d2d7fd1af6616f602672f9d41f3ca046b3f712f9586c56ab831d7ac71714c7ed",
+  "resume_recovery_events": 0,
+  "resume_recovery_audit": [],
+  "groups": {
+    "overall": {
+      "examples": 959,
+      "tasks": 22,
+      "micro": {
+        "json_valid": 0.9885297184567258,
+        "tool_name_correct": 0.470281543274244,
+        "arguments_exact": 0.28258602711157454,
+        "full_call_exact": 0.27424400417101147
+      },
+      "task_macro": {
+        "json_valid": 0.9921849161548167,
+        "tool_name_correct": 0.4889510082971805,
+        "arguments_exact": 0.3075970608730163,
+        "full_call_exact": 0.3010022793844991
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          0.975414324506633,
+          0.9969607165883762
+        ],
+        "tool_name_correct": [
+          0.41490182651318286,
+          0.5207726183486773
+        ],
+        "arguments_exact": [
+          0.23960582145753034,
+          0.33512506286877897
+        ],
+        "full_call_exact": [
+          0.23297838054935152,
+          0.3236429905241304
+        ]
+      }
+    },
+    "non_recovery": {
+      "examples": 906,
+      "tasks": 22,
+      "micro": {
+        "json_valid": 0.9878587196467992,
+        "tool_name_correct": 0.45805739514348787,
+        "arguments_exact": 0.26269315673289184,
+        "full_call_exact": 0.2571743929359823
+      },
+      "task_macro": {
+        "json_valid": 0.9918212003656635,
+        "tool_name_correct": 0.47812369278635464,
+        "arguments_exact": 0.2901565052085363,
+        "full_call_exact": 0.2860491174078032
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          0.9731619979168787,
+          0.9970638189687955
+        ],
+        "tool_name_correct": [
+          0.4027770436927414,
+          0.5109529602595296
+        ],
+        "arguments_exact": [
+          0.2187687947275223,
+          0.3164618742963837
+        ],
+        "full_call_exact": [
+          0.21383023415977961,
+          0.3115371049661398
+        ]
+      }
+    },
+    "recovery": {
+      "examples": 53,
+      "tasks": 15,
+      "micro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.6792452830188679,
+        "arguments_exact": 0.6226415094339622,
+        "full_call_exact": 0.5660377358490566
+      },
+      "task_macro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.7123232323232322,
+        "arguments_exact": 0.6408080808080808,
+        "full_call_exact": 0.6153535353535353
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          1.0,
+          1.0
+        ],
+        "tool_name_correct": [
+          0.5471698113207547,
+          0.8245995423340958
+        ],
+        "arguments_exact": [
+          0.520826198630137,
+          0.7619360902255637
+        ],
+        "full_call_exact": [
+          0.4393465909090909,
+          0.7428571428571429
+        ]
+      }
+    },
+    "agent_initiated": {
+      "examples": 13,
+      "tasks": 7,
+      "micro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.38461538461538464,
+        "arguments_exact": 0.23076923076923078,
+        "full_call_exact": 0.15384615384615385
+      },
+      "task_macro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.35714285714285715,
+        "arguments_exact": 0.2619047619047619,
+        "full_call_exact": 0.21428571428571427
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          1.0,
+          1.0
+        ],
+        "tool_name_correct": [
+          0.06666666666666667,
+          0.7333333333333333
+        ],
+        "arguments_exact": [
+          0.06666666666666667,
+          0.45472027972027873
+        ],
+        "full_call_exact": [
+          0.0,
+          0.4166666666666667
+        ]
+      }
+    },
+    "user_assisted": {
+      "examples": 40,
+      "tasks": 14,
+      "micro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.775,
+        "arguments_exact": 0.75,
+        "full_call_exact": 0.7
+      },
+      "task_macro": {
+        "json_valid": 1.0,
+        "tool_name_correct": 0.7916666666666667,
+        "arguments_exact": 0.7202380952380951,
+        "full_call_exact": 0.7023809523809523
+      },
+      "task_cluster_bootstrap_95": {
+        "json_valid": [
+          1.0,
+          1.0
+        ],
+        "tool_name_correct": [
+          0.6428113553113554,
+          0.9211032388663964
+        ],
+        "arguments_exact": [
+          0.6060606060606061,
+          0.896551724137931
+        ],
+        "full_call_exact": [
+          0.5555555555555556,
+          0.8857936507936502
+        ]
+      }
+    }
+  },
+  "runtime_memory": {
+    "peak_cuda_memory_allocated_bytes": 637161472,
+    "peak_cuda_memory_reserved_bytes": 731906048
+  }
+}

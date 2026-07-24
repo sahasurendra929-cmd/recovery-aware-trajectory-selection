@@ -1,0 +1,195 @@
+{
+  "arm": "continued_sft",
+  "clean_sft_initialization": {
+    "checkpoint_fingerprint": "186e80495f95e305fb12f69853b7f1c6d8aa998210ec6602c0c0611e0e70210d",
+    "file_sha256": {
+      "adapter_config.json": "0d806624d63c6bc0ce4e62c2f32a15f44884d1229d8e101f0140ddeef87a206d",
+      "adapter_model.safetensors": "d1e9ca93d420657abd4d845d32386df1da134a770c8c6f25134bbe857a956130"
+    },
+    "loaded_policy_state_sha256": "ba5388bde3684dcf472ff6d28d02c65ff798154192546a64be2ac4d7863b60b0",
+    "path": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\clean_sft\\checkpoint_final"
+  },
+  "comparison_contract_id": "7a93fc384b94f3d9390f5684bc6a0bf0977db9b857fc0fe3040683e9e324eb75",
+  "compute_contract": {
+    "bf16": true,
+    "chosen_exposures": 144,
+    "cublas_workspace_config": ":4096:8",
+    "custom_loss_gradient_accumulation_scaled_by_trainer": true,
+    "deterministic_algorithms": true,
+    "dropout": 0.0,
+    "gradient_accumulation_steps": 8,
+    "gradient_checkpointing": true,
+    "learning_rate": 1e-05,
+    "lr_scheduler_type": "constant",
+    "max_completion_tokens": 384,
+    "max_prompt_tokens": 1664,
+    "max_sequence_tokens": 2048,
+    "microbatch_size": 1,
+    "model_accepts_loss_kwargs": false,
+    "optimizer": "paged_adamw_8bit",
+    "optimizer_state_reused_from_clean_sft": false,
+    "optimizer_steps": 18,
+    "quantization": "NF4 double-quantized base",
+    "row_order_shuffled": false,
+    "sampler": "SequentialSampler",
+    "scheduled_microbatches": 144,
+    "scheduler_state_reused_from_clean_sft": false,
+    "seed": 20260722,
+    "warmup_steps": 0
+  },
+  "data": {
+    "expected_train_schedule_sha256": "f3cd0565cab0fd12252512b018a749dbe2c42a89d15ec92efd6b03a18f521341",
+    "held_out_test_accessed": false,
+    "schedule": {
+      "first_display_ids": [
+        "sonnet-35-new-retail:task46:trial2:action14:prefer_repair_over_action12",
+        "sonnet-35-new-retail:task33:trial0:action8:prefer_repair_over_action4",
+        "sonnet-35-new-retail:task33:trial7:action22:prefer_repair_over_action20",
+        "sonnet-35-new-retail:task33:trial7:action8:prefer_repair_over_action4",
+        "sonnet-35-new-retail:task106:trial4:action28:prefer_repair_over_action26"
+      ],
+      "last_display_ids": [
+        "gpt-4o-retail:task57:trial0:action8:prefer_repair_over_action4",
+        "gpt-4o-retail:task37:trial3:action6:prefer_repair_over_action4",
+        "gpt-4o-retail:task12:trial1:action22:prefer_repair_over_action18",
+        "sonnet-35-new-retail:task13:trial4:action18:prefer_repair_over_action16",
+        "sonnet-35-new-retail:task46:trial6:action14:prefer_repair_over_action10"
+      ],
+      "ordered_content_sha256": "6a14a868e86ef1be1d7242b4e4a96825c4d1aa14ebbc50f1131a5117948aa997",
+      "ordered_display_ids_sha256": "caf8a23a0599ec7333b68b9b3382181a5bda940363bf9da3eb798332960cb03b",
+      "row_count": 144,
+      "unique_pair_count": 79
+    },
+    "smoke_longest_pair_audit": null,
+    "split_audit": {
+      "all_rows_match_expected_split": true,
+      "expected_split": "train",
+      "ordered_task_keys_sha256": "dead22f854a55da978836f3d794151fcf15e3177d0b61b11d19767ee8a66e7c7",
+      "row_count": 144,
+      "unique_task_keys": 40
+    },
+    "strata_audit": {
+      "allowed_error_types_only": true,
+      "allowed_modes_only": true,
+      "error_type_counts": {
+        "generic_error": 47,
+        "not_found": 97
+      },
+      "formal_72_72_mode_balance": true,
+      "mode_counts": {
+        "agent_initiated": 72,
+        "user_assisted": 72
+      },
+      "smoke_covers_both_modes_and_error_types": null,
+      "unique_pair_mode_counts": {
+        "agent_initiated": 18,
+        "user_assisted": 61
+      }
+    },
+    "token_exposure": {
+      "chosen_completion_tokens": 5693,
+      "chosen_exposures": 144,
+      "chosen_sequence_tokens": 233906,
+      "max_chosen_completion_tokens_observed": 149,
+      "max_prompt_tokens_observed": 1664,
+      "max_rejected_completion_tokens_observed": 156,
+      "prompt_tokens": 228213,
+      "rejected_completion_tokens": 6418,
+      "rejected_sequence_tokens": 234631,
+      "runtime_truncation_count": 0,
+      "scheduled_rows": 144
+    },
+    "train_schedule": "D:\\recovery-aware-trajectory-selection-v4-p2\\data\\processed\\qlora_v4\\preference\\train_schedule.jsonl",
+    "train_schedule_hash_matches_expected": true,
+    "train_schedule_sha256": "f3cd0565cab0fd12252512b018a749dbe2c42a89d15ec92efd6b03a18f521341"
+  },
+  "dpo_reference_audit": null,
+  "dropout_audit": {
+    "dropout_modules": 168,
+    "lora_dropout_config": 0.0,
+    "modules_changed_to_zero": 168,
+    "nonzero_dropout_modules": 0
+  },
+  "environment": {
+    "accelerate": "1.7.0",
+    "bf16_supported": true,
+    "bitsandbytes": "0.46.0",
+    "cublas_workspace_config": ":4096:8",
+    "cuda_runtime": "12.8",
+    "datasets": "3.6.0",
+    "deterministic_algorithms_enabled": true,
+    "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+    "gpu_compute_capability": [
+      12,
+      0
+    ],
+    "gpu_total_memory_bytes": 8546484224,
+    "peft": "0.15.2",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "torch": "2.7.1+cu128",
+    "transformers": "4.52.4",
+    "trl": "0.18.2"
+  },
+  "formal_result": true,
+  "library_contract": {
+    "peft": "0.15.2",
+    "transformers": "4.52.4",
+    "trl": "0.18.2"
+  },
+  "logical_token_compute_audit": {
+    "definition": "logical nonpadding sequence tokens; excludes gradient-checkpoint recomputation",
+    "initial_numerical_audit_policy_sequence_tokens": 0,
+    "reference_precompute_sequence_tokens": 0,
+    "total_recorded_logical_sequence_tokens": 233906,
+    "training_policy_sequence_tokens": 233906
+  },
+  "loss_audit": {
+    "all_numeric_logged_metrics_finite": true,
+    "final_train_loss": 0.3404377142174376,
+    "finite": true,
+    "grad_norm_count": 18,
+    "grad_norm_finite": true,
+    "grad_norm_maximum": 2.5987863540649414,
+    "grad_norm_minimum": 0.906930685043335,
+    "maximum": 0.7274,
+    "minimum": 0.06,
+    "numeric_values_checked": 103,
+    "value_count": 20
+  },
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "objective": "chosen_completion_only_causal_cross_entropy",
+  "output_checkpoint": {
+    "checkpoint_fingerprint": "cc98b94c5d848519d020f24acb28dbf7d306fa0b0210d51469b796a123ede139",
+    "file_sha256": {
+      "adapter_config.json": "9bdd7cb5e4695493619e72aab593caf8b948e30e343e0521115eb40cecdd912f",
+      "adapter_model.safetensors": "146ca80fa3f878df20ad98a1206a660d429e6253390390eba2ac92b26eb48f5a"
+    },
+    "path": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\continued_sft\\checkpoint_final"
+  },
+  "parameter_audit": {
+    "all_trainable_parameters_belong_to_policy_adapter": true,
+    "policy_final_state_sha256": "97a4533c4f7810cfcf7e789863d72cf288f9e4b169775345f08bb17dbdee4562",
+    "policy_initial_state_sha256": "ba5388bde3684dcf472ff6d28d02c65ff798154192546a64be2ac4d7863b60b0",
+    "policy_state_changed": true,
+    "trainable_parameter_tensors": 336,
+    "trainable_parameters": 8798208
+  },
+  "protocol": "qlora_v4_preference_continuation",
+  "runtime": {
+    "completed_at": "2026-07-24T05:20:46.918692+00:00",
+    "duration_seconds": 79.5,
+    "peak_cuda_memory_allocated_bytes": 1590750720,
+    "peak_cuda_memory_reserved_bytes": 1816133632,
+    "started_at": "2026-07-24T05:19:27.421881+00:00"
+  },
+  "smoke_memory_audit": {
+    "applicable": false,
+    "limit_bytes": 8053063680,
+    "peak_cuda_memory_reserved_bytes": 1816133632,
+    "within_limit": true
+  },
+  "source_commit": "f710f7480a314328a3fcd0f05917e3ddbb65478d",
+  "source_tag": "v4-frozen-20260724-p2"
+}

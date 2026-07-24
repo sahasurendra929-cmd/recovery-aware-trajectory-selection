@@ -1,0 +1,60 @@
+{
+  "protocol": "qlora_v4_clean_sft",
+  "source_tag": "v4-frozen-20260724-p2",
+  "source_commit": "f710f7480a314328a3fcd0f05917e3ddbb65478d",
+  "arm": "clean_sft",
+  "objective": "matched_clean_completion_only_cross_entropy",
+  "failed_action_labels": 0,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "seed": 20260722,
+  "max_seq_len": 2048,
+  "max_steps": 68,
+  "batch_size": 1,
+  "grad_accum": 16,
+  "learning_rate": 0.0001,
+  "lora_dropout": 0.05,
+  "padded_training_tokens": 2228224,
+  "scheduled_nonpad_tokens": 1720293,
+  "scheduled_loss_tokens": 36681,
+  "formal_schedule_rows": 1088,
+  "train_file": "D:\\recovery-aware-trajectory-selection-v4-p2\\data\\processed\\qlora_v4\\clean_sft\\train_schedule.jsonl",
+  "train_file_sha256": "4b28da48082ef5bd3396e7df4b5b723c4efffe4b2e5438f47c8c2ca9d709f386",
+  "validation_file": "D:\\recovery-aware-trajectory-selection-v4-p2\\data\\processed\\qlora_v4\\clean_sft\\validation.jsonl",
+  "validation_file_sha256": "e1942db9c2766c44f3f59c7baa47a7412d4b8a8992a185d306f346a8c5c9fc53",
+  "smoke_test": false,
+  "held_out_test_accessed": false,
+  "deterministic_algorithms": true,
+  "cublas_workspace_config": ":4096:8",
+  "loss_audit": {
+    "finite": true,
+    "numeric_values_checked": 104,
+    "loss_values_checked": 20,
+    "grad_norm_values_checked": 17,
+    "validation_loss_values_checked": 1,
+    "final_train_loss": 0.6902778499266681,
+    "final_validation_loss": 0.48886430263519287
+  },
+  "output_checkpoint": {
+    "path": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\clean_sft\\checkpoint_final",
+    "checkpoint_fingerprint": "186e80495f95e305fb12f69853b7f1c6d8aa998210ec6602c0c0611e0e70210d",
+    "file_sha256": {
+      "adapter_config.json": "0d806624d63c6bc0ce4e62c2f32a15f44884d1229d8e101f0140ddeef87a206d",
+      "adapter_model.safetensors": "d1e9ca93d420657abd4d845d32386df1da134a770c8c6f25134bbe857a956130"
+    }
+  },
+  "environment": {
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "torch": "2.7.1+cu128",
+    "transformers": "4.52.4",
+    "cuda_runtime": "12.8",
+    "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+    "gpu_memory_bytes": 8546484224,
+    "bf16": true,
+    "deterministic_algorithms_enabled": true,
+    "cublas_workspace_config": ":4096:8",
+    "peak_cuda_allocated_bytes": 5099649536,
+    "peak_cuda_reserved_bytes": 5953814528
+  }
+}

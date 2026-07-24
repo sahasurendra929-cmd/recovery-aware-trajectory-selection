@@ -1,0 +1,2888 @@
+{
+  "protocol": "qlora_v4_paired_aggregation",
+  "valid": true,
+  "frozen_test_sha256": "0da63463a65d3b377b3ef3a7e0032a8ffabdc8ab3e439c33850a1eea1ee8fd96",
+  "examples": 959,
+  "bootstrap": {
+    "unit": "task_key",
+    "paired": true,
+    "samples": 10000,
+    "interval": "percentile_95",
+    "seed": 20260722
+  },
+  "cluster_sign_flip": {
+    "unit": "task_key",
+    "samples": 10000,
+    "two_sided": true
+  },
+  "group_definitions": {
+    "overall": "All 959 frozen test examples.",
+    "outcome_success": "Gold tool call has a verified successful outcome.",
+    "failed_gold": "Gold tool call itself has a verified failed outcome.",
+    "non_recovery_success": "Verified-success examples with recovery_mode=none.",
+    "recovery_success": "Verified-success examples with agent_initiated or user_assisted recovery_mode.",
+    "agent_initiated": "Verified-success recovery examples with no intervening user message.",
+    "user_assisted": "Verified-success recovery examples with an intervening user message."
+  },
+  "input_artifacts": {
+    "test_outcomes": {
+      "path": "D:\\recovery-aware-trajectory-selection-v4-p2\\data\\processed\\qlora_v4\\evaluation\\test_outcomes.jsonl",
+      "sha256": "9a4ec2b1e25ee512e5946e8ac770b0fbf6b0ed0d5b61f994c643fc04cd227b57",
+      "rows": 959
+    },
+    "test_preference_pairs": {
+      "path": "D:\\recovery-aware-trajectory-selection-v4-p2\\data\\processed\\qlora_v4\\evaluation\\test_preference_pairs.jsonl",
+      "sha256": "b85548e9f1c041032358172e10b7f7f53f91710d1d15f26dfaa606a07799cf74",
+      "rows": 48
+    },
+    "arms": {
+      "standard_v3": {
+        "result_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v3\\constrained_recovery",
+        "metrics_sha256": "880db45dcb6dc6eea497aa32dff26c5d59a4ab3b570c458c6f132757ea9d61f4",
+        "contract_sha256": "2b941573f85b9c1d33622c4e6fde42d10af194981fe028baa7e210d39a455471",
+        "predictions_sha256": "491e1613b20eb11b176d9aac61e19b4e3472257d3a2576125c76c6e03cb24de3",
+        "checkpoint_fingerprint": "3cdfa858353e8f7ea6da0d5558c21014bacbd58b2092f7095d6b5925f147825c"
+      },
+      "clean_sft": {
+        "result_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\clean_sft",
+        "metrics_sha256": "f2cb5579a6f51ee524675e0998d719d621db74b2e9cd95bf39a44398f768775f",
+        "contract_sha256": "d91c9712518ec22989134fa2da175bca2f30d1fb63af0003069630bbeef28dce",
+        "predictions_sha256": "68a97c2d684eed25c6ba6894b42bf4e492e4149563c3948d7ff520e2d71dc74f",
+        "checkpoint_fingerprint": "186e80495f95e305fb12f69853b7f1c6d8aa998210ec6602c0c0611e0e70210d",
+        "run_manifest_sha256": "94997fcc4c145546c5e98dfe24ed5389ef7ccf5e3098f74cb800efcc0c6f7a93"
+      },
+      "continued_sft": {
+        "result_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\continued_sft",
+        "metrics_sha256": "e37ebf111f1ff55ababca0d2f7a81235fc16c891e1811aa26b2e11831241f8b4",
+        "contract_sha256": "803759ec741b6dec4366ef6dc6d2e929889f3fddac6e4ae453d6d56eb189a24e",
+        "predictions_sha256": "d2d7fd1af6616f602672f9d41f3ca046b3f712f9586c56ab831d7ac71714c7ed",
+        "checkpoint_fingerprint": "cc98b94c5d848519d020f24acb28dbf7d306fa0b0210d51469b796a123ede139",
+        "run_manifest_sha256": "a16cd709c5785f6ae51bd410c2adcb6356c76dc698635ab6a847777c0e1a25e8"
+      },
+      "dpo": {
+        "result_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\dpo",
+        "metrics_sha256": "034d26a7cdbc5e7bbc46104f14fb8df6e3f10baf63eacc4ae3470a03dceaf4f9",
+        "contract_sha256": "4deebce1476ff410fad0ab7a047d85c20f118214bc7b9fc38fded8980e26cd52",
+        "predictions_sha256": "7016c51668c60d231303852312d6df9f6d2a14747ed59d7f2fe51b4272fd8fac",
+        "checkpoint_fingerprint": "df0fef8f8cc8fd95a3abceccaad32b211125240881b3a850372d2e23f3a71a93",
+        "run_manifest_sha256": "17120edc5641bb4006a1483fef13c1ffc17352b80ee520df13ba0eb23d4cf70c"
+      }
+    }
+  },
+  "arms": {
+    "standard_v3": {
+      "result_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v3\\constrained_recovery",
+      "protocol": "qlora_v3",
+      "checkpoint_fingerprint": "3cdfa858353e8f7ea6da0d5558c21014bacbd58b2092f7095d6b5925f147825c",
+      "groups": {
+        "overall": {
+          "examples": 959,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 958,
+              "rate": 0.9989572471324296,
+              "task_macro_rate": 0.9994949494949494
+            },
+            "tool_name_correct": {
+              "correct": 572,
+              "rate": 0.5964546402502607,
+              "task_macro_rate": 0.6227291264982797
+            },
+            "arguments_exact": {
+              "correct": 305,
+              "rate": 0.3180396246089677,
+              "task_macro_rate": 0.3424205337339806
+            },
+            "full_call_exact": {
+              "correct": 298,
+              "rate": 0.310740354535975,
+              "task_macro_rate": 0.3360766877506362
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 7,
+              "eligible_examples": 48,
+              "rate": 0.14583333333333334,
+              "task_macro_rate": 0.07755102040816328
+            }
+          }
+        },
+        "outcome_success": {
+          "examples": 902,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 901,
+              "rate": 0.9988913525498891,
+              "task_macro_rate": 0.9994388327721662
+            },
+            "tool_name_correct": {
+              "correct": 528,
+              "rate": 0.5853658536585366,
+              "task_macro_rate": 0.6130127013529704
+            },
+            "arguments_exact": {
+              "correct": 266,
+              "rate": 0.29490022172949004,
+              "task_macro_rate": 0.3217233217569137
+            },
+            "full_call_exact": {
+              "correct": 260,
+              "rate": 0.28824833702882485,
+              "task_macro_rate": 0.31581059240507625
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 7,
+              "eligible_examples": 48,
+              "rate": 0.14583333333333334,
+              "task_macro_rate": 0.07755102040816328
+            }
+          }
+        },
+        "failed_gold": {
+          "examples": 57,
+          "tasks": 15,
+          "metrics": {
+            "json_valid": {
+              "correct": 57,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 44,
+              "rate": 0.7719298245614035,
+              "task_macro_rate": 0.754021164021164
+            },
+            "arguments_exact": {
+              "correct": 39,
+              "rate": 0.6842105263157895,
+              "task_macro_rate": 0.699047619047619
+            },
+            "failed_action_imitation_rate": {
+              "correct": 38,
+              "rate": 0.6666666666666666,
+              "task_macro_rate": 0.6934920634920636,
+              "interpretation": "lower_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 0,
+              "rate": null,
+              "task_macro_rate": null
+            }
+          }
+        },
+        "non_recovery_success": {
+          "examples": 852,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 851,
+              "rate": 0.9988262910798122,
+              "task_macro_rate": 0.9993773349937733
+            },
+            "tool_name_correct": {
+              "correct": 496,
+              "rate": 0.5821596244131455,
+              "task_macro_rate": 0.611976025783697
+            },
+            "arguments_exact": {
+              "correct": 237,
+              "rate": 0.27816901408450706,
+              "task_macro_rate": 0.30570500929644934
+            },
+            "full_call_exact": {
+              "correct": 232,
+              "rate": 0.27230046948356806,
+              "task_macro_rate": 0.3004605189383226
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 0,
+              "rate": null,
+              "task_macro_rate": null
+            }
+          }
+        },
+        "recovery_success": {
+          "examples": 50,
+          "tasks": 15,
+          "metrics": {
+            "json_valid": {
+              "correct": 50,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 32,
+              "rate": 0.64,
+              "task_macro_rate": 0.6977777777777777
+            },
+            "arguments_exact": {
+              "correct": 29,
+              "rate": 0.58,
+              "task_macro_rate": 0.6161111111111112
+            },
+            "full_call_exact": {
+              "correct": 28,
+              "rate": 0.56,
+              "task_macro_rate": 0.6094444444444443
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 7,
+              "eligible_examples": 48,
+              "rate": 0.14583333333333334,
+              "task_macro_rate": 0.07755102040816328
+            }
+          }
+        },
+        "agent_initiated": {
+          "examples": 12,
+          "tasks": 6,
+          "metrics": {
+            "json_valid": {
+              "correct": 12,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 0,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            },
+            "arguments_exact": {
+              "correct": 0,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            },
+            "full_call_exact": {
+              "correct": 0,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 4,
+              "eligible_examples": 12,
+              "rate": 0.3333333333333333,
+              "task_macro_rate": 0.3611111111111111
+            }
+          }
+        },
+        "user_assisted": {
+          "examples": 38,
+          "tasks": 14,
+          "metrics": {
+            "json_valid": {
+              "correct": 38,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 32,
+              "rate": 0.8421052631578947,
+              "task_macro_rate": 0.8826530612244897
+            },
+            "arguments_exact": {
+              "correct": 29,
+              "rate": 0.7631578947368421,
+              "task_macro_rate": 0.7891156462585034
+            },
+            "full_call_exact": {
+              "correct": 28,
+              "rate": 0.7368421052631579,
+              "task_macro_rate": 0.7789115646258503
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 3,
+              "eligible_examples": 36,
+              "rate": 0.08333333333333333,
+              "task_macro_rate": 0.03736263736263736
+            }
+          }
+        }
+      }
+    },
+    "clean_sft": {
+      "result_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\clean_sft",
+      "protocol": "qlora_v4",
+      "checkpoint_fingerprint": "186e80495f95e305fb12f69853b7f1c6d8aa998210ec6602c0c0611e0e70210d",
+      "groups": {
+        "overall": {
+          "examples": 959,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 954,
+              "rate": 0.9947862356621481,
+              "task_macro_rate": 0.9934470408371406
+            },
+            "tool_name_correct": {
+              "correct": 572,
+              "rate": 0.5964546402502607,
+              "task_macro_rate": 0.612819534915205
+            },
+            "arguments_exact": {
+              "correct": 309,
+              "rate": 0.3222106360792492,
+              "task_macro_rate": 0.34571793320021466
+            },
+            "full_call_exact": {
+              "correct": 300,
+              "rate": 0.31282586027111575,
+              "task_macro_rate": 0.33618144652422943
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 6,
+              "eligible_examples": 48,
+              "rate": 0.125,
+              "task_macro_rate": 0.06326530612244899
+            }
+          }
+        },
+        "outcome_success": {
+          "examples": 902,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 898,
+              "rate": 0.9955654101995566,
+              "task_macro_rate": 0.9937274520566632
+            },
+            "tool_name_correct": {
+              "correct": 530,
+              "rate": 0.5875831485587583,
+              "task_macro_rate": 0.603990775273867
+            },
+            "arguments_exact": {
+              "correct": 272,
+              "rate": 0.30155210643015523,
+              "task_macro_rate": 0.3265162109009081
+            },
+            "full_call_exact": {
+              "correct": 264,
+              "rate": 0.2926829268292683,
+              "task_macro_rate": 0.31708616553175467
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 6,
+              "eligible_examples": 48,
+              "rate": 0.125,
+              "task_macro_rate": 0.06326530612244899
+            }
+          }
+        },
+        "failed_gold": {
+          "examples": 57,
+          "tasks": 15,
+          "metrics": {
+            "json_valid": {
+              "correct": 56,
+              "rate": 0.9824561403508771,
+              "task_macro_rate": 0.9866666666666667
+            },
+            "tool_name_correct": {
+              "correct": 42,
+              "rate": 0.7368421052631579,
+              "task_macro_rate": 0.7410582010582011
+            },
+            "arguments_exact": {
+              "correct": 37,
+              "rate": 0.6491228070175439,
+              "task_macro_rate": 0.6801587301587302
+            },
+            "failed_action_imitation_rate": {
+              "correct": 36,
+              "rate": 0.631578947368421,
+              "task_macro_rate": 0.6746031746031745,
+              "interpretation": "lower_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 0,
+              "rate": null,
+              "task_macro_rate": null
+            }
+          }
+        },
+        "non_recovery_success": {
+          "examples": 852,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 848,
+              "rate": 0.9953051643192489,
+              "task_macro_rate": 0.9930885653924869
+            },
+            "tool_name_correct": {
+              "correct": 498,
+              "rate": 0.5845070422535211,
+              "task_macro_rate": 0.6027038611471656
+            },
+            "arguments_exact": {
+              "correct": 242,
+              "rate": 0.284037558685446,
+              "task_macro_rate": 0.30983640550252395
+            },
+            "full_call_exact": {
+              "correct": 235,
+              "rate": 0.27582159624413144,
+              "task_macro_rate": 0.30072169116547764
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 0,
+              "rate": null,
+              "task_macro_rate": null
+            }
+          }
+        },
+        "recovery_success": {
+          "examples": 50,
+          "tasks": 15,
+          "metrics": {
+            "json_valid": {
+              "correct": 50,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 32,
+              "rate": 0.64,
+              "task_macro_rate": 0.6977777777777777
+            },
+            "arguments_exact": {
+              "correct": 30,
+              "rate": 0.6,
+              "task_macro_rate": 0.6827777777777778
+            },
+            "full_call_exact": {
+              "correct": 29,
+              "rate": 0.58,
+              "task_macro_rate": 0.676111111111111
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 6,
+              "eligible_examples": 48,
+              "rate": 0.125,
+              "task_macro_rate": 0.06326530612244899
+            }
+          }
+        },
+        "agent_initiated": {
+          "examples": 12,
+          "tasks": 6,
+          "metrics": {
+            "json_valid": {
+              "correct": 12,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 0,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            },
+            "arguments_exact": {
+              "correct": 0,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            },
+            "full_call_exact": {
+              "correct": 0,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 3,
+              "eligible_examples": 12,
+              "rate": 0.25,
+              "task_macro_rate": 0.3055555555555555
+            }
+          }
+        },
+        "user_assisted": {
+          "examples": 38,
+          "tasks": 14,
+          "metrics": {
+            "json_valid": {
+              "correct": 38,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 32,
+              "rate": 0.8421052631578947,
+              "task_macro_rate": 0.8826530612244897
+            },
+            "arguments_exact": {
+              "correct": 30,
+              "rate": 0.7894736842105263,
+              "task_macro_rate": 0.8605442176870748
+            },
+            "full_call_exact": {
+              "correct": 29,
+              "rate": 0.7631578947368421,
+              "task_macro_rate": 0.8503401360544218
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 3,
+              "eligible_examples": 36,
+              "rate": 0.08333333333333333,
+              "task_macro_rate": 0.03736263736263736
+            }
+          }
+        }
+      }
+    },
+    "continued_sft": {
+      "result_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\continued_sft",
+      "protocol": "qlora_v4",
+      "checkpoint_fingerprint": "cc98b94c5d848519d020f24acb28dbf7d306fa0b0210d51469b796a123ede139",
+      "groups": {
+        "overall": {
+          "examples": 959,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 948,
+              "rate": 0.9885297184567258,
+              "task_macro_rate": 0.9921849161548167
+            },
+            "tool_name_correct": {
+              "correct": 451,
+              "rate": 0.470281543274244,
+              "task_macro_rate": 0.4889510082971805
+            },
+            "arguments_exact": {
+              "correct": 271,
+              "rate": 0.28258602711157454,
+              "task_macro_rate": 0.3075970608730163
+            },
+            "full_call_exact": {
+              "correct": 263,
+              "rate": 0.27424400417101147,
+              "task_macro_rate": 0.3010022793844991
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 5,
+              "eligible_examples": 48,
+              "rate": 0.10416666666666667,
+              "task_macro_rate": 0.03571428571428571
+            }
+          }
+        },
+        "outcome_success": {
+          "examples": 902,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 893,
+              "rate": 0.9900221729490022,
+              "task_macro_rate": 0.9932207377491092
+            },
+            "tool_name_correct": {
+              "correct": 413,
+              "rate": 0.45787139689578715,
+              "task_macro_rate": 0.47698011980770155
+            },
+            "arguments_exact": {
+              "correct": 233,
+              "rate": 0.2583148558758315,
+              "task_macro_rate": 0.2848323493107956
+            },
+            "full_call_exact": {
+              "correct": 226,
+              "rate": 0.25055432372505543,
+              "task_macro_rate": 0.2783440091291101
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 5,
+              "eligible_examples": 48,
+              "rate": 0.10416666666666667,
+              "task_macro_rate": 0.03571428571428571
+            }
+          }
+        },
+        "failed_gold": {
+          "examples": 57,
+          "tasks": 15,
+          "metrics": {
+            "json_valid": {
+              "correct": 55,
+              "rate": 0.9649122807017544,
+              "task_macro_rate": 0.9792592592592594
+            },
+            "tool_name_correct": {
+              "correct": 38,
+              "rate": 0.6666666666666666,
+              "task_macro_rate": 0.6896825396825398
+            },
+            "arguments_exact": {
+              "correct": 38,
+              "rate": 0.6666666666666666,
+              "task_macro_rate": 0.6857142857142857
+            },
+            "failed_action_imitation_rate": {
+              "correct": 37,
+              "rate": 0.6491228070175439,
+              "task_macro_rate": 0.6801587301587302,
+              "interpretation": "lower_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 0,
+              "rate": null,
+              "task_macro_rate": null
+            }
+          }
+        },
+        "non_recovery_success": {
+          "examples": 852,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 843,
+              "rate": 0.9894366197183099,
+              "task_macro_rate": 0.9929323874107705
+            },
+            "tool_name_correct": {
+              "correct": 378,
+              "rate": 0.44366197183098594,
+              "task_macro_rate": 0.46333753461997335
+            },
+            "arguments_exact": {
+              "correct": 202,
+              "rate": 0.23708920187793428,
+              "task_macro_rate": 0.263898399482326
+            },
+            "full_call_exact": {
+              "correct": 197,
+              "rate": 0.2312206572769953,
+              "task_macro_rate": 0.25970167491772783
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 0,
+              "rate": null,
+              "task_macro_rate": null
+            }
+          }
+        },
+        "recovery_success": {
+          "examples": 50,
+          "tasks": 15,
+          "metrics": {
+            "json_valid": {
+              "correct": 50,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 35,
+              "rate": 0.7,
+              "task_macro_rate": 0.7177777777777777
+            },
+            "arguments_exact": {
+              "correct": 31,
+              "rate": 0.62,
+              "task_macro_rate": 0.6377777777777778
+            },
+            "full_call_exact": {
+              "correct": 29,
+              "rate": 0.58,
+              "task_macro_rate": 0.6177777777777778
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 5,
+              "eligible_examples": 48,
+              "rate": 0.10416666666666667,
+              "task_macro_rate": 0.03571428571428571
+            }
+          }
+        },
+        "agent_initiated": {
+          "examples": 12,
+          "tasks": 6,
+          "metrics": {
+            "json_valid": {
+              "correct": 12,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 5,
+              "rate": 0.4166666666666667,
+              "task_macro_rate": 0.4166666666666667
+            },
+            "arguments_exact": {
+              "correct": 3,
+              "rate": 0.25,
+              "task_macro_rate": 0.3055555555555555
+            },
+            "full_call_exact": {
+              "correct": 2,
+              "rate": 0.16666666666666666,
+              "task_macro_rate": 0.25
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 3,
+              "eligible_examples": 12,
+              "rate": 0.25,
+              "task_macro_rate": 0.16666666666666666
+            }
+          }
+        },
+        "user_assisted": {
+          "examples": 38,
+          "tasks": 14,
+          "metrics": {
+            "json_valid": {
+              "correct": 38,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 30,
+              "rate": 0.7894736842105263,
+              "task_macro_rate": 0.7993197278911565
+            },
+            "arguments_exact": {
+              "correct": 28,
+              "rate": 0.7368421052631579,
+              "task_macro_rate": 0.717687074829932
+            },
+            "full_call_exact": {
+              "correct": 27,
+              "rate": 0.7105263157894737,
+              "task_macro_rate": 0.7074829931972789
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 2,
+              "eligible_examples": 36,
+              "rate": 0.05555555555555555,
+              "task_macro_rate": 0.021978021978021976
+            }
+          }
+        }
+      }
+    },
+    "dpo": {
+      "result_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\dpo",
+      "protocol": "qlora_v4",
+      "checkpoint_fingerprint": "df0fef8f8cc8fd95a3abceccaad32b211125240881b3a850372d2e23f3a71a93",
+      "groups": {
+        "overall": {
+          "examples": 959,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 941,
+              "rate": 0.9812304483837331,
+              "task_macro_rate": 0.9786761028031052
+            },
+            "tool_name_correct": {
+              "correct": 507,
+              "rate": 0.5286757038581856,
+              "task_macro_rate": 0.5293318465123257
+            },
+            "arguments_exact": {
+              "correct": 241,
+              "rate": 0.251303441084463,
+              "task_macro_rate": 0.27296254704980283
+            },
+            "full_call_exact": {
+              "correct": 238,
+              "rate": 0.24817518248175183,
+              "task_macro_rate": 0.269666878499897
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 48,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            }
+          }
+        },
+        "outcome_success": {
+          "examples": 902,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 889,
+              "rate": 0.9855875831485588,
+              "task_macro_rate": 0.9830767728885502
+            },
+            "tool_name_correct": {
+              "correct": 489,
+              "rate": 0.5421286031042128,
+              "task_macro_rate": 0.5475891103414612
+            },
+            "arguments_exact": {
+              "correct": 228,
+              "rate": 0.25277161862527714,
+              "task_macro_rate": 0.2793452121016516
+            },
+            "full_call_exact": {
+              "correct": 226,
+              "rate": 0.25055432372505543,
+              "task_macro_rate": 0.2766808566830589
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 48,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            }
+          }
+        },
+        "failed_gold": {
+          "examples": 57,
+          "tasks": 15,
+          "metrics": {
+            "json_valid": {
+              "correct": 52,
+              "rate": 0.9122807017543859,
+              "task_macro_rate": 0.9044444444444444
+            },
+            "tool_name_correct": {
+              "correct": 18,
+              "rate": 0.3157894736842105,
+              "task_macro_rate": 0.29349206349206347
+            },
+            "arguments_exact": {
+              "correct": 13,
+              "rate": 0.22807017543859648,
+              "task_macro_rate": 0.19285714285714287
+            },
+            "failed_action_imitation_rate": {
+              "correct": 12,
+              "rate": 0.21052631578947367,
+              "task_macro_rate": 0.18730158730158727,
+              "interpretation": "lower_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 0,
+              "rate": null,
+              "task_macro_rate": null
+            }
+          }
+        },
+        "non_recovery_success": {
+          "examples": 852,
+          "tasks": 22,
+          "metrics": {
+            "json_valid": {
+              "correct": 839,
+              "rate": 0.9847417840375586,
+              "task_macro_rate": 0.9823337261895293
+            },
+            "tool_name_correct": {
+              "correct": 456,
+              "rate": 0.5352112676056338,
+              "task_macro_rate": 0.5444224185633311
+            },
+            "arguments_exact": {
+              "correct": 202,
+              "rate": 0.23708920187793428,
+              "task_macro_rate": 0.26286383139120006
+            },
+            "full_call_exact": {
+              "correct": 200,
+              "rate": 0.2347417840375587,
+              "task_macro_rate": 0.2601994759726074
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 0,
+              "rate": null,
+              "task_macro_rate": null
+            }
+          }
+        },
+        "recovery_success": {
+          "examples": 50,
+          "tasks": 15,
+          "metrics": {
+            "json_valid": {
+              "correct": 50,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 33,
+              "rate": 0.66,
+              "task_macro_rate": 0.7138888888888888
+            },
+            "arguments_exact": {
+              "correct": 26,
+              "rate": 0.52,
+              "task_macro_rate": 0.625
+            },
+            "full_call_exact": {
+              "correct": 26,
+              "rate": 0.52,
+              "task_macro_rate": 0.625
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 48,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            }
+          }
+        },
+        "agent_initiated": {
+          "examples": 12,
+          "tasks": 6,
+          "metrics": {
+            "json_valid": {
+              "correct": 12,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 2,
+              "rate": 0.16666666666666666,
+              "task_macro_rate": 0.2222222222222222
+            },
+            "arguments_exact": {
+              "correct": 1,
+              "rate": 0.08333333333333333,
+              "task_macro_rate": 0.16666666666666666
+            },
+            "full_call_exact": {
+              "correct": 1,
+              "rate": 0.08333333333333333,
+              "task_macro_rate": 0.16666666666666666
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 12,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            }
+          }
+        },
+        "user_assisted": {
+          "examples": 38,
+          "tasks": 14,
+          "metrics": {
+            "json_valid": {
+              "correct": 38,
+              "rate": 1.0,
+              "task_macro_rate": 1.0
+            },
+            "tool_name_correct": {
+              "correct": 31,
+              "rate": 0.8157894736842105,
+              "task_macro_rate": 0.8214285714285714
+            },
+            "arguments_exact": {
+              "correct": 25,
+              "rate": 0.6578947368421053,
+              "task_macro_rate": 0.7210884353741497
+            },
+            "full_call_exact": {
+              "correct": 25,
+              "rate": 0.6578947368421053,
+              "task_macro_rate": 0.7210884353741497
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "repeats": 0,
+              "eligible_examples": 36,
+              "rate": 0.0,
+              "task_macro_rate": 0.0
+            }
+          }
+        }
+      }
+    }
+  },
+  "paired_comparisons": {
+    "clean_sft_minus_standard_v3": {
+      "treatment_arm": "clean_sft",
+      "control_arm": "standard_v3",
+      "groups": {
+        "overall": {
+          "examples": 959,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 959,
+              "treatment": 0.9947862356621481,
+              "control": 0.9989572471324296,
+              "delta_treatment_minus_control": -0.004171011470281538,
+              "treatment_only_true": 1,
+              "control_only_true": 5,
+              "paired_ties": 953,
+              "task_cluster_bootstrap_95_delta": [
+                -0.009308820508825113,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.22027797220277973,
+              "improvement_treatment_minus_control": -0.004171011470281538,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 959,
+              "treatment": 0.5964546402502607,
+              "control": 0.5964546402502607,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 19,
+              "control_only_true": 19,
+              "paired_ties": 921,
+              "task_cluster_bootstrap_95_delta": [
+                -0.013387030263912794,
+                0.012437951644492469
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 959,
+              "treatment": 0.3222106360792492,
+              "control": 0.3180396246089677,
+              "delta_treatment_minus_control": 0.004171011470281538,
+              "treatment_only_true": 12,
+              "control_only_true": 8,
+              "paired_ties": 939,
+              "task_cluster_bootstrap_95_delta": [
+                -0.003732280807020175,
+                0.012232415902140673
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.4657534246575342,
+              "improvement_treatment_minus_control": 0.004171011470281538,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 959,
+              "treatment": 0.31282586027111575,
+              "control": 0.310740354535975,
+              "delta_treatment_minus_control": 0.002085505735140769,
+              "treatment_only_true": 11,
+              "control_only_true": 9,
+              "paired_ties": 939,
+              "task_cluster_bootstrap_95_delta": [
+                -0.006965260803993968,
+                0.010367724412497408
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.8147185281471853,
+              "improvement_treatment_minus_control": 0.002085505735140769,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.125,
+              "control": 0.14583333333333334,
+              "delta_treatment_minus_control": -0.020833333333333343,
+              "treatment_only_true": 0,
+              "control_only_true": 1,
+              "paired_ties": 47,
+              "task_cluster_bootstrap_95_delta": [
+                -0.06666666666666667,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.020833333333333343,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "outcome_success": {
+          "examples": 902,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 902,
+              "treatment": 0.9955654101995566,
+              "control": 0.9988913525498891,
+              "delta_treatment_minus_control": -0.003325942350332567,
+              "treatment_only_true": 1,
+              "control_only_true": 4,
+              "paired_ties": 897,
+              "task_cluster_bootstrap_95_delta": [
+                -0.008523030356911935,
+                0.0010822510822510823
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.37376262373762625,
+              "improvement_treatment_minus_control": -0.003325942350332567,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 902,
+              "treatment": 0.5875831485587583,
+              "control": 0.5853658536585366,
+              "delta_treatment_minus_control": 0.0022172949002217113,
+              "treatment_only_true": 17,
+              "control_only_true": 15,
+              "paired_ties": 870,
+              "task_cluster_bootstrap_95_delta": [
+                -0.012559034084838123,
+                0.016145401783755665
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.885011498850115,
+              "improvement_treatment_minus_control": 0.0022172949002217113,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 902,
+              "treatment": 0.30155210643015523,
+              "control": 0.29490022172949004,
+              "delta_treatment_minus_control": 0.006651884700665189,
+              "treatment_only_true": 12,
+              "control_only_true": 6,
+              "paired_ties": 884,
+              "task_cluster_bootstrap_95_delta": [
+                -0.001250196540880503,
+                0.014583333333333334
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.21507849215078492,
+              "improvement_treatment_minus_control": 0.006651884700665189,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 902,
+              "treatment": 0.2926829268292683,
+              "control": 0.28824833702882485,
+              "delta_treatment_minus_control": 0.0044345898004434225,
+              "treatment_only_true": 11,
+              "control_only_true": 7,
+              "paired_ties": 884,
+              "task_cluster_bootstrap_95_delta": [
+                -0.005015139521450172,
+                0.0127524588475135
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.49095090490950904,
+              "improvement_treatment_minus_control": 0.0044345898004434225,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.125,
+              "control": 0.14583333333333334,
+              "delta_treatment_minus_control": -0.020833333333333343,
+              "treatment_only_true": 0,
+              "control_only_true": 1,
+              "paired_ties": 47,
+              "task_cluster_bootstrap_95_delta": [
+                -0.06666666666666667,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.020833333333333343,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "failed_gold": {
+          "examples": 57,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 57,
+              "treatment": 0.9824561403508771,
+              "control": 1.0,
+              "delta_treatment_minus_control": -0.01754385964912286,
+              "treatment_only_true": 0,
+              "control_only_true": 1,
+              "paired_ties": 56,
+              "task_cluster_bootstrap_95_delta": [
+                -0.058823529411764705,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": -0.01754385964912286,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 57,
+              "treatment": 0.7368421052631579,
+              "control": 0.7719298245614035,
+              "delta_treatment_minus_control": -0.03508771929824561,
+              "treatment_only_true": 2,
+              "control_only_true": 4,
+              "paired_ties": 51,
+              "task_cluster_bootstrap_95_delta": [
+                -0.0641025641025641,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.49365063493650635,
+              "improvement_treatment_minus_control": -0.03508771929824561,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 57,
+              "treatment": 0.6491228070175439,
+              "control": 0.6842105263157895,
+              "delta_treatment_minus_control": -0.03508771929824561,
+              "treatment_only_true": 0,
+              "control_only_true": 2,
+              "paired_ties": 55,
+              "task_cluster_bootstrap_95_delta": [
+                -0.07407407407407407,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.5010498950104989,
+              "improvement_treatment_minus_control": -0.03508771929824561,
+              "interpretation": "higher_is_better"
+            },
+            "failed_action_imitation_rate": {
+              "eligible_examples": 57,
+              "treatment": 0.631578947368421,
+              "control": 0.6666666666666666,
+              "delta_treatment_minus_control": -0.03508771929824561,
+              "treatment_only_true": 0,
+              "control_only_true": 2,
+              "paired_ties": 55,
+              "task_cluster_bootstrap_95_delta": [
+                -0.07408789386401325,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.49905009499050096,
+              "interpretation": "lower_is_better",
+              "improvement_control_minus_treatment": 0.03508771929824561
+            }
+          }
+        },
+        "non_recovery_success": {
+          "examples": 852,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 852,
+              "treatment": 0.9953051643192489,
+              "control": 0.9988262910798122,
+              "delta_treatment_minus_control": -0.0035211267605633756,
+              "treatment_only_true": 1,
+              "control_only_true": 4,
+              "paired_ties": 847,
+              "task_cluster_bootstrap_95_delta": [
+                -0.0089421160157188,
+                0.0012106904395039985
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.37776222377762225,
+              "improvement_treatment_minus_control": -0.0035211267605633756,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 852,
+              "treatment": 0.5845070422535211,
+              "control": 0.5821596244131455,
+              "delta_treatment_minus_control": 0.0023474178403756207,
+              "treatment_only_true": 17,
+              "control_only_true": 15,
+              "paired_ties": 820,
+              "task_cluster_bootstrap_95_delta": [
+                -0.013612565445026177,
+                0.01702127659574468
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.8842115788421158,
+              "improvement_treatment_minus_control": 0.0023474178403756207,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 852,
+              "treatment": 0.284037558685446,
+              "control": 0.27816901408450706,
+              "delta_treatment_minus_control": 0.005868544600938941,
+              "treatment_only_true": 11,
+              "control_only_true": 6,
+              "paired_ties": 835,
+              "task_cluster_bootstrap_95_delta": [
+                -0.00335204904203067,
+                0.014833419242696448
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.33196680331966805,
+              "improvement_treatment_minus_control": 0.005868544600938941,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 852,
+              "treatment": 0.27582159624413144,
+              "control": 0.27230046948356806,
+              "delta_treatment_minus_control": 0.0035211267605633756,
+              "treatment_only_true": 10,
+              "control_only_true": 7,
+              "paired_ties": 835,
+              "task_cluster_bootstrap_95_delta": [
+                -0.006593479080286468,
+                0.012889712761165581
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.6519348065193481,
+              "improvement_treatment_minus_control": 0.0035211267605633756,
+              "interpretation": "higher_is_better"
+            }
+          }
+        },
+        "recovery_success": {
+          "examples": 50,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 50,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 50,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 50,
+              "treatment": 0.64,
+              "control": 0.64,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 50,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 50,
+              "treatment": 0.6,
+              "control": 0.58,
+              "delta_treatment_minus_control": 0.020000000000000018,
+              "treatment_only_true": 1,
+              "control_only_true": 0,
+              "paired_ties": 49,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.08108108108108109
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.020000000000000018,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 50,
+              "treatment": 0.58,
+              "control": 0.56,
+              "delta_treatment_minus_control": 0.019999999999999907,
+              "treatment_only_true": 1,
+              "control_only_true": 0,
+              "paired_ties": 49,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.07894736842105263
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.019999999999999907,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.125,
+              "control": 0.14583333333333334,
+              "delta_treatment_minus_control": -0.020833333333333343,
+              "treatment_only_true": 0,
+              "control_only_true": 1,
+              "paired_ties": 47,
+              "task_cluster_bootstrap_95_delta": [
+                -0.06666666666666667,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.020833333333333343,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "agent_initiated": {
+          "examples": 12,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 12,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 12,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 12,
+              "treatment": 0.0,
+              "control": 0.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 12,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 12,
+              "treatment": 0.0,
+              "control": 0.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 12,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 12,
+              "treatment": 0.0,
+              "control": 0.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 12,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 12,
+              "treatment": 0.25,
+              "control": 0.3333333333333333,
+              "delta_treatment_minus_control": -0.08333333333333331,
+              "treatment_only_true": 0,
+              "control_only_true": 1,
+              "paired_ties": 11,
+              "task_cluster_bootstrap_95_delta": [
+                -0.21428571428571427,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.08333333333333331,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "user_assisted": {
+          "examples": 38,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 38,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 38,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 38,
+              "treatment": 0.8421052631578947,
+              "control": 0.8421052631578947,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 38,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 38,
+              "treatment": 0.7894736842105263,
+              "control": 0.7631578947368421,
+              "delta_treatment_minus_control": 0.02631578947368418,
+              "treatment_only_true": 1,
+              "control_only_true": 0,
+              "paired_ties": 37,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.10344827586206896
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.02631578947368418,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 38,
+              "treatment": 0.7631578947368421,
+              "control": 0.7368421052631579,
+              "delta_treatment_minus_control": 0.026315789473684292,
+              "treatment_only_true": 1,
+              "control_only_true": 0,
+              "paired_ties": 37,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.10344827586206896
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.026315789473684292,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 36,
+              "treatment": 0.08333333333333333,
+              "control": 0.08333333333333333,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 36,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": -0.0,
+              "interpretation": "lower_is_better"
+            }
+          }
+        }
+      }
+    },
+    "continued_sft_minus_clean_sft": {
+      "treatment_arm": "continued_sft",
+      "control_arm": "clean_sft",
+      "groups": {
+        "overall": {
+          "examples": 959,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 959,
+              "treatment": 0.9885297184567258,
+              "control": 0.9947862356621481,
+              "delta_treatment_minus_control": -0.006256517205422307,
+              "treatment_only_true": 3,
+              "control_only_true": 9,
+              "paired_ties": 947,
+              "task_cluster_bootstrap_95_delta": [
+                -0.017781842397871398,
+                0.003393665158371041
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.5007499250074993,
+              "improvement_treatment_minus_control": -0.006256517205422307,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 959,
+              "treatment": 0.470281543274244,
+              "control": 0.5964546402502607,
+              "delta_treatment_minus_control": -0.12617309697601675,
+              "treatment_only_true": 22,
+              "control_only_true": 143,
+              "paired_ties": 794,
+              "task_cluster_bootstrap_95_delta": [
+                -0.1694741302408564,
+                -0.08635971786833861
+              ],
+              "task_cluster_sign_flip_two_sided_p": 9.999000099990002e-05,
+              "improvement_treatment_minus_control": -0.12617309697601675,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 959,
+              "treatment": 0.28258602711157454,
+              "control": 0.3222106360792492,
+              "delta_treatment_minus_control": -0.03962460896767467,
+              "treatment_only_true": 16,
+              "control_only_true": 54,
+              "paired_ties": 889,
+              "task_cluster_bootstrap_95_delta": [
+                -0.05764479206721919,
+                -0.023401507628854425
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.00039996000399960006,
+              "improvement_treatment_minus_control": -0.03962460896767467,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 959,
+              "treatment": 0.27424400417101147,
+              "control": 0.31282586027111575,
+              "delta_treatment_minus_control": -0.038581856100104284,
+              "treatment_only_true": 13,
+              "control_only_true": 50,
+              "paired_ties": 896,
+              "task_cluster_bootstrap_95_delta": [
+                -0.05512739394259242,
+                -0.022803212664752052
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.00019998000199980003,
+              "improvement_treatment_minus_control": -0.038581856100104284,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.10416666666666667,
+              "control": 0.125,
+              "delta_treatment_minus_control": -0.02083333333333333,
+              "treatment_only_true": 3,
+              "control_only_true": 4,
+              "paired_ties": 41,
+              "task_cluster_bootstrap_95_delta": [
+                -0.1590909090909091,
+                0.13043478260869565
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.02083333333333333,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "outcome_success": {
+          "examples": 902,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 902,
+              "treatment": 0.9900221729490022,
+              "control": 0.9955654101995566,
+              "delta_treatment_minus_control": -0.005543237250554389,
+              "treatment_only_true": 3,
+              "control_only_true": 8,
+              "paired_ties": 891,
+              "task_cluster_bootstrap_95_delta": [
+                -0.018140650070060042,
+                0.0042436957068595895
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.6535346465353464,
+              "improvement_treatment_minus_control": -0.005543237250554389,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 902,
+              "treatment": 0.45787139689578715,
+              "control": 0.5875831485587583,
+              "delta_treatment_minus_control": -0.1297117516629711,
+              "treatment_only_true": 21,
+              "control_only_true": 138,
+              "paired_ties": 743,
+              "task_cluster_bootstrap_95_delta": [
+                -0.175156842820465,
+                -0.09060330805944157
+              ],
+              "task_cluster_sign_flip_two_sided_p": 9.999000099990002e-05,
+              "improvement_treatment_minus_control": -0.1297117516629711,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 902,
+              "treatment": 0.2583148558758315,
+              "control": 0.30155210643015523,
+              "delta_treatment_minus_control": -0.04323725055432376,
+              "treatment_only_true": 15,
+              "control_only_true": 54,
+              "paired_ties": 833,
+              "task_cluster_bootstrap_95_delta": [
+                -0.0618999671067279,
+                -0.02698813836177308
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.00039996000399960006,
+              "improvement_treatment_minus_control": -0.04323725055432376,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 902,
+              "treatment": 0.25055432372505543,
+              "control": 0.2926829268292683,
+              "delta_treatment_minus_control": -0.04212860310421285,
+              "treatment_only_true": 12,
+              "control_only_true": 50,
+              "paired_ties": 840,
+              "task_cluster_bootstrap_95_delta": [
+                -0.0594760044440824,
+                -0.0259009009009009
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.0006999300069993001,
+              "improvement_treatment_minus_control": -0.04212860310421285,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.10416666666666667,
+              "control": 0.125,
+              "delta_treatment_minus_control": -0.02083333333333333,
+              "treatment_only_true": 3,
+              "control_only_true": 4,
+              "paired_ties": 41,
+              "task_cluster_bootstrap_95_delta": [
+                -0.1590909090909091,
+                0.125
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.02083333333333333,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "failed_gold": {
+          "examples": 57,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 57,
+              "treatment": 0.9649122807017544,
+              "control": 0.9824561403508771,
+              "delta_treatment_minus_control": -0.01754385964912275,
+              "treatment_only_true": 0,
+              "control_only_true": 1,
+              "paired_ties": 56,
+              "task_cluster_bootstrap_95_delta": [
+                -0.04918032786885246,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": -0.01754385964912275,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 57,
+              "treatment": 0.6666666666666666,
+              "control": 0.7368421052631579,
+              "delta_treatment_minus_control": -0.07017543859649122,
+              "treatment_only_true": 1,
+              "control_only_true": 5,
+              "paired_ties": 51,
+              "task_cluster_bootstrap_95_delta": [
+                -0.2037037037037037,
+                0.025
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.5034496550344966,
+              "improvement_treatment_minus_control": -0.07017543859649122,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 57,
+              "treatment": 0.6666666666666666,
+              "control": 0.6491228070175439,
+              "delta_treatment_minus_control": 0.01754385964912275,
+              "treatment_only_true": 1,
+              "control_only_true": 0,
+              "paired_ties": 56,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.04477611940298507
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.01754385964912275,
+              "interpretation": "higher_is_better"
+            },
+            "failed_action_imitation_rate": {
+              "eligible_examples": 57,
+              "treatment": 0.6491228070175439,
+              "control": 0.631578947368421,
+              "delta_treatment_minus_control": 0.01754385964912286,
+              "treatment_only_true": 1,
+              "control_only_true": 0,
+              "paired_ties": 56,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.04411764705882353
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "interpretation": "lower_is_better",
+              "improvement_control_minus_treatment": -0.01754385964912286
+            }
+          }
+        },
+        "non_recovery_success": {
+          "examples": 852,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 852,
+              "treatment": 0.9894366197183099,
+              "control": 0.9953051643192489,
+              "delta_treatment_minus_control": -0.005868544600938996,
+              "treatment_only_true": 3,
+              "control_only_true": 8,
+              "paired_ties": 841,
+              "task_cluster_bootstrap_95_delta": [
+                -0.019430261641244867,
+                0.0045662100456621
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.6519348065193481,
+              "improvement_treatment_minus_control": -0.005868544600938996,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 852,
+              "treatment": 0.44366197183098594,
+              "control": 0.5845070422535211,
+              "delta_treatment_minus_control": -0.1408450704225352,
+              "treatment_only_true": 16,
+              "control_only_true": 136,
+              "paired_ties": 700,
+              "task_cluster_bootstrap_95_delta": [
+                -0.18431930944854874,
+                -0.10544208249337472
+              ],
+              "task_cluster_sign_flip_two_sided_p": 9.999000099990002e-05,
+              "improvement_treatment_minus_control": -0.1408450704225352,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 852,
+              "treatment": 0.23708920187793428,
+              "control": 0.284037558685446,
+              "delta_treatment_minus_control": -0.04694835680751172,
+              "treatment_only_true": 12,
+              "control_only_true": 52,
+              "paired_ties": 788,
+              "task_cluster_bootstrap_95_delta": [
+                -0.06495510949528052,
+                -0.031007751937984496
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.00019998000199980003,
+              "improvement_treatment_minus_control": -0.04694835680751172,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 852,
+              "treatment": 0.2312206572769953,
+              "control": 0.27582159624413144,
+              "delta_treatment_minus_control": -0.04460093896713613,
+              "treatment_only_true": 10,
+              "control_only_true": 48,
+              "paired_ties": 794,
+              "task_cluster_bootstrap_95_delta": [
+                -0.060955625783925965,
+                -0.02861035422343324
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.00029997000299970003,
+              "improvement_treatment_minus_control": -0.04460093896713613,
+              "interpretation": "higher_is_better"
+            }
+          }
+        },
+        "recovery_success": {
+          "examples": 50,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 50,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 50,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 50,
+              "treatment": 0.7,
+              "control": 0.64,
+              "delta_treatment_minus_control": 0.05999999999999994,
+              "treatment_only_true": 5,
+              "control_only_true": 2,
+              "paired_ties": 43,
+              "task_cluster_bootstrap_95_delta": [
+                -0.05128205128205128,
+                0.16666666666666666
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.7508249175082492,
+              "improvement_treatment_minus_control": 0.05999999999999994,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 50,
+              "treatment": 0.62,
+              "control": 0.6,
+              "delta_treatment_minus_control": 0.020000000000000018,
+              "treatment_only_true": 3,
+              "control_only_true": 2,
+              "paired_ties": 45,
+              "task_cluster_bootstrap_95_delta": [
+                -0.08108108108108109,
+                0.10204081632653061
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.020000000000000018,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 50,
+              "treatment": 0.58,
+              "control": 0.58,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 2,
+              "control_only_true": 2,
+              "paired_ties": 46,
+              "task_cluster_bootstrap_95_delta": [
+                -0.1,
+                0.075
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.10416666666666667,
+              "control": 0.125,
+              "delta_treatment_minus_control": -0.02083333333333333,
+              "treatment_only_true": 3,
+              "control_only_true": 4,
+              "paired_ties": 41,
+              "task_cluster_bootstrap_95_delta": [
+                -0.1568627450980392,
+                0.12964975845410598
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.02083333333333333,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "agent_initiated": {
+          "examples": 12,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 12,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 12,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 12,
+              "treatment": 0.4166666666666667,
+              "control": 0.0,
+              "delta_treatment_minus_control": 0.4166666666666667,
+              "treatment_only_true": 5,
+              "control_only_true": 0,
+              "paired_ties": 7,
+              "task_cluster_bootstrap_95_delta": [
+                0.07142857142857142,
+                0.8181818181818182
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.25707429257074293,
+              "improvement_treatment_minus_control": 0.4166666666666667,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 12,
+              "treatment": 0.25,
+              "control": 0.0,
+              "delta_treatment_minus_control": 0.25,
+              "treatment_only_true": 3,
+              "control_only_true": 0,
+              "paired_ties": 9,
+              "task_cluster_bootstrap_95_delta": [
+                0.06666666666666667,
+                0.5
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.24927507249275072,
+              "improvement_treatment_minus_control": 0.25,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 12,
+              "treatment": 0.16666666666666666,
+              "control": 0.0,
+              "delta_treatment_minus_control": 0.16666666666666666,
+              "treatment_only_true": 2,
+              "control_only_true": 0,
+              "paired_ties": 10,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.4444444444444444
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.49035096490350966,
+              "improvement_treatment_minus_control": 0.16666666666666666,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 12,
+              "treatment": 0.25,
+              "control": 0.25,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 3,
+              "control_only_true": 3,
+              "paired_ties": 6,
+              "task_cluster_bootstrap_95_delta": [
+                -0.5,
+                0.5384615384615384
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": -0.0,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "user_assisted": {
+          "examples": 38,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 38,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 38,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 38,
+              "treatment": 0.7894736842105263,
+              "control": 0.8421052631578947,
+              "delta_treatment_minus_control": -0.05263157894736836,
+              "treatment_only_true": 0,
+              "control_only_true": 2,
+              "paired_ties": 36,
+              "task_cluster_bootstrap_95_delta": [
+                -0.13333333333333333,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.49475052494750527,
+              "improvement_treatment_minus_control": -0.05263157894736836,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 38,
+              "treatment": 0.7368421052631579,
+              "control": 0.7894736842105263,
+              "delta_treatment_minus_control": -0.052631578947368474,
+              "treatment_only_true": 0,
+              "control_only_true": 2,
+              "paired_ties": 36,
+              "task_cluster_bootstrap_95_delta": [
+                -0.16129032258064516,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.5007499250074993,
+              "improvement_treatment_minus_control": -0.052631578947368474,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 38,
+              "treatment": 0.7105263157894737,
+              "control": 0.7631578947368421,
+              "delta_treatment_minus_control": -0.052631578947368474,
+              "treatment_only_true": 0,
+              "control_only_true": 2,
+              "paired_ties": 36,
+              "task_cluster_bootstrap_95_delta": [
+                -0.16666666666666666,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.49675032496750327,
+              "improvement_treatment_minus_control": -0.052631578947368474,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 36,
+              "treatment": 0.05555555555555555,
+              "control": 0.08333333333333333,
+              "delta_treatment_minus_control": -0.027777777777777776,
+              "treatment_only_true": 0,
+              "control_only_true": 1,
+              "paired_ties": 35,
+              "task_cluster_bootstrap_95_delta": [
+                -0.08108108108108109,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.027777777777777776,
+              "interpretation": "lower_is_better"
+            }
+          }
+        }
+      }
+    },
+    "dpo_minus_continued_sft": {
+      "treatment_arm": "dpo",
+      "control_arm": "continued_sft",
+      "groups": {
+        "overall": {
+          "examples": 959,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 959,
+              "treatment": 0.9812304483837331,
+              "control": 0.9885297184567258,
+              "delta_treatment_minus_control": -0.007299270072992692,
+              "treatment_only_true": 10,
+              "control_only_true": 17,
+              "paired_ties": 932,
+              "task_cluster_bootstrap_95_delta": [
+                -0.021438120030957575,
+                0.005257935270965029
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.35776422357764226,
+              "improvement_treatment_minus_control": -0.007299270072992692,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 959,
+              "treatment": 0.5286757038581856,
+              "control": 0.470281543274244,
+              "delta_treatment_minus_control": 0.058394160583941646,
+              "treatment_only_true": 126,
+              "control_only_true": 70,
+              "paired_ties": 763,
+              "task_cluster_bootstrap_95_delta": [
+                0.02168730902899261,
+                0.09401804199940844
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.0103989601039896,
+              "improvement_treatment_minus_control": 0.058394160583941646,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 959,
+              "treatment": 0.251303441084463,
+              "control": 0.28258602711157454,
+              "delta_treatment_minus_control": -0.031282586027111536,
+              "treatment_only_true": 47,
+              "control_only_true": 77,
+              "paired_ties": 835,
+              "task_cluster_bootstrap_95_delta": [
+                -0.06137112699398245,
+                -0.0023656297352705412
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.06479352064793521,
+              "improvement_treatment_minus_control": -0.031282586027111536,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 959,
+              "treatment": 0.24817518248175183,
+              "control": 0.27424400417101147,
+              "delta_treatment_minus_control": -0.02606882168925964,
+              "treatment_only_true": 45,
+              "control_only_true": 70,
+              "paired_ties": 844,
+              "task_cluster_bootstrap_95_delta": [
+                -0.05572466176044202,
+                0.0022149008110437483
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.12498750124987501,
+              "improvement_treatment_minus_control": -0.02606882168925964,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.0,
+              "control": 0.10416666666666667,
+              "delta_treatment_minus_control": -0.10416666666666667,
+              "treatment_only_true": 0,
+              "control_only_true": 5,
+              "paired_ties": 43,
+              "task_cluster_bootstrap_95_delta": [
+                -0.2631578947368421,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.10416666666666667,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "outcome_success": {
+          "examples": 902,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 902,
+              "treatment": 0.9855875831485588,
+              "control": 0.9900221729490022,
+              "delta_treatment_minus_control": -0.0044345898004434225,
+              "treatment_only_true": 9,
+              "control_only_true": 13,
+              "paired_ties": 880,
+              "task_cluster_bootstrap_95_delta": [
+                -0.016537619530979368,
+                0.007359729795876513
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.6006399360063993,
+              "improvement_treatment_minus_control": -0.0044345898004434225,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 902,
+              "treatment": 0.5421286031042128,
+              "control": 0.45787139689578715,
+              "delta_treatment_minus_control": 0.0842572062084257,
+              "treatment_only_true": 125,
+              "control_only_true": 49,
+              "paired_ties": 728,
+              "task_cluster_bootstrap_95_delta": [
+                0.0469963121761143,
+                0.12351791923343083
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.0018998100189981002,
+              "improvement_treatment_minus_control": 0.0842572062084257,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 902,
+              "treatment": 0.25277161862527714,
+              "control": 0.2583148558758315,
+              "delta_treatment_minus_control": -0.005543237250554334,
+              "treatment_only_true": 47,
+              "control_only_true": 52,
+              "paired_ties": 803,
+              "task_cluster_bootstrap_95_delta": [
+                -0.037623902089174106,
+                0.02941337015155405
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.8027197280271973,
+              "improvement_treatment_minus_control": -0.005543237250554334,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 902,
+              "treatment": 0.25055432372505543,
+              "control": 0.25055432372505543,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 45,
+              "control_only_true": 45,
+              "paired_ties": 812,
+              "task_cluster_bootstrap_95_delta": [
+                -0.03152345600075779,
+                0.03247615533665713
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.0,
+              "control": 0.10416666666666667,
+              "delta_treatment_minus_control": -0.10416666666666667,
+              "treatment_only_true": 0,
+              "control_only_true": 5,
+              "paired_ties": 43,
+              "task_cluster_bootstrap_95_delta": [
+                -0.2631578947368421,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.10416666666666667,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "failed_gold": {
+          "examples": 57,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 57,
+              "treatment": 0.9122807017543859,
+              "control": 0.9649122807017544,
+              "delta_treatment_minus_control": -0.052631578947368474,
+              "treatment_only_true": 1,
+              "control_only_true": 4,
+              "paired_ties": 52,
+              "task_cluster_bootstrap_95_delta": [
+                -0.16673728813559316,
+                0.02500791139240495
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.49925007499250074,
+              "improvement_treatment_minus_control": -0.052631578947368474,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 57,
+              "treatment": 0.3157894736842105,
+              "control": 0.6666666666666666,
+              "delta_treatment_minus_control": -0.3508771929824561,
+              "treatment_only_true": 1,
+              "control_only_true": 21,
+              "paired_ties": 35,
+              "task_cluster_bootstrap_95_delta": [
+                -0.5531914893617021,
+                -0.20269465894465907
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.004199580041995801,
+              "improvement_treatment_minus_control": -0.3508771929824561,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 57,
+              "treatment": 0.22807017543859648,
+              "control": 0.6666666666666666,
+              "delta_treatment_minus_control": -0.43859649122807015,
+              "treatment_only_true": 0,
+              "control_only_true": 25,
+              "paired_ties": 32,
+              "task_cluster_bootstrap_95_delta": [
+                -0.6590909090909091,
+                -0.2948717948717949
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.0010998900109989002,
+              "improvement_treatment_minus_control": -0.43859649122807015,
+              "interpretation": "higher_is_better"
+            },
+            "failed_action_imitation_rate": {
+              "eligible_examples": 57,
+              "treatment": 0.21052631578947367,
+              "control": 0.6491228070175439,
+              "delta_treatment_minus_control": -0.4385964912280702,
+              "treatment_only_true": 0,
+              "control_only_true": 25,
+              "paired_ties": 32,
+              "task_cluster_bootstrap_95_delta": [
+                -0.6666666666666666,
+                -0.2916666666666667
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.0007999200079992001,
+              "interpretation": "lower_is_better",
+              "improvement_control_minus_treatment": 0.4385964912280702
+            }
+          }
+        },
+        "non_recovery_success": {
+          "examples": 852,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 852,
+              "treatment": 0.9847417840375586,
+              "control": 0.9894366197183099,
+              "delta_treatment_minus_control": -0.0046948356807512415,
+              "treatment_only_true": 9,
+              "control_only_true": 13,
+              "paired_ties": 830,
+              "task_cluster_bootstrap_95_delta": [
+                -0.01761006289308176,
+                0.007500117260787991
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.6000399960003999,
+              "improvement_treatment_minus_control": -0.0046948356807512415,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 852,
+              "treatment": 0.5352112676056338,
+              "control": 0.44366197183098594,
+              "delta_treatment_minus_control": 0.09154929577464782,
+              "treatment_only_true": 123,
+              "control_only_true": 45,
+              "paired_ties": 684,
+              "task_cluster_bootstrap_95_delta": [
+                0.05245017281728402,
+                0.13314137317420466
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.0011998800119988001,
+              "improvement_treatment_minus_control": 0.09154929577464782,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 852,
+              "treatment": 0.23708920187793428,
+              "control": 0.23708920187793428,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 46,
+              "control_only_true": 46,
+              "paired_ties": 760,
+              "task_cluster_bootstrap_95_delta": [
+                -0.033069171282885265,
+                0.03579210378860589
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 852,
+              "treatment": 0.2347417840375587,
+              "control": 0.2312206572769953,
+              "delta_treatment_minus_control": 0.0035211267605633756,
+              "treatment_only_true": 44,
+              "control_only_true": 41,
+              "paired_ties": 767,
+              "task_cluster_bootstrap_95_delta": [
+                -0.029787586304072144,
+                0.038348924099438166
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.8977102289771023,
+              "improvement_treatment_minus_control": 0.0035211267605633756,
+              "interpretation": "higher_is_better"
+            }
+          }
+        },
+        "recovery_success": {
+          "examples": 50,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 50,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 50,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 50,
+              "treatment": 0.66,
+              "control": 0.7,
+              "delta_treatment_minus_control": -0.039999999999999925,
+              "treatment_only_true": 2,
+              "control_only_true": 4,
+              "paired_ties": 44,
+              "task_cluster_bootstrap_95_delta": [
+                -0.09803921568627451,
+                0.043478260869565216
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.6260373962603739,
+              "improvement_treatment_minus_control": -0.039999999999999925,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 50,
+              "treatment": 0.52,
+              "control": 0.62,
+              "delta_treatment_minus_control": -0.09999999999999998,
+              "treatment_only_true": 1,
+              "control_only_true": 6,
+              "paired_ties": 43,
+              "task_cluster_bootstrap_95_delta": [
+                -0.16666666666666666,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.18798120187981202,
+              "improvement_treatment_minus_control": -0.09999999999999998,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 50,
+              "treatment": 0.52,
+              "control": 0.58,
+              "delta_treatment_minus_control": -0.05999999999999994,
+              "treatment_only_true": 1,
+              "control_only_true": 4,
+              "paired_ties": 45,
+              "task_cluster_bootstrap_95_delta": [
+                -0.12698412698412698,
+                0.02702702702702703
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.37836216378362164,
+              "improvement_treatment_minus_control": -0.05999999999999994,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 48,
+              "treatment": 0.0,
+              "control": 0.10416666666666667,
+              "delta_treatment_minus_control": -0.10416666666666667,
+              "treatment_only_true": 0,
+              "control_only_true": 5,
+              "paired_ties": 43,
+              "task_cluster_bootstrap_95_delta": [
+                -0.2631578947368421,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.10416666666666667,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "agent_initiated": {
+          "examples": 12,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 12,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 12,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 12,
+              "treatment": 0.16666666666666666,
+              "control": 0.4166666666666667,
+              "delta_treatment_minus_control": -0.25,
+              "treatment_only_true": 0,
+              "control_only_true": 3,
+              "paired_ties": 9,
+              "task_cluster_bootstrap_95_delta": [
+                -0.5,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.501949805019498,
+              "improvement_treatment_minus_control": -0.25,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 12,
+              "treatment": 0.08333333333333333,
+              "control": 0.25,
+              "delta_treatment_minus_control": -0.16666666666666669,
+              "treatment_only_true": 0,
+              "control_only_true": 2,
+              "paired_ties": 10,
+              "task_cluster_bootstrap_95_delta": [
+                -0.3333333333333333,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.5045495450454954,
+              "improvement_treatment_minus_control": -0.16666666666666669,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 12,
+              "treatment": 0.08333333333333333,
+              "control": 0.16666666666666666,
+              "delta_treatment_minus_control": -0.08333333333333333,
+              "treatment_only_true": 0,
+              "control_only_true": 1,
+              "paired_ties": 11,
+              "task_cluster_bootstrap_95_delta": [
+                -0.2727272727272727,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": -0.08333333333333333,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 12,
+              "treatment": 0.0,
+              "control": 0.25,
+              "delta_treatment_minus_control": -0.25,
+              "treatment_only_true": 0,
+              "control_only_true": 3,
+              "paired_ties": 9,
+              "task_cluster_bootstrap_95_delta": [
+                -0.6428571428571429,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.25,
+              "interpretation": "lower_is_better"
+            }
+          }
+        },
+        "user_assisted": {
+          "examples": 38,
+          "metrics": {
+            "json_valid": {
+              "eligible_examples": 38,
+              "treatment": 1.0,
+              "control": 1.0,
+              "delta_treatment_minus_control": 0.0,
+              "treatment_only_true": 0,
+              "control_only_true": 0,
+              "paired_ties": 38,
+              "task_cluster_bootstrap_95_delta": [
+                0.0,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.0,
+              "interpretation": "higher_is_better"
+            },
+            "tool_name_correct": {
+              "eligible_examples": 38,
+              "treatment": 0.8157894736842105,
+              "control": 0.7894736842105263,
+              "delta_treatment_minus_control": 0.02631578947368418,
+              "treatment_only_true": 2,
+              "control_only_true": 1,
+              "paired_ties": 35,
+              "task_cluster_bootstrap_95_delta": [
+                -0.06451612903225806,
+                0.1111111111111111
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_treatment_minus_control": 0.02631578947368418,
+              "interpretation": "higher_is_better"
+            },
+            "arguments_exact": {
+              "eligible_examples": 38,
+              "treatment": 0.6578947368421053,
+              "control": 0.7368421052631579,
+              "delta_treatment_minus_control": -0.07894736842105254,
+              "treatment_only_true": 1,
+              "control_only_true": 4,
+              "paired_ties": 33,
+              "task_cluster_bootstrap_95_delta": [
+                -0.1794871794871795,
+                0.05
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.4978502149785021,
+              "improvement_treatment_minus_control": -0.07894736842105254,
+              "interpretation": "higher_is_better"
+            },
+            "full_call_exact": {
+              "eligible_examples": 38,
+              "treatment": 0.6578947368421053,
+              "control": 0.7105263157894737,
+              "delta_treatment_minus_control": -0.05263157894736836,
+              "treatment_only_true": 1,
+              "control_only_true": 3,
+              "paired_ties": 34,
+              "task_cluster_bootstrap_95_delta": [
+                -0.1388888888888889,
+                0.058823529411764705
+              ],
+              "task_cluster_sign_flip_two_sided_p": 0.6182381761823817,
+              "improvement_treatment_minus_control": -0.05263157894736836,
+              "interpretation": "higher_is_better"
+            },
+            "exact_failed_call_replay_rate_on_strict_pairs": {
+              "eligible_examples": 36,
+              "treatment": 0.0,
+              "control": 0.05555555555555555,
+              "delta_treatment_minus_control": -0.05555555555555555,
+              "treatment_only_true": 0,
+              "control_only_true": 2,
+              "paired_ties": 34,
+              "task_cluster_bootstrap_95_delta": [
+                -0.14285714285714285,
+                0.0
+              ],
+              "task_cluster_sign_flip_two_sided_p": 1.0,
+              "improvement_control_minus_treatment": 0.05555555555555555,
+              "interpretation": "lower_is_better"
+            }
+          }
+        }
+      }
+    }
+  },
+  "pair_scoring": {
+    "completion_eos_included": true,
+    "strict_pair_examples": 48,
+    "standard_v3_missing_is_nonblocking": true,
+    "arms": {
+      "standard_v3": {
+        "status": "not_available",
+        "reason": "The existing Standard V3 generation artifact has no frozen chosen/rejected log-probability scoring pass."
+      },
+      "clean_sft": {
+        "status": "complete",
+        "score_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\pair_scores\\clean_sft",
+        "metrics_sha256": "5a642efc4065c15bb65d78840fed733bc4ff64976e19d062a4a8b1d40f381f4b",
+        "pair_scores_sha256": "641f372cae88ba0b265de7fbcf0dc4539b0776d5322001b5cc6ebb9d21ab415d",
+        "score_manifest_sha256": "11b2db454c81cbb2a5249b8ba6be948648ad2a4955c0c46666a14a7be9a1a9ac",
+        "metrics": {
+          "pair_count": 48,
+          "pair_accuracy_summed_logp": 0.7083333333333334,
+          "summed_logp_correct_count": 34,
+          "summed_logp_tie_count": 0,
+          "mean_summed_logp_margin": -2.834618310133616,
+          "median_summed_logp_margin": 5.706348419189453,
+          "per_token_normalized_pair_accuracy": 0.7083333333333334,
+          "per_token_normalized_correct_count": 34,
+          "mean_per_token_normalized_margin": 0.06926636864347281,
+          "median_per_token_normalized_margin": 0.19013051968955683,
+          "completion_eos_included": true
+        }
+      },
+      "continued_sft": {
+        "status": "complete",
+        "score_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\pair_scores\\continued_sft",
+        "metrics_sha256": "b5b41228d8a269ebd57a97fc3ccff13ba3f3e8cd4b21d123e9f945a01af9c218",
+        "pair_scores_sha256": "75a204d5a7ee4cdff36844d5b4dfeb16e7e6c2b0df405650cc2edd36e30da34e",
+        "score_manifest_sha256": "40b5743ac6a23c398ee18da679977b592c9c8c79339f678b7a98a4ac9d38321f",
+        "metrics": {
+          "pair_count": 48,
+          "pair_accuracy_summed_logp": 0.7916666666666666,
+          "summed_logp_correct_count": 38,
+          "summed_logp_tie_count": 0,
+          "mean_summed_logp_margin": -1.907000760237376,
+          "median_summed_logp_margin": 5.61461067199707,
+          "per_token_normalized_pair_accuracy": 0.7083333333333334,
+          "per_token_normalized_correct_count": 34,
+          "mean_per_token_normalized_margin": 0.10395292443734576,
+          "median_per_token_normalized_margin": 0.22641279110976648,
+          "completion_eos_included": true
+        }
+      },
+      "dpo": {
+        "status": "complete",
+        "score_dir": "D:\\recovery-aware-trajectory-selection-v4-p2\\results\\qlora_v4\\pair_scores\\dpo",
+        "metrics_sha256": "6e221084fd243836a2be514b3c666e1933edbde9186dbb00e276f23783cd0078",
+        "pair_scores_sha256": "bf070036dc77f606afa58f3af5a07f1c52b61f309875e56163b024a062943fb3",
+        "score_manifest_sha256": "1ca4c026a5b773b15b4f839724a071ac3d1dd6ea86deefa9754f4204d53f33c5",
+        "metrics": {
+          "pair_count": 48,
+          "pair_accuracy_summed_logp": 0.875,
+          "summed_logp_correct_count": 42,
+          "summed_logp_tie_count": 0,
+          "mean_summed_logp_margin": 37.658790032068886,
+          "median_summed_logp_margin": 30.17908000946045,
+          "per_token_normalized_pair_accuracy": 0.8333333333333334,
+          "per_token_normalized_correct_count": 40,
+          "mean_per_token_normalized_margin": 1.7012062931519925,
+          "median_per_token_normalized_margin": 1.233530438464621,
+          "completion_eos_included": true
+        }
+      }
+    },
+    "dpo_minus_continued_sft": {
+      "status": "complete",
+      "treatment_arm": "dpo",
+      "control_arm": "continued_sft",
+      "pairs": 48,
+      "metrics": {
+        "pair_accuracy_summed_logp": {
+          "eligible_examples": 48,
+          "treatment": 0.875,
+          "control": 0.7916666666666666,
+          "delta_treatment_minus_control": 0.08333333333333337,
+          "treatment_only_true": 4,
+          "control_only_true": 0,
+          "paired_ties": 44,
+          "task_cluster_bootstrap_95_delta": [
+            0.0,
+            0.17391304347826086
+          ],
+          "task_cluster_sign_flip_two_sided_p": 0.5042495750424958,
+          "improvement_treatment_minus_control": 0.08333333333333337,
+          "interpretation": "higher_is_better"
+        },
+        "mean_summed_logp_margin": {
+          "eligible_examples": 48,
+          "treatment_mean": 37.658790032068886,
+          "control_mean": -1.907000760237376,
+          "delta_treatment_minus_control": 39.56579079230626,
+          "task_cluster_bootstrap_95_delta": [
+            30.673640651109686,
+            52.876269651322175
+          ],
+          "task_cluster_sign_flip_two_sided_p": 0.00029997000299970003,
+          "interpretation": "higher_is_better"
+        },
+        "per_token_normalized_pair_accuracy": {
+          "eligible_examples": 48,
+          "treatment": 0.8333333333333334,
+          "control": 0.7083333333333334,
+          "delta_treatment_minus_control": 0.125,
+          "treatment_only_true": 6,
+          "control_only_true": 0,
+          "paired_ties": 42,
+          "task_cluster_bootstrap_95_delta": [
+            0.0,
+            0.22
+          ],
+          "task_cluster_sign_flip_two_sided_p": 0.24797520247975202,
+          "improvement_treatment_minus_control": 0.125,
+          "interpretation": "higher_is_better"
+        },
+        "mean_per_token_normalized_margin": {
+          "eligible_examples": 48,
+          "treatment_mean": 1.7012062931519925,
+          "control_mean": 0.10395292443734576,
+          "delta_treatment_minus_control": 1.5972533687146466,
+          "task_cluster_bootstrap_95_delta": [
+            1.188734723987515,
+            2.2462511404792282
+          ],
+          "task_cluster_sign_flip_two_sided_p": 9.999000099990002e-05,
+          "interpretation": "higher_is_better"
+        }
+      }
+    },
+    "note": "Summed completion log probability is primary. Per-token normalization is diagnostic because it changes the preference quantity. These scores are separate from generation exact-match and rejected-repeat metrics."
+  },
+  "holm_primary_recovery_success_full_call": {
+    "family": [
+      "clean_sft_minus_standard_v3",
+      "dpo_minus_continued_sft"
+    ],
+    "alpha": 0.05,
+    "method": "Holm",
+    "tests": {
+      "dpo_minus_continued_sft": {
+        "raw_p": 0.37836216378362164,
+        "holm_adjusted_p": 0.7567243275672433,
+        "reject_at_alpha_0_05": false
+      },
+      "clean_sft_minus_standard_v3": {
+        "raw_p": 1.0,
+        "holm_adjusted_p": 1.0,
+        "reject_at_alpha_0_05": false
+      }
+    }
+  },
+  "dpo_exploratory_screening_gate": {
+    "frozen_before_v4_results": true,
+    "purpose": "method-advancement screen only; not a paper-final significance claim",
+    "thresholds": {
+      "recovery_success_min_delta": 0.04,
+      "exact_failed_call_replay_max_delta": -0.041666666666666664,
+      "pair_ranking_min_delta": 0.0625,
+      "non_recovery_success_min_delta": -0.02
+    },
+    "criteria_pass": {
+      "recovery_success": false,
+      "exact_failed_call_replay": true,
+      "pair_ranking": true,
+      "non_recovery_success": true
+    },
+    "directional_advance_gate_pass": false,
+    "statistically_supported_exploratory_signal": false,
+    "decision": "do_not_claim_positive_mechanism_from_v4"
+  },
+  "multiple_testing_note": "Only the two preregistered primary recovery-success full-call tests receive Holm adjustment. All other p-values are uncorrected exploratory diagnostics.",
+  "claim_boundary": "Offline next-tool-call evaluation on the already inspected frozen V2/V3 test set. Single-seed task-cluster intervals do not cover training randomness and cannot establish end-to-end Agent success, cross-seed robustness, or paper-final confirmation."
+}
