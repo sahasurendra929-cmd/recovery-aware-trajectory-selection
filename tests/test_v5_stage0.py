@@ -189,6 +189,10 @@ class V5Stage0ProtocolTests(unittest.TestCase):
             self.assertEqual(summary["injected_error_observed_rate"], 1.0)
             self.assertEqual(summary["repeated_identical_error_rate"], 0.0)
             self.assertEqual(summary["valid_post_error_tool_result_rate"], 1.0)
+            self.assertEqual(summary["token_usage"]["clean_prompt_tokens"], 0)
+            self.assertEqual(
+                summary["termination_reasons"]["clean"]["agent_stop"], 10
+            )
 
 
 if __name__ == "__main__":

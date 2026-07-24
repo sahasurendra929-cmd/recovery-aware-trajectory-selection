@@ -85,6 +85,11 @@ python3 scripts/prepare_v5_stage0.py \
   --output-dir data/processed/v5_stage0
 
 python3 -m unittest tests.test_v5_stage0 -v
+
+python3 scripts/verify_v5_stage0_injections.py \
+  --tau2-root data/raw/tau2-bench \
+  --manifest data/processed/v5_stage0/smoke_manifest.json \
+  --output results/v5_stage0/injection_audit.json
 ```
 
 ## Persistent RunPod layout

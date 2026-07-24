@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import hashlib
 import json
 from pathlib import Path
@@ -37,6 +38,20 @@ def reward(simulation: dict[str, Any]) -> float:
     reward_info = simulation.get("reward_info") or {}
     value = reward_info.get("reward")
     return float(value) if value is not None else 0.0
+
+
+def token_usage(simulation: dict[str, Any]) -> dict[str, int]:
+    prompt_tokens = 0
+    completion_tokens = 0
+    for message in simulation.get("messages") or []:
+        usage = message.get("usage") or {}
+        prompt_tokens += int(usage.get("prompt_tokens") or 0)
+        completion_tokens += int(usage.get("completion_tokens") or 0)
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": prompt_tokens + completion_tokens,
+    }
 
 
 def analyze_error_run(
@@ -135,6 +150,7 @@ def summarize(manifest_path: Path, results_dir: Path, output_path: Path) -> dict
                     "termination_reason": simulation.get("termination_reason"),
                     "duration_seconds": simulation.get("duration"),
                     "message_count": len(simulation.get("messages") or []),
+                    **token_usage(simulation),
                 }
                 if condition == "error":
                     row.update(
@@ -167,6 +183,13 @@ def summarize(manifest_path: Path, results_dir: Path, output_path: Path) -> dict
                 "valid_post_error_tool_result": error["valid_post_error_tool_result"],
                 "clean_duration_seconds": clean["duration_seconds"],
                 "error_duration_seconds": error["duration_seconds"],
+                "clean_prompt_tokens": clean["prompt_tokens"],
+                "clean_completion_tokens": clean["completion_tokens"],
+                "error_prompt_tokens": error["prompt_tokens"],
+                "error_completion_tokens": error["completion_tokens"],
+                "messages_after_error": error["messages_after_error"],
+                "clean_termination_reason": clean["termination_reason"],
+                "error_termination_reason": error["termination_reason"],
             }
         )
 
@@ -178,6 +201,17 @@ def summarize(manifest_path: Path, results_dir: Path, output_path: Path) -> dict
     valid_post_error = sum(
         row["valid_post_error_tool_result"] for row in paired_rows
     )
+    clean_termination_reasons = Counter(
+        row["clean_termination_reason"] for row in paired_rows
+    )
+    error_termination_reasons = Counter(
+        row["error_termination_reason"] for row in paired_rows
+    )
+    messages_after_error = [
+        row["messages_after_error"]
+        for row in paired_rows
+        if row["messages_after_error"] is not None
+    ]
     status = (
         "PASS"
         if total == 10 and injected_observed == 10 and infrastructure_failures == 0
@@ -195,6 +229,29 @@ def summarize(manifest_path: Path, results_dir: Path, output_path: Path) -> dict
         "injected_error_observed_rate": injected_observed / total,
         "repeated_identical_error_rate": repeated / total,
         "valid_post_error_tool_result_rate": valid_post_error / total,
+        "average_messages_after_injected_error": (
+            sum(messages_after_error) / len(messages_after_error)
+            if messages_after_error
+            else None
+        ),
+        "token_usage": {
+            "clean_prompt_tokens": sum(
+                row["clean_prompt_tokens"] for row in paired_rows
+            ),
+            "clean_completion_tokens": sum(
+                row["clean_completion_tokens"] for row in paired_rows
+            ),
+            "error_prompt_tokens": sum(
+                row["error_prompt_tokens"] for row in paired_rows
+            ),
+            "error_completion_tokens": sum(
+                row["error_completion_tokens"] for row in paired_rows
+            ),
+        },
+        "termination_reasons": {
+            "clean": dict(sorted(clean_termination_reasons.items())),
+            "error": dict(sorted(error_termination_reasons.items())),
+        },
         "infrastructure_failures": infrastructure_failures,
         "result_sha256": file_hashes,
         "paired_results": paired_rows,
