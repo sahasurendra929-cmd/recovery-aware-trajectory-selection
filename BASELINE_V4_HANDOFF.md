@@ -51,7 +51,7 @@ The implementation must fill and freeze these values after deterministic
 preparation and before any formal GPU run:
 
 ```text
-V4 repository tag:                 v4-frozen-20260724
+V4 repository tag:                 v4-frozen-20260724-p1
 Implementation parent commit:      7e0419d9b0941902ae149a68498ce9a19b1ea2f1
 Clean train JSONL SHA256:           1bfa3d9df8e38e6a97237aa6efb47cc4bfacd9a15a1a396acdbf213b3f7ca1e8
 Clean train schedule SHA256:        4b28da48082ef5bd3396e7df4b5b723c4efffe4b2e5438f47c8c2ca9d709f386
@@ -63,6 +63,15 @@ Test outcome annotations SHA256:     9a4ec2b1e25ee512e5946e8ac770b0fbf6b0ed0d5b6
 ```
 
 These values are frozen. The RTX 5060 operator must not edit or replace them.
+
+Patch release `v4-frozen-20260724-p1` supersedes
+`v4-frozen-20260724` at commit
+`091ebaff0d111ae1fbe19daafa87d11ae2e301da`. The only runtime change
+initializes and warms the CUDA allocator before resetting generation
+peak-memory counters on Windows. The scientific protocol, data, hashes,
+model, seed, training schedules, generation parameters, and metrics are
+unchanged. Artifacts from the superseded source commit cannot be mixed into a
+patch-release run.
 
 The config deliberately does not contain the SHA of the commit that contains
 the config itself; that would be an impossible self-reference. At runtime the
@@ -300,7 +309,11 @@ role.
 
 ## 6. RTX 5060 preflight
 
-Use a fresh V4 checkout and a fresh virtual environment. The laptop must:
+Use a fresh V4 checkout and fresh output paths. A previously created virtual
+environment may be reused only when every frozen Python/package/CUDA version
+passes the exact preflight; otherwise create a new environment. Reusing a
+verified environment, pip cache, and Hugging Face cache does not change the
+scientific protocol. The laptop must:
 
 - report an RTX 5060 Laptop GPU with approximately 8,151 MiB;
 - support CUDA and BF16;

@@ -66,6 +66,26 @@ def output_path_from_argv(arguments: list[str]) -> Path:
     raise RuntimeError("unable to locate frozen --output argument")
 
 
+def initialize_cuda_peak_tracking(torch: object) -> int:
+    """Initialize the CUDA allocator before resetting its peak counters.
+
+    ``torch.cuda.is_available()`` can succeed without initializing PyTorch's
+    CUDA caching allocator.  PyTorch 2.7.1 on Windows then rejects an explicit
+    device index passed to ``reset_peak_memory_stats``.  A tiny allocation
+    makes the allocator boundary observable and is discarded before the
+    counters are reset, so model loading and generation remain fully covered.
+    """
+    device_index = 0
+    torch.cuda.init()
+    torch.cuda.set_device(device_index)
+    allocator_probe = torch.empty(1, device=f"cuda:{device_index}")
+    torch.cuda.synchronize(device_index)
+    del allocator_probe
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats(device_index)
+    return device_index
+
+
 def main() -> None:
     # Configure only when this entry point runs.  Importing the helper module
     # must not mutate the frozen V3 evaluator used by other protocol checks.
@@ -81,12 +101,12 @@ def main() -> None:
     # Resolve the wrapper-only postprocessing target before loading a model so
     # unsupported abbreviated spellings fail without wasting a full run.
     output_path = output_path_from_argv(sys.argv[1:])
-    torch.cuda.reset_peak_memory_stats(0)
+    device_index = initialize_cuda_peak_tracking(torch)
     frozen.main()
     inject_runtime_memory(
         output_path,
-        peak_allocated=torch.cuda.max_memory_allocated(0),
-        peak_reserved=torch.cuda.max_memory_reserved(0),
+        peak_allocated=torch.cuda.max_memory_allocated(device_index),
+        peak_reserved=torch.cuda.max_memory_reserved(device_index),
     )
 
 

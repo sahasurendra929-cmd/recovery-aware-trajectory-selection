@@ -62,7 +62,7 @@ DPO_LABEL_SMOOTHING = 0.0
 POLICY_ADAPTER = "default"
 REFERENCE_ADAPTER = "reference"
 REQUIRED_CHECKPOINT_FILES = ("adapter_config.json", "adapter_model.safetensors")
-FROZEN_TAG = "v4-frozen-20260724"
+FROZEN_TAG = "v4-frozen-20260724-p1"
 ROOT = Path(__file__).resolve().parents[1]
 
 

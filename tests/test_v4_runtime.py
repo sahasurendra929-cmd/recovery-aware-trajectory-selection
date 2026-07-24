@@ -5,6 +5,7 @@ import json
 import math
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -48,6 +49,114 @@ def make_checkpoint(path: Path, suffix: bytes = b"") -> str:
 
 
 class V4RuntimeTests(unittest.TestCase):
+    def test_evaluator_warms_cuda_before_reset_and_measures_generation_peak(self):
+        """The Windows evaluator must initialize its allocator before reset.
+
+        ``torch.cuda.is_available()`` can use a driver/NVML check without
+        creating the CUDA allocator in the current process.  On the RTX 5060
+        Windows runner, resetting peak statistics in that state reproducibly
+        raises ``RuntimeError: Invalid device argument``.  ``torch.cuda.init``
+        is the explicit boundary that initializes the caching allocator; an
+        optional allocation can further exercise it without changing the
+        measured interval because the reset remains immediately before the
+        frozen evaluator.
+        """
+        events: list[str] = []
+
+        class FakeCuda:
+            def __init__(self) -> None:
+                self.initialized = False
+
+            def is_available(self) -> bool:
+                events.append("is_available")
+                return True
+
+            def init(self) -> None:
+                events.append("cuda_init")
+                self.initialized = True
+
+            def set_device(self, device: int) -> None:
+                if not self.initialized:
+                    raise RuntimeError("set_device called before CUDA init")
+                events.append(f"set_device:{device}")
+
+            def synchronize(self, device: int) -> None:
+                events.append(f"synchronize:{device}")
+
+            def empty_cache(self) -> None:
+                events.append("empty_cache")
+
+            def reset_peak_memory_stats(self, device: int) -> None:
+                events.append(f"reset_peak:{device}")
+                if not self.initialized:
+                    raise RuntimeError(
+                        "Invalid device argument; did you call init?"
+                    )
+
+            def max_memory_allocated(self, device: int) -> int:
+                events.append(f"max_allocated:{device}")
+                return 5_000_000_000
+
+            def max_memory_reserved(self, device: int) -> int:
+                events.append(f"max_reserved:{device}")
+                return 6_000_000_000
+
+        def empty(*shape: int, **kwargs: object) -> object:
+            events.append(
+                "allocator_warmup:"
+                f"shape={shape}:device={kwargs.get('device')}"
+            )
+            return object()
+
+        fake_torch = types.SimpleNamespace(cuda=FakeCuda(), empty=empty)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            metrics_path = Path(temporary) / "metrics.json"
+
+            def frozen_main() -> None:
+                events.append("frozen_generation")
+                write_json(metrics_path, {"protocol": "qlora_v4"})
+
+            with (
+                patch.dict(sys.modules, {"torch": fake_torch}),
+                patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "evaluate_tool_actions_v4.py",
+                        "--output",
+                        str(metrics_path),
+                    ],
+                ),
+                patch.object(evaluate_v4.frozen, "main", frozen_main),
+            ):
+                evaluate_v4.main()
+
+            required = [
+                "is_available",
+                "cuda_init",
+                "set_device:0",
+                "reset_peak:0",
+                "frozen_generation",
+                "max_allocated:0",
+                "max_reserved:0",
+            ]
+            for event in required:
+                self.assertIn(event, events)
+            self.assertEqual(events.count("reset_peak:0"), 1)
+            self.assertEqual(
+                [events.index(event) for event in required],
+                sorted(events.index(event) for event in required),
+            )
+            observed = json.loads(metrics_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                observed["runtime_memory"],
+                {
+                    "peak_cuda_memory_allocated_bytes": 5_000_000_000,
+                    "peak_cuda_memory_reserved_bytes": 6_000_000_000,
+                },
+            )
+
     def test_evaluator_accepts_both_output_argument_forms(self):
         self.assertEqual(
             evaluate_v4.output_path_from_argv(

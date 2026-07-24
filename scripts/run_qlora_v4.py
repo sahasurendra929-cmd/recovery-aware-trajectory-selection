@@ -21,7 +21,7 @@ from prepare_qlora_v4 import (
     EXPECTED_OUTPUT_SHA256,
 )
 
-FROZEN_TAG = "v4-frozen-20260724"
+FROZEN_TAG = "v4-frozen-20260724-p1"
 V3_RESULT_BRANCH = "results/v3-rtx5060-20260724"
 V3_RESULT_COMMIT = "aedf77a5784a364bd76bad42aa0a6cb6fad555b6"
 V3_RESULT_SHA256 = {

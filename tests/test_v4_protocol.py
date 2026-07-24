@@ -93,7 +93,14 @@ class V4ProtocolTests(unittest.TestCase):
             aggregate_v4.EXPECTED_TEST_OUTCOMES_SHA256,
             prepare_v4.EXPECTED_OUTPUT_SHA256["test_outcomes_sha256"],
         )
-        self.assertEqual(run_v4.FROZEN_TAG, package_v4.FROZEN_TAG)
+        frozen_tags = {
+            run_v4.FROZEN_TAG,
+            package_v4.FROZEN_TAG,
+            aggregate_v4.FROZEN_TAG,
+            train_sft_v4.FROZEN_TAG,
+            train_preference_v4.FROZEN_TAG,
+        }
+        self.assertEqual(frozen_tags, {"v4-frozen-20260724-p1"})
         self.assertEqual(
             aggregate_v4.STANDARD_V3_METRICS_SHA256,
             run_v4.V3_RESULT_SHA256["metrics.json"],
@@ -329,6 +336,24 @@ class V4ProtocolTests(unittest.TestCase):
         )
         unresolved_marker = "FILL" + "_AFTER_"
         self.assertNotIn(unresolved_marker, config + handoff + prompt)
+        self.assertIn(
+            f"repository_tag: {run_v4.FROZEN_TAG}",
+            config,
+        )
+        self.assertIn(
+            f"V4 repository tag:                 {run_v4.FROZEN_TAG}",
+            handoff,
+        )
+        self.assertIn(
+            f'$v4Tag = "{run_v4.FROZEN_TAG}"',
+            prompt,
+        )
+        self.assertIn("scientific_protocol_changed: false", config)
+        self.assertIn(
+            "supersedes_commit: "
+            "091ebaff0d111ae1fbe19daafa87d11ae2e301da",
+            config,
+        )
         for value in (
             run_v4.FROZEN_TAG,
             prepare_v4.EXPECTED_OUTPUT_SHA256[

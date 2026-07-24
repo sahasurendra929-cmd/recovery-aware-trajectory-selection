@@ -61,11 +61,11 @@ configs/qlora_v4.yaml
 读取已经发布的冻结 tag，再 detached checkout；不要手工猜 tag：
 
 ```powershell
-git -c core.autocrlf=false -c core.eol=lf clone https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git D:\recovery-aware-trajectory-selection-v4
-git -C D:\recovery-aware-trajectory-selection-v4 config core.autocrlf false
-git -C D:\recovery-aware-trajectory-selection-v4 config core.eol lf
-Set-Location D:\recovery-aware-trajectory-selection-v4
-$v4Tag = "v4-frozen-20260724"
+git -c core.autocrlf=false -c core.eol=lf clone https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git D:\recovery-aware-trajectory-selection-v4-p1
+git -C D:\recovery-aware-trajectory-selection-v4-p1 config core.autocrlf false
+git -C D:\recovery-aware-trajectory-selection-v4-p1 config core.eol lf
+Set-Location D:\recovery-aware-trajectory-selection-v4-p1
+$v4Tag = "v4-frozen-20260724-p1"
 git fetch origin --tags
 git checkout --detach "refs/tags/$v4Tag"
 $v4TagMatch = Select-String -Path configs\qlora_v4.yaml -Pattern '^\s*repository_tag:\s*(\S+)\s*$'
@@ -86,13 +86,25 @@ git -C data\raw\tau-bench checkout --detach 59a200c6d575d595120f1cb70fea53cef063
 git -C data\raw\tau-bench rev-parse HEAD
 git -C data\raw\tau-bench status --short
 
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cu128
-.\.venv\Scripts\python.exe -m pip install -r requirements-gpu-v4.txt
-.\.venv\Scripts\python.exe -m pip check
-.\.venv\Scripts\python.exe -c "import torch,transformers,trl,peft,bitsandbytes,datasets,accelerate; print(torch.__version__,torch.version.cuda,torch.cuda.get_device_name(0),transformers.__version__,trl.__version__,peft.__version__); assert torch.cuda.is_available(); assert torch.cuda.is_bf16_supported()"
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+$v4ReusablePython = "D:\recovery-aware-trajectory-selection-v4\.venv\Scripts\python.exe"
+$v4Python = $null
+if (Test-Path $v4ReusablePython) {
+  & $v4ReusablePython -c "import sys,torch,transformers,trl,peft,bitsandbytes,datasets,accelerate; assert sys.version_info[:2]==(3,11); assert torch.__version__=='2.7.1+cu128'; assert torch.version.cuda=='12.8'; assert transformers.__version__=='4.52.4'; assert trl.__version__=='0.18.2'; assert peft.__version__=='0.15.2'; assert bitsandbytes.__version__=='0.46.0'; assert datasets.__version__=='3.6.0'; assert accelerate.__version__=='1.7.0'; assert torch.cuda.is_available(); assert torch.cuda.is_bf16_supported()"
+  if ($LASTEXITCODE -eq 0) {
+    $v4Python = $v4ReusablePython
+    Write-Output "Reusing the exact verified V4 GPU environment; no CUDA/PyTorch download."
+  }
+}
+if (-not $v4Python) {
+  py -3.11 -m venv .venv
+  $v4Python = ".\.venv\Scripts\python.exe"
+  & $v4Python -m pip install --upgrade pip
+  & $v4Python -m pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cu128
+  & $v4Python -m pip install -r requirements-gpu-v4.txt
+}
+& $v4Python -m pip check
+& $v4Python -c "import torch,transformers,trl,peft,bitsandbytes,datasets,accelerate; print(torch.__version__,torch.version.cuda,torch.cuda.get_device_name(0),transformers.__version__,trl.__version__,peft.__version__,bitsandbytes.__version__,datasets.__version__,accelerate.__version__); assert torch.cuda.is_available(); assert torch.cuda.is_bf16_supported()"
+& $v4Python -m unittest discover -s tests -v
 nvidia-smi
 ```
 
@@ -121,7 +133,6 @@ PyTorch 已明确提示不支持。
 ## 严格按阶段执行
 
 ```powershell
-$v4Python = ".\.venv\Scripts\python.exe"
 $v4Data = "data\raw\tau-bench\historical_trajectories"
 
 & $v4Python scripts\run_qlora_v4.py --data-dir $v4Data --stage prepare
