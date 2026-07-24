@@ -212,6 +212,24 @@ def summarize(manifest_path: Path, results_dir: Path, output_path: Path) -> dict
         for row in paired_rows
         if row["messages_after_error"] is not None
     ]
+    paired_outcomes = {
+        "both_success": sum(
+            row["clean_success"] and row["error_success"]
+            for row in paired_rows
+        ),
+        "clean_only_success": sum(
+            row["clean_success"] and not row["error_success"]
+            for row in paired_rows
+        ),
+        "error_only_success": sum(
+            not row["clean_success"] and row["error_success"]
+            for row in paired_rows
+        ),
+        "neither_success": sum(
+            not row["clean_success"] and not row["error_success"]
+            for row in paired_rows
+        ),
+    }
     status = (
         "PASS"
         if total == 10 and injected_observed == 10 and infrastructure_failures == 0
@@ -226,6 +244,7 @@ def summarize(manifest_path: Path, results_dir: Path, output_path: Path) -> dict
         "clean_task_success": clean_successes / total,
         "error_injected_task_success": error_successes / total,
         "paired_task_success_delta": (error_successes - clean_successes) / total,
+        "paired_outcomes": paired_outcomes,
         "injected_error_observed_rate": injected_observed / total,
         "repeated_identical_error_rate": repeated / total,
         "valid_post_error_tool_result_rate": valid_post_error / total,

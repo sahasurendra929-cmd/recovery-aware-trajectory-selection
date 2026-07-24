@@ -193,6 +193,7 @@ class V5Stage0ProtocolTests(unittest.TestCase):
             self.assertEqual(
                 summary["termination_reasons"]["clean"]["agent_stop"], 10
             )
+            self.assertEqual(summary["paired_outcomes"]["both_success"], 10)
 
 
 if __name__ == "__main__":
