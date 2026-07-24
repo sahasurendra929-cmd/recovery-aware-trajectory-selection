@@ -61,11 +61,11 @@ configs/qlora_v4.yaml
 读取已经发布的冻结 tag，再 detached checkout；不要手工猜 tag：
 
 ```powershell
-git -c core.autocrlf=false -c core.eol=lf clone https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git D:\recovery-aware-trajectory-selection-v4-p1
-git -C D:\recovery-aware-trajectory-selection-v4-p1 config core.autocrlf false
-git -C D:\recovery-aware-trajectory-selection-v4-p1 config core.eol lf
-Set-Location D:\recovery-aware-trajectory-selection-v4-p1
-$v4Tag = "v4-frozen-20260724-p1"
+git -c core.autocrlf=false -c core.eol=lf clone https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git D:\recovery-aware-trajectory-selection-v4-p2
+git -C D:\recovery-aware-trajectory-selection-v4-p2 config core.autocrlf false
+git -C D:\recovery-aware-trajectory-selection-v4-p2 config core.eol lf
+Set-Location D:\recovery-aware-trajectory-selection-v4-p2
+$v4Tag = "v4-frozen-20260724-p2"
 git fetch origin --tags
 git checkout --detach "refs/tags/$v4Tag"
 $v4TagMatch = Select-String -Path configs\qlora_v4.yaml -Pattern '^\s*repository_tag:\s*(\S+)\s*$'
@@ -220,6 +220,9 @@ DPO smoke 必须：
 - reference adapter 前后 hash 不变；
 - policy adapter 已改变；
 - checkpoint 能重新加载；
+- 两个二阶段 Trainer 都使用传入的实际 dataset 构造
+  `SequentialSampler`，并记录 `model_accepts_loss_kwargs=false` 和
+  `custom_loss_gradient_accumulation_scaled_by_trainer=true`；
 - 最长 1,664-token prompt 可以用 NF4 实际生成 128 tokens；
 - peak reserved VRAM ≤ 7.5 GiB。
 
@@ -373,14 +376,14 @@ Hugging Face cache、smoke artifacts 或不完整 checkpoint。
 结果 branch 建议：
 
 ```text
-results/v4-rtx5060-20260724
+results/v4-p2-rtx5060-20260724
 ```
 
 确认 `UPLOAD_MANIFEST.json` 的每个文件 hash 后，只 stage package 路径，
 不要 `git add .`：
 
 ```powershell
-$v4ResultsBranch = "results/v4-rtx5060-20260724"
+$v4ResultsBranch = "results/v4-p2-rtx5060-20260724"
 git ls-remote --exit-code --heads origin $v4ResultsBranch | Out-Null
 if ($LASTEXITCODE -eq 0) { throw "remote result branch already exists; do not overwrite" }
 

@@ -100,7 +100,7 @@ class V4ProtocolTests(unittest.TestCase):
             train_sft_v4.FROZEN_TAG,
             train_preference_v4.FROZEN_TAG,
         }
-        self.assertEqual(frozen_tags, {"v4-frozen-20260724-p1"})
+        self.assertEqual(frozen_tags, {"v4-frozen-20260724-p2"})
         self.assertEqual(
             aggregate_v4.STANDARD_V3_METRICS_SHA256,
             run_v4.V3_RESULT_SHA256["metrics.json"],
@@ -351,7 +351,7 @@ class V4ProtocolTests(unittest.TestCase):
         self.assertIn("scientific_protocol_changed: false", config)
         self.assertIn(
             "supersedes_commit: "
-            "091ebaff0d111ae1fbe19daafa87d11ae2e301da",
+            "ab7a5439680eed75967dfcdfbaf6b14014ab54b4",
             config,
         )
         for value in (

@@ -62,8 +62,36 @@ DPO_LABEL_SMOOTHING = 0.0
 POLICY_ADAPTER = "default"
 REFERENCE_ADAPTER = "reference"
 REQUIRED_CHECKPOINT_FILES = ("adapter_config.json", "adapter_model.safetensors")
-FROZEN_TAG = "v4-frozen-20260724-p1"
+FROZEN_TAG = "v4-frozen-20260724-p2"
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def resolve_train_sampler_dataset(
+    trainer: Any,
+    train_dataset: Any | None = None,
+) -> Any:
+    """Return the dataset supplied by the current Transformers dataloader.
+
+    Transformers 4.52.4 calls ``_get_train_sampler(train_dataset)`` after its
+    dataloader path has resolved the effective dataset.  Falling back to the
+    trainer attribute keeps compatibility with direct no-argument calls while
+    ensuring that the sampler follows the actual dataset passed by the pinned
+    library.
+    """
+    return trainer.train_dataset if train_dataset is None else train_dataset
+
+
+def initialize_cuda_peak_tracking(torch: Any) -> int:
+    """Initialize the Windows CUDA allocator before resetting peak counters."""
+    device_index = 0
+    torch.cuda.init()
+    torch.cuda.set_device(device_index)
+    allocator_probe = torch.empty(1, device=f"cuda:{device_index}")
+    torch.cuda.synchronize(device_index)
+    del allocator_probe
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats(device_index)
+    return device_index
 
 
 def utc_now() -> str:
@@ -1242,8 +1270,7 @@ def main() -> None:
     )
 
     set_deterministic_runtime(torch, args.seed, set_seed)
-    torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats(0)
+    initialize_cuda_peak_tracking(torch)
     tokenizer = AutoTokenizer.from_pretrained(
         args.model,
         revision=args.model_revision,
@@ -1344,11 +1371,22 @@ def main() -> None:
     model.print_trainable_parameters()
 
     class SequentialTrainer(Trainer):
-        def _get_train_sampler(self):
-            return SequentialSampler(self.train_dataset)
+        def _get_train_sampler(self, train_dataset=None):
+            return SequentialSampler(
+                resolve_train_sampler_dataset(self, train_dataset)
+            )
 
     class CompletionOnlyTrainer(SequentialTrainer):
         """Completion-only CE with tail logits only (same loss, lower VRAM)."""
+
+        def __init__(self, *trainer_args, **trainer_kwargs):
+            super().__init__(*trainer_args, **trainer_kwargs)
+            # Our custom loss is already a per-microbatch mean and does not
+            # consume num_items_in_batch.  Transformers 4.52.4 otherwise
+            # infers True from Qwen2's **kwargs and skips the required /8
+            # gradient-accumulation scaling.  TRL's pinned DPOTrainer applies
+            # this same override for its custom loss.
+            self.model_accepts_loss_kwargs = False
 
         def compute_loss(
             self,
@@ -1452,7 +1490,11 @@ def main() -> None:
                     for key in ("input_ids", "attention_mask", "labels")
                 }
 
-        train_args = TrainingArguments(remove_unused_columns=False, **training_args_common)
+        train_args = TrainingArguments(
+            remove_unused_columns=False,
+            label_names=["labels"],
+            **training_args_common,
+        )
         trainer = CompletionOnlyTrainer(
             model=model,
             args=train_args,
@@ -1479,8 +1521,10 @@ def main() -> None:
             reference_context_entries = 0
             reference_was_frozen_in_every_context = True
 
-            def _get_train_sampler(self):
-                return SequentialSampler(self.train_dataset)
+            def _get_train_sampler(self, train_dataset=None):
+                return SequentialSampler(
+                    resolve_train_sampler_dataset(self, train_dataset)
+                )
 
             @contextmanager
             def null_ref_context(self):
@@ -1557,6 +1601,11 @@ def main() -> None:
                 if observed[key] != expected[key]:
                     raise RuntimeError(f"TRL tokenization/truncation drift at row {index}, field {key}")
         objective = "sigmoid_direct_preference_optimization"
+
+    if trainer.model_accepts_loss_kwargs is not False:
+        raise RuntimeError(
+            "custom preference loss would bypass frozen gradient-accumulation scaling"
+        )
 
     started_at = utc_now()
     start_time = time.monotonic()
@@ -1797,6 +1846,8 @@ def main() -> None:
             "optimizer_steps": effective_max_steps,
             "microbatch_size": args.batch_size,
             "gradient_accumulation_steps": effective_grad_accum,
+            "model_accepts_loss_kwargs": False,
+            "custom_loss_gradient_accumulation_scaled_by_trainer": True,
             "scheduled_microbatches": len(rows),
             "chosen_exposures": len(rows),
             "learning_rate": args.learning_rate,

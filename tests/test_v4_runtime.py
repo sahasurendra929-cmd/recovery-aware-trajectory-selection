@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import math
@@ -49,6 +50,130 @@ def make_checkpoint(path: Path, suffix: bytes = b"") -> str:
 
 
 class V4RuntimeTests(unittest.TestCase):
+    def test_preference_trainers_accept_effective_dataset_for_sampler(self):
+        """Both pinned Trainer subclasses must follow Transformers 4.52.4."""
+        stored_dataset = object()
+        effective_dataset = object()
+        trainer = types.SimpleNamespace(train_dataset=stored_dataset)
+        self.assertIs(
+            preference_v4.resolve_train_sampler_dataset(
+                trainer,
+                effective_dataset,
+            ),
+            effective_dataset,
+        )
+        self.assertIs(
+            preference_v4.resolve_train_sampler_dataset(trainer),
+            stored_dataset,
+        )
+
+        source_path = ROOT / "scripts" / "train_preference_v4.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        overrides = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "_get_train_sampler"
+        ]
+        self.assertEqual(len(overrides), 2)
+        for override in overrides:
+            self.assertEqual(
+                [argument.arg for argument in override.args.args],
+                ["self", "train_dataset"],
+            )
+            self.assertEqual(len(override.args.defaults), 1)
+            default = override.args.defaults[0]
+            self.assertIsInstance(default, ast.Constant)
+            self.assertIsNone(default.value)
+            calls = [
+                node
+                for node in ast.walk(override)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "resolve_train_sampler_dataset"
+            ]
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(
+                [argument.id for argument in calls[0].args if isinstance(argument, ast.Name)],
+                ["self", "train_dataset"],
+            )
+
+    def test_continued_sft_enables_trainer_gradient_accumulation_scaling(self):
+        """The custom CE loss must receive Trainer's frozen /8 GA scaling."""
+        source_path = ROOT / "scripts" / "train_preference_v4.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        completion_classes = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ClassDef)
+            and node.name == "CompletionOnlyTrainer"
+        ]
+        self.assertEqual(len(completion_classes), 1)
+        initializers = [
+            node
+            for node in completion_classes[0].body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "__init__"
+        ]
+        self.assertEqual(len(initializers), 1)
+        assignments = [
+            node
+            for node in ast.walk(initializers[0])
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == "self"
+                and target.attr == "model_accepts_loss_kwargs"
+                for target in node.targets
+            )
+        ]
+        self.assertEqual(len(assignments), 1)
+        self.assertIsInstance(assignments[0].value, ast.Constant)
+        self.assertIs(assignments[0].value.value, False)
+
+    def test_preference_training_initializes_cuda_before_peak_reset(self):
+        events: list[str] = []
+
+        class FakeCuda:
+            def init(self) -> None:
+                events.append("init")
+
+            def set_device(self, device: int) -> None:
+                events.append(f"set_device:{device}")
+
+            def synchronize(self, device: int) -> None:
+                events.append(f"synchronize:{device}")
+
+            def empty_cache(self) -> None:
+                events.append("empty_cache")
+
+            def reset_peak_memory_stats(self, device: int) -> None:
+                events.append(f"reset:{device}")
+
+        def empty(*shape: int, **kwargs: object) -> object:
+            events.append(
+                f"allocate:{shape}:{kwargs.get('device')}"
+            )
+            return object()
+
+        fake_torch = types.SimpleNamespace(cuda=FakeCuda(), empty=empty)
+        self.assertEqual(
+            preference_v4.initialize_cuda_peak_tracking(fake_torch),
+            0,
+        )
+        self.assertEqual(
+            events,
+            [
+                "init",
+                "set_device:0",
+                "allocate:(1,):cuda:0",
+                "synchronize:0",
+                "empty_cache",
+                "reset:0",
+            ],
+        )
+
     def test_evaluator_warms_cuda_before_reset_and_measures_generation_peak(self):
         """The Windows evaluator must initialize its allocator before reset.
 
@@ -387,6 +512,8 @@ class V4RuntimeTests(unittest.TestCase):
                         "optimizer_steps": 18,
                         "scheduled_microbatches": 144,
                         "gradient_accumulation_steps": 8,
+                        "model_accepts_loss_kwargs": False,
+                        "custom_loss_gradient_accumulation_scaled_by_trainer": True,
                     },
                     "clean_sft_initialization": {
                         "checkpoint_fingerprint": clean_fingerprint
