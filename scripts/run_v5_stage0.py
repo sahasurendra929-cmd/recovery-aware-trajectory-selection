@@ -29,6 +29,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--api-key", default="stage0-local")
     parser.add_argument("--condition", choices=("clean", "error", "both"), default="both")
+    parser.add_argument(
+        "--pair-id",
+        help="Run exactly one manifest pair (clean/error) for a minimal preflight.",
+    )
     parser.add_argument("--max-steps", type=int, default=60)
     parser.add_argument("--timeout", type=float, default=900.0)
     parser.add_argument("--max-tokens", type=int, default=512)
@@ -50,6 +54,20 @@ def load_manifest(path: Path) -> dict[str, Any]:
     if payload.get("paired_task_count") != 10:
         raise RuntimeError("Stage-0 manifest must contain ten paired tasks")
     return payload
+
+
+def filter_manifest_rows(
+    manifest: dict[str, Any], pair_id: str | None
+) -> list[dict[str, Any]]:
+    rows = list(manifest["rows"])
+    if pair_id is None:
+        return rows
+    selected = [row for row in rows if row["pair_id"] == pair_id]
+    if len(selected) != 1:
+        raise RuntimeError(
+            f"--pair-id must identify exactly one manifest row; got {len(selected)}"
+        )
+    return selected
 
 
 def register_fault_agent() -> None:
@@ -209,6 +227,7 @@ def main() -> None:
     configure_tau2_path(args.tau2_root)
     os.environ.setdefault("OPENAI_API_KEY", args.api_key)
     manifest = load_manifest(args.manifest.resolve())
+    selected_rows = filter_manifest_rows(manifest, args.pair_id)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     register_fault_agent()
 
@@ -216,8 +235,10 @@ def main() -> None:
     output_files = []
     for domain in ("retail", "airline"):
         domain_rows = [
-            row for row in manifest["rows"] if row["domain"] == domain
+            row for row in selected_rows if row["domain"] == domain
         ]
+        if not domain_rows:
+            continue
         for condition in conditions:
             output_files.append(
                 run_condition(

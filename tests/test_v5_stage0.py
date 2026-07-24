@@ -19,6 +19,11 @@ SUMMARY_SPEC = importlib.util.spec_from_file_location(
 SUMMARY_MODULE = importlib.util.module_from_spec(SUMMARY_SPEC)
 assert SUMMARY_SPEC.loader is not None
 SUMMARY_SPEC.loader.exec_module(SUMMARY_MODULE)
+RUN_SCRIPT = ROOT / "scripts" / "run_v5_stage0.py"
+RUN_SPEC = importlib.util.spec_from_file_location("run_v5_stage0", RUN_SCRIPT)
+RUN_MODULE = importlib.util.module_from_spec(RUN_SPEC)
+assert RUN_SPEC.loader is not None
+RUN_SPEC.loader.exec_module(RUN_MODULE)
 
 
 class V5Stage0ProtocolTests(unittest.TestCase):
@@ -83,6 +88,14 @@ class V5Stage0ProtocolTests(unittest.TestCase):
             )
             self.assertTrue(injection["expected_tool_error"])
             self.assertFalse(injection["expected_state_mutation"])
+
+    def test_single_pair_filter_is_exact(self):
+        pair_id = self.smoke["rows"][0]["pair_id"]
+        rows = RUN_MODULE.filter_manifest_rows(self.smoke, pair_id)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["pair_id"], pair_id)
+        with self.assertRaises(RuntimeError):
+            RUN_MODULE.filter_manifest_rows(self.smoke, "missing-pair")
 
     def test_preparation_is_byte_deterministic(self):
         with tempfile.TemporaryDirectory() as second_dir:
