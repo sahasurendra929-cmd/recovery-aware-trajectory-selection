@@ -29,6 +29,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--teacher-mode", choices=("standard", "ground_truth"), required=True)
     parser.add_argument("--tokenizer")
     parser.add_argument("--seed", type=int, default=20260722)
+    parser.add_argument("--min-clean-successes", type=int, default=30)
+    parser.add_argument("--min-recovery-successes", type=int, default=20)
     return parser.parse_args()
 
 
@@ -269,6 +271,16 @@ def main() -> None:
     )
     if not clean or not recovery or not dpo:
         raise RuntimeError("Formal data requires non-empty clean SFT, recovery SFT, and DPO")
+    if clean_stats["successful_runs"] < args.min_clean_successes:
+        raise RuntimeError(
+            f"Only {clean_stats['successful_runs']} successful clean trajectories; "
+            f"need {args.min_clean_successes}"
+        )
+    if recovery_stats["successful_runs"] < args.min_recovery_successes:
+        raise RuntimeError(
+            f"Only {recovery_stats['successful_runs']} successful recovery trajectories; "
+            f"need {args.min_recovery_successes}"
+        )
     if recovery_stats["injected_errors"] != recovery_stats["successful_runs"]:
         raise RuntimeError("Every successful recovery trajectory must contain the injected error")
 
