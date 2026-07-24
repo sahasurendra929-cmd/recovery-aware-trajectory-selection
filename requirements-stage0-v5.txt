@@ -1,3 +1,8 @@
 # Install tau2-bench itself from the frozen local checkout in a dedicated venv:
 #   uv pip install -e /workspace/recovery-aware-trajectory-selection/data/raw/tau2-bench
 pytest==8.4.1
+vllm==0.10.2
+# vLLM 0.10.2 is incompatible with the removed tokenizer attributes in
+# Transformers 5.x; keep this serving stack frozen across all Stage-0 runs.
+transformers==4.55.4
+tokenizers==0.21.4

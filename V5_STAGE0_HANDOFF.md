@@ -96,6 +96,10 @@ Use the network volume for environments, model cache, code, and artifacts:
 Never rebuild a working environment for a new arm. Create a new environment
 only when the dependency lock changes.
 
+The frozen serving stack is `vllm==0.10.2`,
+`transformers==4.55.4`, and `tokenizers==0.21.4`. Transformers 5.x is not
+compatible with the tokenizer interface expected by vLLM 0.10.2.
+
 ## vLLM server
 
 Qwen2.5 already contains a Hermes-compatible tool-use chat template. Start the
