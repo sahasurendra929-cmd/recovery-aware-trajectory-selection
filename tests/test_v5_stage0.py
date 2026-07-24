@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -23,7 +24,9 @@ SUMMARY_SPEC.loader.exec_module(SUMMARY_MODULE)
 class V5Stage0ProtocolTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tau2_root = ROOT / "data" / "raw" / "tau2-bench"
+        cls.tau2_root = Path(
+            os.environ.get("TAU2_ROOT", ROOT / "data" / "raw" / "tau2-bench")
+        )
         if not cls.tau2_root.exists():
             raise unittest.SkipTest("Frozen tau2-bench checkout is unavailable")
         cls.tempdir = tempfile.TemporaryDirectory()
