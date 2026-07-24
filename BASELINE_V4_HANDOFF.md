@@ -51,7 +51,7 @@ The implementation must fill and freeze these values after deterministic
 preparation and before any formal GPU run:
 
 ```text
-V4 repository tag:                 v4-frozen-20260724-p2
+V4 repository tag:                 v4-frozen-20260724-p3
 Implementation parent commit:      7e0419d9b0941902ae149a68498ce9a19b1ea2f1
 Clean train JSONL SHA256:           1bfa3d9df8e38e6a97237aa6efb47cc4bfacd9a15a1a396acdbf213b3f7ca1e8
 Clean train schedule SHA256:        4b28da48082ef5bd3396e7df4b5b723c4efffe4b2e5438f47c8c2ca9d709f386
@@ -62,7 +62,15 @@ Global longest preference pair ID:  sonnet-35-new-retail:task106:trial4:action28
 Test outcome annotations SHA256:     9a4ec2b1e25ee512e5946e8ac770b0fbf6b0ed0d5b61f994c643fc04cd227b57
 ```
 
-These values are frozen. The RTX 5060 operator must not edit or replace them.
+These values are frozen. The RunPod RTX 4090 operator must not edit or replace
+them.
+
+Patch release `v4-frozen-20260724-p3` supersedes
+`v4-frozen-20260724-p2` at commit
+`f710f7480a314328a3fcd0f05917e3ddbb65478d`. P3 changes only the
+RunPod/Linux/RTX-4090 execution instructions, hardware provenance wording, and
+artifact destination. The scientific protocol, data, hashes, model, seed,
+losses, schedules, generation settings, evaluator, and metrics are unchanged.
 
 Patch release `v4-frozen-20260724-p2` supersedes
 `v4-frozen-20260724-p1` at commit
@@ -311,7 +319,7 @@ so the trained policy saves to the root of `checkpoint_final` and reloads
 uniformly. Manifests must record both the internal adapter name and its policy
 role.
 
-## 6. RTX 5060 preflight
+## 6. RunPod RTX 4090 preflight
 
 Use a fresh V4 checkout and fresh output paths. A previously created virtual
 environment may be reused only when every frozen Python/package/CUDA version
@@ -319,7 +327,7 @@ passes the exact preflight; otherwise create a new environment. Reusing a
 verified environment, pip cache, and Hugging Face cache does not change the
 scientific protocol. The laptop must:
 
-- report an RTX 5060 Laptop GPU with approximately 8,151 MiB;
+- report an RTX 4090 GPU with approximately 24,564 MiB;
 - support CUDA and BF16;
 - have at least 6 GiB free VRAM before model loading;
 - have no other Python/CUDA model process;
@@ -473,7 +481,7 @@ results/qlora_v4/pair_scores/clean_sft/
 results/qlora_v4/pair_scores/continued_sft/
 results/qlora_v4/pair_scores/dpo/
 results/analysis_v4/comparison.json
-artifacts/qlora_v4/rtx5060/UPLOAD_MANIFEST.json
+artifacts/qlora_v4/runpod4090/UPLOAD_MANIFEST.json
 ```
 
 ## 9. OOM and interruption policy
@@ -491,7 +499,7 @@ use this flag while the original process is still alive.
 Evaluation must save one prediction at a time under a frozen contract. After a
 disconnect:
 
-1. check `nvidia-smi` and Windows process command lines;
+1. check `nvidia-smi` and Linux process command lines;
 2. if the original process is alive, do not start a duplicate;
 3. if it exited, resume the identical evaluation command;
 4. never alter or manually complete predictions or metrics.
@@ -503,7 +511,7 @@ For CUDA OOM:
    precomputed reference log-probabilities, and `use_logits_to_keep`;
 3. if the maximum-length smoke still OOMs, do not shorten prompts, drop long
    pairs, alter the pair schedule, or silently change one arm;
-4. stop the 5060 DPO run and move the frozen protocol to the 4090.
+4. stop the run and report the frozen protocol as hardware-blocked.
 
 A mathematically equivalent sequential chosen/rejected backend is permissible
 only if implemented, numerically compared with the concatenated TRL backend,
@@ -637,25 +645,25 @@ No result from the already inspected 959 examples is paper-final. The final
 method selected by this screen must be evaluated on fresh uninspected tasks
 with three training seeds and task-cluster paired uncertainty.
 
-## 11. Expected RTX 5060 time
+## 11. Expected RunPod RTX 4090 time
 
 Assuming a warm model cache:
 
 | Stage | Expected time |
 | --- | ---: |
-| CPU preparation and audit | 15–60 minutes |
-| all smoke gates | 20–45 minutes |
-| Clean-SFT formal training | 15–25 minutes |
-| continued-SFT formal training | 5–20 minutes |
-| reference precompute + DPO training | 25–80 minutes |
-| three 959-example evaluations | 6–12 hours |
-| three 48-pair scoring passes | 15–60 minutes |
-| aggregate, package, upload | 15–40 minutes |
-| total | about 8–18 hours |
+| CPU preparation and audit | 10–30 minutes |
+| all smoke gates | 10–30 minutes |
+| Clean-SFT formal training | 5–15 minutes |
+| continued-SFT formal training | 2–10 minutes |
+| reference precompute + DPO training | 10–35 minutes |
+| three 959-example evaluations | 1.5–4 hours |
+| three 48-pair scoring passes | 10–30 minutes |
+| aggregate, package, upload | 10–25 minutes |
+| total | about 2.5–6 hours |
 
-Cold installation/downloads may add 1–2 hours, for about 9–20 hours total. An
-eight-hour night is not a safe promise; reserve up to 20 hours or split
-evaluation across two nights.
+Cold installation/downloads may add 30–90 minutes. These are operational
+estimates, not protocol guarantees; measured wall time and GPU time must be
+reported.
 
 ## 12. Result integrity
 

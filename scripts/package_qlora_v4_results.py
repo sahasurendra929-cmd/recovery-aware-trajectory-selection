@@ -193,7 +193,7 @@ def discovered_v4_source_paths() -> tuple[Path, ...]:
     paths = {
         ROOT / "README.md",
         ROOT / "BASELINE_V4_HANDOFF.md",
-        ROOT / "V4_RTX5060_AGENT_PROMPT.md",
+        ROOT / "V4_RUNPOD4090_AGENT_PROMPT.md",
         ROOT / "requirements-gpu-v4.txt",
         ROOT / "configs" / "qlora_v4.yaml",
     }
@@ -1156,7 +1156,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("artifacts/qlora_v4/rtx5060"),
+        default=Path("artifacts/qlora_v4/runpod4090"),
     )
     args = parser.parse_args()
 
@@ -1288,7 +1288,10 @@ def main() -> None:
     for source, relative in (
         (ROOT / "configs" / "qlora_v4.yaml", Path("configs/qlora_v4.yaml")),
         (ROOT / "BASELINE_V4_HANDOFF.md", Path("BASELINE_V4_HANDOFF.md")),
-        (ROOT / "V4_RTX5060_AGENT_PROMPT.md", Path("V4_RTX5060_AGENT_PROMPT.md")),
+        (
+            ROOT / "V4_RUNPOD4090_AGENT_PROMPT.md",
+            Path("V4_RUNPOD4090_AGENT_PROMPT.md"),
+        ),
         (ROOT / "requirements-gpu-v4.txt", Path("requirements-gpu-v4.txt")),
         (commands_path, Path("results/commands.jsonl")),
     ):

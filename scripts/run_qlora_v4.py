@@ -21,7 +21,7 @@ from prepare_qlora_v4 import (
     EXPECTED_OUTPUT_SHA256,
 )
 
-FROZEN_TAG = "v4-frozen-20260724-p2"
+FROZEN_TAG = "v4-frozen-20260724-p3"
 V3_RESULT_BRANCH = "results/v3-rtx5060-20260724"
 V3_RESULT_COMMIT = "aedf77a5784a364bd76bad42aa0a6cb6fad555b6"
 V3_RESULT_SHA256 = {
@@ -71,7 +71,7 @@ FROZEN_SOURCE_FILES = (
     ".gitignore",
     "README.md",
     "BASELINE_V4_HANDOFF.md",
-    "V4_RTX5060_AGENT_PROMPT.md",
+    "V4_RUNPOD4090_AGENT_PROMPT.md",
     "configs/qlora_v4.yaml",
     "requirements-gpu-v4.txt",
     "scripts/aggregate_qlora_v4.py",

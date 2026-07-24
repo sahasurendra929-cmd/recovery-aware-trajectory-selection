@@ -100,7 +100,7 @@ class V4ProtocolTests(unittest.TestCase):
             train_sft_v4.FROZEN_TAG,
             train_preference_v4.FROZEN_TAG,
         }
-        self.assertEqual(frozen_tags, {"v4-frozen-20260724-p2"})
+        self.assertEqual(frozen_tags, {"v4-frozen-20260724-p3"})
         self.assertEqual(
             aggregate_v4.STANDARD_V3_METRICS_SHA256,
             run_v4.V3_RESULT_SHA256["metrics.json"],
@@ -331,7 +331,7 @@ class V4ProtocolTests(unittest.TestCase):
         handoff = (ROOT / "BASELINE_V4_HANDOFF.md").read_text(
             encoding="utf-8"
         )
-        prompt = (ROOT / "V4_RTX5060_AGENT_PROMPT.md").read_text(
+        prompt = (ROOT / "V4_RUNPOD4090_AGENT_PROMPT.md").read_text(
             encoding="utf-8"
         )
         unresolved_marker = "FILL" + "_AFTER_"
@@ -345,13 +345,13 @@ class V4ProtocolTests(unittest.TestCase):
             handoff,
         )
         self.assertIn(
-            f'$v4Tag = "{run_v4.FROZEN_TAG}"',
+            f'v4_tag="{run_v4.FROZEN_TAG}"',
             prompt,
         )
         self.assertIn("scientific_protocol_changed: false", config)
         self.assertIn(
             "supersedes_commit: "
-            "ab7a5439680eed75967dfcdfbaf6b14014ab54b4",
+            "f710f7480a314328a3fcd0f05917e3ddbb65478d",
             config,
         )
         for value in (

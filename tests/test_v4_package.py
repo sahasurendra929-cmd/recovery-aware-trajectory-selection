@@ -260,6 +260,7 @@ class V4PackageTests(unittest.TestCase):
         self.assertIn("tests/test_v4_protocol.py", relative)
         self.assertIn("tests/test_v4_package.py", relative)
         self.assertIn("configs/qlora_v4.yaml", relative)
+        self.assertIn("V4_RUNPOD4090_AGENT_PROMPT.md", relative)
 
     def test_source_gate_rejects_an_untracked_v4_source(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -267,7 +268,7 @@ class V4PackageTests(unittest.TestCase):
             required = (
                 "README.md",
                 "BASELINE_V4_HANDOFF.md",
-                "V4_RTX5060_AGENT_PROMPT.md",
+                "V4_RUNPOD4090_AGENT_PROMPT.md",
                 "requirements-gpu-v4.txt",
                 "configs/qlora_v4.yaml",
                 "scripts/package_qlora_v4_results.py",

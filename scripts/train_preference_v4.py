@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train either frozen V4 continuation arm on one RTX 5060 (8 GB).
+"""Train either frozen V4 continuation arm on one CUDA GPU.
 
 The two formal arms start from the exact same Clean-SFT adapter and consume
 the exact same 144-row preference schedule in sequential order:
@@ -11,7 +11,7 @@ the exact same 144-row preference schedule in sequential order:
 For DPO, one NF4 base holds two byte-identical copies of the Clean-SFT LoRA
 adapter.  The ``default`` copy is the policy; the ``reference`` copy is
 strictly frozen and is used once to precompute reference log probabilities.
-This avoids loading a second 4-bit base model on an 8 GB GPU.
+This avoids loading a second 4-bit base model.
 
 The script intentionally fails closed on comparison drift, hidden truncation,
 non-finite loss, mutable reference weights, or an incomplete initialization
@@ -62,7 +62,7 @@ DPO_LABEL_SMOOTHING = 0.0
 POLICY_ADAPTER = "default"
 REFERENCE_ADAPTER = "reference"
 REQUIRED_CHECKPOINT_FILES = ("adapter_config.json", "adapter_model.safetensors")
-FROZEN_TAG = "v4-frozen-20260724-p2"
+FROZEN_TAG = "v4-frozen-20260724-p3"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -82,7 +82,7 @@ def resolve_train_sampler_dataset(
 
 
 def initialize_cuda_peak_tracking(torch: Any) -> int:
-    """Initialize the Windows CUDA allocator before resetting peak counters."""
+    """Initialize the CUDA allocator before resetting peak counters."""
     device_index = 0
     torch.cuda.init()
     torch.cuda.set_device(device_index)
