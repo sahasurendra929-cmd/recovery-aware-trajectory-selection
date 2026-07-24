@@ -4,7 +4,8 @@ This repository studies a simple question:
 
 > Under a fixed training-token budget, which successful tool-use trajectories should be retained so that an agent can handle errors and corrections more reliably?
 
-The project is currently at the **offline pilot** stage. It does not claim an end-to-end agent improvement yet.
+The project has completed an offline pilot and a small end-to-end pipeline
+validation. It does not claim an end-to-end agent improvement yet.
 
 ## Current experiment versions
 
@@ -23,6 +24,11 @@ The project is currently at the **offline pilot** stage. It does not claim an en
   matched Clean-SFT with Standard V3, then compares DPO with a
   chosen-exposure-matched continued-SFT control. See
   [`BASELINE_V4_HANDOFF.md`](BASELINE_V4_HANDOFF.md).
+- **v5 Stage 0:** a 20-run paired τ²-bench development smoke test using
+  Qwen2.5-7B-Instruct. The pipeline and fault audit passed, while clean and
+  error-injected task success were both 10% on different tasks. This validates
+  execution and measurement only. See
+  [`STAGE0_V5_RESULT_REPORT.md`](STAGE0_V5_RESULT_REPORT.md).
 
 Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples
@@ -39,6 +45,10 @@ error analysis: failed calls should not remain positive SFT labels, and an
 observed successful repair should be preferred to replaying the failed call in
 the same post-error context.
 
+V5 Stage 0 establishes that the project can now measure full task completion
+after a controlled tool failure. Its 10-pair result is too small and its 7B
+baseline success rate is too low to update the scientific claim.
+
 ## Repository map
 
 ```text
@@ -46,6 +56,7 @@ configs/          frozen experiment contracts
 data/             source and schema documentation; no benchmark data is committed
 scripts/          reproducible offline-pilot code
 results/          versioned, observed pilot outputs
+artifacts/        audited end-to-end summaries and raw development trajectories
 PROJECT_SPEC.md   research specification and evidence rules
 CONTRIBUTING.md   collaboration and reporting rules
 ```
@@ -90,6 +101,8 @@ The label also records whether a user spoke before the corrective tool call. Thi
 - [x] Freeze the constrained-recovery V3 selector and overnight protocol
 - [x] Run the V3 diagnostic on RTX 5060 and pair it with V2 Random
 - [x] Build and audit matched Clean-SFT plus 79 strict V4 preference pairs
+- [x] Run 20 paired τ²-bench Stage-0 end-to-end development trajectories
+- [x] Verify all ten injected failures are real and database-preserving
 - [ ] Run the V4 Clean-SFT / continued-SFT / DPO diagnostic
 - [ ] Confirm any screened V4 signal on fresh held-out tasks and three seeds
 - [ ] Agent-initiated repair taxonomy and controlled error injection
