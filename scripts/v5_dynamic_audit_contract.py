@@ -84,8 +84,8 @@ def load_complete_dynamic_audit(
             or row.get("agent_database_before") is None
             or row.get("agent_database_after") is None
             or row.get("agent_database_unchanged") is not True
-            or row.get("user_database_before") is None
-            or row.get("user_database_after") is None
+            or "user_database_before" not in row
+            or "user_database_after" not in row
             or row.get("user_database_unchanged") is not True
             or row.get("agent_database_before")
             != row.get("agent_database_after")

@@ -112,6 +112,21 @@ class V5DynamicAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "safety evidence"):
             self.validate()
 
+    def test_absent_user_database_is_explicitly_recorded_and_accepted(self):
+        payload = json.loads(self.audit_path.read_text(encoding="utf-8"))
+        for row in payload["rows"]:
+            row["user_database_before"] = None
+            row["user_database_after"] = None
+        self.audit_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        identity = self.validate()
+        self.assertEqual(identity["verified_injections"], 4)
+
+        payload["rows"][0].pop("user_database_before")
+        self.audit_path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "safety evidence"):
+            self.validate()
+
     def test_incomplete_or_manifest_unbound_dynamic_audit_is_rejected(self):
         payload = json.loads(self.audit_path.read_text(encoding="utf-8"))
         payload["status"] = "PASS"
