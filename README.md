@@ -29,6 +29,24 @@ validation. It does not claim an end-to-end agent improvement yet.
   error-injected task success were both 10% on different tasks. This validates
   execution and measurement only. See
   [`STAGE0_V5_RESULT_REPORT.md`](STAGE0_V5_RESULT_REPORT.md).
+- **v5 Stage 1 (designed, not yet run):** a controlled SFT
+  data-composition/mechanism screen on full multi-turn trajectories. Under
+  matched task, supervised-token, non-padding-token, and optimizer-step
+  budgets, it compares flawless demonstrations,
+  deliberately positive supervision of one failed action, masked failure
+  context followed by later verified-success tool actions, and a 50/50
+  clean–post-fault mixture by supervised-token mass. It trains Qwen2.5-7B
+  with QLoRA and evaluates an
+  additional untrained-base
+  control on paired clean/error-injected end-to-end validation tasks. Its
+  isolated manifest at `data/processed/v5_stage1_protocol` covers multiple
+  read-only fault families across all 83 generation tasks and all 21
+  validation tasks. Its frozen split input is the repository-tracked
+  `artifacts/v5_stage0/manifests/split_manifest.json`; generated
+  `data/processed/v5_stage0` files are not Stage-1 inputs. The claim is
+  post-fault task robustness, not proof of semantic repair; per-family results
+  are descriptive only. See
+  [`V5_STAGE1_SFT_HANDOFF.md`](V5_STAGE1_SFT_HANDOFF.md).
 
 Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples
@@ -103,6 +121,12 @@ The label also records whether a user spoke before the corrective tool call. Thi
 - [x] Build and audit matched Clean-SFT plus 79 strict V4 preference pairs
 - [x] Run 20 paired τ²-bench Stage-0 end-to-end development trajectories
 - [x] Verify all ten injected failures are real and database-preserving
+- [x] Freeze the V5 Stage-1 controlled SFT data, training, and end-to-end evaluation code
+- [x] Isolate the Stage-1 multi-fault manifests from immutable Stage-0 artifacts
+- [ ] Dynamically audit all 83 generation and 21 validation injected calls
+- [ ] Generate and audit the paired V5 Stage-1 inner-train trajectory pool
+- [ ] Run the four one-seed 7B QLoRA screening arms plus untrained-base control
+- [ ] Replicate a gate-passing mixture on three seeds before unsealing test
 - [ ] Run the V4 Clean-SFT / continued-SFT / DPO diagnostic
 - [ ] Confirm any screened V4 signal on fresh held-out tasks and three seeds
 - [ ] Agent-initiated repair taxonomy and controlled error injection

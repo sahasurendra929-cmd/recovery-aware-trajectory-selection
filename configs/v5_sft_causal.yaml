@@ -1,0 +1,304 @@
+experiment_name: v5_stage1_sft_causal
+protocol: v5_stage1_sft_causal
+protocol_status: candidate_pending_data_and_gpu_preflight
+claim_boundary: validation_screen_only_until_three_seed_sealed_test_confirmation
+claim_scope: multi_fault_family_post_fault_robustness_screen
+semantic_repair_claim_allowed: false
+fault_family_inference: descriptive_only
+seed: 20260722
+confirmation_seeds: [20260722, 20260723, 20260724]
+
+research_question: >-
+  Under a fixed task and supervised-token budget, compare the effects of
+  observing a recoverable tool failure, positively supervising that failed
+  action, and supervising only later verified-success tool actions.
+design_interpretation: controlled_data_composition_and_mechanism_screen
+causal_identification_claimed: false
+unavoidable_identification_limit: >-
+  Clean and repair demonstrations match task and compute budgets, but their
+  contexts and successful action sequences necessarily differ.
+semantic_identification_limit: >-
+  The evaluator proves a read-only error occurred and measures behavior after
+  it, but it does not prove that the first later successful call semantically
+  repairs that exact error. Legacy repair arm names are compatibility labels.
+
+benchmark:
+  repository: https://github.com/sierra-research/tau2-bench.git
+  release: v1.0.1
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  domains: [retail, airline]
+  inner_train_tasks: {retail: 59, airline: 24, total: 83}
+  derived_validation_tasks: {retail: 15, airline: 6, total: 21}
+  sealed_official_test_tasks: {retail: 40, airline: 20, total: 60}
+  split_unit: task_id
+  official_test_policy: sealed_until_method_and_hyperparameters_are_frozen
+
+historical_stage0_contract:
+  directory: artifacts/v5_stage0/manifests
+  split_manifest: artifacts/v5_stage0/manifests/split_manifest.json
+  split_manifest_sha256: a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a
+  seed: 20260722
+  use: immutable_read_only_split_input
+  bytes_and_hashes_must_remain_unchanged: true
+  regenerate_or_rewrite_for_stage1: false
+
+stage1_fault_manifests:
+  protocol: v5_multifamily_readonly_faults_v1
+  output_dir: data/processed/v5_stage1_protocol
+  generation_manifest: data/processed/v5_stage1_protocol/generation_manifest.json
+  validation_manifest: data/processed/v5_stage1_protocol/validation_manifest.json
+  generation_dynamic_audit: data/processed/v5_stage1_protocol/generation_dynamic_audit.json
+  validation_dynamic_audit: data/processed/v5_stage1_protocol/validation_dynamic_audit.json
+  generation_tasks: 83
+  validation_tasks: 21
+  official_test_used: false
+  invalid_parameter: unique_and_database_absent_per_task
+  tool_type: READ
+  expected_tool_error: true
+  expected_state_mutation: false
+  source_hashes_bound_per_domain: [tasks_json_sha256, db_json_sha256, tools_py_sha256]
+  full_dynamic_audit:
+    generation_rows: 83
+    validation_rows: 21
+    required_before_generation_or_evaluation: true
+  assignment_priority:
+    - reference_path_or_operation_aligned
+    - lowest_count_family_balance
+  fallback_relevance_label: domain_plausible_fallback
+  family_grouping: descriptive_only_not_an_independent_causal_estimate
+
+models:
+  trajectory_teacher:
+    model: Qwen/Qwen2.5-14B-Instruct-AWQ
+    role: generate_paired_inner_train_clean_and_repaired_success_trajectories
+    revision: 539535859b135b0244c91f3e59816150c8056698
+  screen_student:
+    model: Qwen/Qwen2.5-7B-Instruct
+    role: one_seed_validation_screen
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+  confirmation_student:
+    model: Qwen/Qwen2.5-7B-Instruct
+    role: three_seed_confirmation_only_after_screen_gate
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+  optional_scale_check:
+    model: Qwen/Qwen2.5-14B-Instruct
+    role: later_scale_check_not_part_of_the_stage1_screen
+    required_for_stage1: false
+  trajectory_generation_user_and_judge:
+    model: Qwen/Qwen2.5-7B-Instruct-AWQ
+    role: memory_efficient_frozen_roles_during_14b_teacher_generation
+    revision: b25037543e9394b818fdfca67ab2a00ecc7dd641
+  frozen_evaluation_user_and_judge:
+    model: Qwen/Qwen2.5-7B-Instruct
+    role: base_alias_without_any_arm_adapter_across_all_validation_runs
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+    must_not_use_arm_adapter: true
+
+paired_master_pool:
+  source_split: derived_inner_train_only
+  pairing_key: [domain, task_id, rollout_seed]
+  clean_eligibility:
+    official_task_reward: 1.0
+    tool_errors: 0
+    invalid_tool_calls: 0
+  recovery_eligibility:
+    official_task_reward: 1.0
+    controlled_injected_failures: exactly_1
+    injected_failure_must_be_read_only: true
+    injected_tool_result_error: true
+    additional_tool_errors: 0
+    at_least_one_later_id_matched_non_error_tool_result: true
+    semantic_link_to_injected_failure_proven: false
+  exclude_final_failure_from_sft_positive_labels: true
+  deduplicate_before_arm_construction: true
+  maximum_slots_per_task: fixed_equal_cap
+  minimum_screen_pool:
+    distinct_task_ids: 40
+    paired_slots: 120
+  preferred_screen_pool:
+    distinct_task_ids: 40
+    paired_slots: 240
+
+label_contract:
+  format: messages_plus_message_level_label_mask
+  no_future_messages: true
+  only_assistant_messages_may_be_supervised: true
+  supervised_assistant_message_type: tool_call_only
+  tool_call_label_requires_adjacent_id_matched_tool_result: true
+  successful_tool_call_label_requires_error_false: true
+  assistant_text_is_context_not_label: true
+  tool_and_user_messages_are_never_labels: true
+  candidate_tool_call_ids_must_be_neutralized: true
+  provider_or_arm_specific_label_markers_forbidden: true
+
+arms:
+  perfect_success:
+    clean_supervised_token_fraction: 1.0
+    recovery_supervised_token_fraction: 0.0
+    failed_action_supervised: false
+    purpose: flawless_success_control
+  failure_raw:
+    clean_supervised_token_fraction: 0.0
+    recovery_supervised_token_fraction: 1.0
+    failed_action_supervised: true
+    failed_action_scope: controlled_injected_failure_only
+    purpose: intentionally_harmful_failure_supervision_control
+    deployment_candidate: false
+  repair_50:
+    clean_supervised_token_fraction: 0.5
+    recovery_supervised_token_fraction: 0.5
+    failed_action_supervised: false
+    failed_action_remains_masked_context: true
+    purpose: intermediate_recovery_mixture_candidate
+  repair_100:
+    clean_supervised_token_fraction: 0.0
+    recovery_supervised_token_fraction: 1.0
+    failed_action_supervised: false
+    failed_action_remains_masked_context: true
+    purpose: all_recovery_endpoint
+  repair_25:
+    optional_after_initial_screen: true
+    clean_supervised_token_fraction: 0.75
+    recovery_supervised_token_fraction: 0.25
+    failed_action_supervised: false
+  repair_75:
+    optional_after_initial_screen: true
+    clean_supervised_token_fraction: 0.25
+    recovery_supervised_token_fraction: 0.75
+    failed_action_supervised: false
+
+matching:
+  task_id_multiset: identical_across_core_arms
+  paired_slot_count: identical_across_core_arms
+  scheduled_supervised_tokens_tolerance_fraction: 0.01
+  scheduled_total_nonpadding_tokens_tolerance_fraction: 0.02
+  optimizer_steps: identical_across_core_arms
+  arm_batch_order: deterministic_hash_order
+  actual_tokens_and_gpu_hours_must_be_reported: true
+  unavoidable_treatment_difference: recovery_context_contains_one_failure_and_error_result
+
+training:
+  method: qlora_sft
+  base_model: Qwen/Qwen2.5-7B-Instruct
+  load_in_4bit: true
+  quantization:
+    type: nf4
+    double_quant: true
+    compute_dtype: bfloat16
+  lora:
+    rank: 16
+    alpha: 32
+    dropout: 0.0
+    target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  max_sequence_tokens: 8192
+  runtime_truncation: false
+  per_device_batch_size: 1
+  gradient_accumulation: 8
+  optimizer: paged_adamw_8bit
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  gradient_checkpointing: true
+  bf16: true
+  sampler: frozen_sequential_schedule
+  optimizer_steps: derived_from_common_arm_schedule
+  smoke_optimizer_steps: 2
+  save_only_final_adapter: true
+
+validation_evaluation:
+  protocol: v5_stage1_sft_causal_validation
+  source_manifest: data/processed/v5_stage1_protocol/validation_manifest.json
+  manifest: data/processed/v5_sft_causal/validation_manifest.json
+  tasks: 21
+  conditions: [clean, error]
+  evaluation_only_control: base_model
+  primary_metric: tau2_official_composite_task_success_error_condition
+  safety_metric: tau2_official_composite_task_success_clean_condition
+  computed_diagnostics:
+    - repeated_identical_failed_call_rate
+    - valid_post_error_tool_result_rate
+  fault_family_grouping:
+    inference: descriptive_only
+    changes_primary_gate: false
+  archived_raw_telemetry_not_gate:
+    - invalid_tool_call_rate
+    - recovery_steps
+    - prompt_and_completion_tokens
+    - wall_clock_seconds
+  generation:
+    temperature: 0
+    max_tokens: 512
+    max_steps: 60
+    task_timeout_seconds: 900
+    seed: 20260722
+    num_trials: 1
+  role_alias_contract:
+    agent: arm_checkpoint
+    user_simulator: frozen_evaluation_user_and_judge_base_alias
+    nl_judge: frozen_evaluation_user_and_judge_base_alias
+    single_server_per_machine: true
+
+screen_gate:
+  comparison_arm: perfect_success
+  candidate_arm: repair_50
+  injected_additional_successes_required_of_21: 2
+  clean_success_losses_allowed_of_21: 1
+  failed_call_replay_must_not_increase: true
+  interpretation: directional_validation_signal_not_a_paper_claim
+
+execution:
+  generation_assignment:
+    machine_0:
+      service: shared_7b_awq_user_and_judge
+      client_shards: []
+    machine_1:
+      service: local_14b_awq_teacher
+      client_shards: [0, 3]
+      shard_execution: sequential
+    machine_2:
+      service: local_14b_awq_teacher
+      client_shards: [1]
+    machine_3:
+      service: local_14b_awq_teacher
+      client_shards: [2]
+    num_shards: 4
+  training_assignment:
+    machine_0: perfect_success
+    machine_1: failure_raw
+    machine_2: repair_50
+    machine_3: repair_100
+  validation_assignment:
+    every_machine: one_unquantized_7b_base_plus_four_lora_aliases
+    user_and_judge_alias: openai/v5-base
+    second_7b_server_forbidden: true
+  preferred_gpu: NVIDIA_RTX_4090_24GB
+  live_peer_connection:
+    generation: true
+    training: false
+    validation: false
+  coordination_transport: frozen_git_commit_plus_hashed_manifests
+  screen_hardware_note: >-
+    Prefer the same GPU type and frozen software image for all four arms.
+    Rotate arm-to-machine assignments across confirmation seeds so an arm is
+    not permanently confounded with one machine.
+
+statistics:
+  independent_unit: task_id
+  repeated_rollouts_and_training_seeds_are_not_independent_tasks: true
+  validation_use: method_and_mixture_selection_only
+  final_training_seeds_required: 3
+  final_ci: domain_stratified_hierarchical_paired_bootstrap
+  final_test: task_cluster_paired_randomization
+  seedwise_binary_auxiliary_test: exact_mcnemar
+  clean_noninferiority_margin: -0.05
+  multiple_comparisons: holm_if_more_than_one_confirmatory_contrast
+
+invalid_claims:
+  - guaranteed_positive_result
+  - failure_trajectories_are_inherently_beneficial
+  - validation_screen_is_paper_level_confirmation
+  - next_tool_call_exact_match_is_end_to_end_agent_success
+  - repeated_rollouts_increase_the_number_of_independent_task_ids
+  - failure_raw_is_a_deployment_candidate
+  - matched_budgets_fully_identify_a_causal_effect
