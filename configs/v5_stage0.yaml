@@ -1,0 +1,94 @@
+experiment_name: v5_stage0_end_to_end_smoke
+protocol: v5_stage0_tau2_end_to_end
+protocol_status: candidate_until_all_stage0_gates_pass
+claim_boundary: infrastructure_and_measurement_validation_only
+seed: 20260722
+
+benchmark:
+  repository: https://github.com/sierra-research/tau2-bench.git
+  release: v1.0.1
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  domains: [retail, airline]
+  official_train_tasks: {retail: 74, airline: 30, total: 104}
+  sealed_official_test_tasks: {retail: 40, airline: 20, total: 60}
+  test_policy: ids_and_file_hashes_may_be_audited_but_task_content_must_not_drive_development
+
+development_split:
+  source: official_train_only
+  deterministic_rule: sha256_order_of_seed_domain_task_id
+  validation_tasks: {retail: 15, airline: 6, total: 21}
+  inner_train_tasks: {retail: 59, airline: 24, total: 83}
+  validation_used_for: stage0_smoke_and_later_model_selection
+  official_test_used_for: final_locked_evaluation_only
+
+stage0:
+  training: false
+  paired_task_count: 10
+  clean_runs: 10
+  error_injected_runs: 10
+  total_end_to_end_runs: 20
+  domain_quota: {retail: 7, airline: 3}
+  injection:
+    timing: first_agent_turn_after_initial_user_message
+    type: deterministic_nonexistent_identifier
+    read_only_tools:
+      - find_user_id_by_email
+      - find_user_id_by_name_zip
+      - get_user_details
+      - get_reservation_details
+    required_tool_error: true
+    required_database_mutation: false
+  gates:
+    manifest_audit_pass: true
+    official_test_overlap: 0
+    injected_error_observed: 10
+    infrastructure_failures: 0
+    paired_task_ids_identical: true
+    complete_result_files: 4
+
+runtime:
+  hardware: NVIDIA_RTX_4090_24GB
+  model: Qwen/Qwen2.5-7B-Instruct
+  model_role: stage0_agent_and_local_user_simulator
+  model_reason: pipeline_validation_with_a_model_larger_than_v1_to_v4
+  serving: vllm_openai_compatible
+  litellm_model: openai/Qwen/Qwen2.5-7B-Instruct
+  api_base: http://127.0.0.1:8000/v1
+  decoding:
+    temperature: 0
+    max_tokens: 512
+  max_steps: 60
+  task_timeout_seconds: 900
+  max_concurrency: 1
+  enforce_communication_protocol: false
+  vllm:
+    version: 0.10.2
+    transformers_version: 4.55.4
+    tokenizers_version: 0.21.4
+    dtype: auto
+    max_model_len: 16384
+    gpu_memory_utilization: 0.88
+    enable_auto_tool_choice: true
+    tool_call_parser: hermes
+    generation_config: vllm
+
+metrics:
+  primary: tau2_official_composite_task_success
+  report:
+    - clean_task_success
+    - error_injected_task_success
+    - paired_task_success_delta
+    - injected_error_observed_rate
+    - repeated_identical_error_rate
+    - valid_post_error_tool_result_rate
+    - steps_after_error
+    - prompt_and_completion_tokens
+    - wall_clock_seconds
+  uncertainty: paired_bootstrap_confidence_interval_for_later_formal_runs
+  stage0_statistics_policy: descriptive_only_no_scientific_claim
+
+limitations:
+  - The same local model is used for the agent, user simulator, and qualitative judge.
+  - Ten paired development tasks are too few for a paper-level confidence interval.
+  - Stage 0 validates execution and measurement, not the recovery-aware training claim.
+  - Formal evaluation must use a separately frozen capable user simulator and judge.

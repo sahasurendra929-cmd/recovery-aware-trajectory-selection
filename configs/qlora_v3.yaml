@@ -1,0 +1,117 @@
+experiment_name: constrained_recovery_qlora_v3
+protocol: qlora_v3_constrained_recovery
+training_and_evaluation_protocol: qlora_v2_frozen
+claim_boundary: diagnostic_offline_next_tool_call_on_already_inspected_v2_test
+seed: 20260722
+
+data:
+  source: legacy_tau_bench_historical_retail
+  source_revision: 59a200c6d575d595120f1cb70fea53cef0632f6b
+  raw_sha256:
+    gpt-4o-retail.json: df01707894836168ff0ec9616b0bf08f66c7e5afcf313e5fe4f7a2f5c2ec938b
+    sonnet-35-new-retail.json: 0df526398e9d2720c32d340815cffb04fe8c4f8a61b1f4f84bf3bb558f760131
+  successful_trajectories_only: true
+  split_unit: task_key
+  split: [0.70, 0.10, 0.20]
+  task_counts: {train: 78, validation: 11, test: 22}
+  shared_examples: {validation: 392, test: 959}
+  validation_sha256: 71f66c41394a50e3d992b7b860bb444774e7215ada3ad95e7d749b911916057a
+  test_sha256: 0da63463a65d3b377b3ef3a7e0032a8ffabdc8ab3e439c33850a1eea1ee8fd96
+
+model:
+  base: Qwen/Qwen2.5-0.5B-Instruct
+  revision: 7ae557604adf67be50417f59c2c2f167def9a775
+  objective: completion_only_causal_language_model_cross_entropy
+
+prompt_protocol:
+  max_sequence_tokens: 2048
+  max_prompt_tokens: 1664
+  max_completion_tokens: 384
+  runtime_truncation: false
+  system_policy: retain_full_or_fail
+  task_anchor: tokenizer_bounded_head_and_tail
+  recent_history: contiguous_message_suffix
+
+selection:
+  arm: constrained_recovery
+  control: completed_v2_random_success
+  changed_factor: training_trajectory_selection_only
+  validation_or_test_outcomes_used: false
+  failed_action_labels_removed: false
+  source_token_quotas:
+    gpt-4o-retail: 523182
+    sonnet-35-new-retail: 1167747
+  total_sft_tokens: 1690929
+  strict_constraints:
+    examples: {min: 1045, max: 1088}
+    unique_tasks_min: 60
+    v2_random_task_overlap_min: 57
+    non_recovery_targets_min: 939
+    recovery_targets: {min: 100, max: 139}
+    agent_initiated_targets_min: 20
+    target_tool_total_variation_max: 0.075
+    scheduled_target_tool_total_variation_max: 0.075
+    v2_random_token_overlap_min: 0.65
+    scheduled_loss_token_relative_delta_max: 0.05
+    unpaired_failed_action_excess_max: 3
+  frozen_selected_output:
+    trace_set_sha256: a65bba64baf7c9a6e816e721b382511211aa9df6f5204e7c4cce74f78b992cc5
+    train_jsonl_sha256: 6b991fe03c7b79132438f8681dccee9e4fab2003a5859bd1abce26ba32ed046d
+    train_schedule_sha256: 46acdd204d3dc213389af9b44ed6884031899a82615f8a9be47e024c30e2ea38
+    trajectories: 167
+    examples: 1069
+    unique_tasks: 76
+    v2_random_task_overlap: 63
+    v2_random_token_overlap: 0.6721890747630445
+    recovery_targets: 102
+    agent_initiated_targets: 20
+    non_recovery_targets: 967
+    failed_action_targets: 104
+    unique_recovery_signatures: 26
+    unique_agent_recovery_signatures: 15
+    target_tool_total_variation: 0.06992296986364839
+    scheduled_target_tool_total_variation: 0.07444852941176469
+    scheduled_loss_tokens: 36599
+
+training:
+  trainer: scripts/train_qlora_v2.py
+  microbatches: 1088
+  optimizer_steps: 68
+  per_device_batch_size: 1
+  gradient_accumulation: 16
+  padding_tokens: 2048
+  learning_rate: 1.0e-4
+  quantization: nf4_4bit_double_quant
+  compute_dtype: bfloat16
+  lora: {r: 16, alpha: 32, dropout: 0.05}
+
+evaluation:
+  evaluator: scripts/evaluate_tool_actions_v3.py
+  examples: 959
+  base_model_loading: nf4_4bit
+  generation: {do_sample: false, max_new_tokens: 128, batch_size: 1}
+  resumable_predictions: strict_tail_repair_only
+  metrics: [json_validity, tool_name_accuracy, argument_exact_match, full_call_exact_match]
+  subsets: [overall, non_recovery, recovery, agent_initiated, user_assisted]
+  paired_control: v2_random_success_predictions
+
+diagnostic_decision_rule:
+  non_recovery_retention:
+    metric: non_recovery_full_call_exact
+    examples: 906
+    v2_random_correct: 286
+    threshold: 0.29567328918322294
+    rationale: no_more_than_2_percentage_points_below_v2_random_non_recovery
+  recovery_signal:
+    metric: recovery_full_call_exact
+    threshold: 0.6226415094339622
+    rationale: at_least_2_more_correct_of_53_than_v2_random
+  positive_pilot_requires: [non_recovery_retention, recovery_signal]
+  statistical_status: screening_rule_not_paper_final_significance
+
+invalid_claims:
+  - end_to_end_agent_success
+  - executable_tool_success
+  - paper_final_confirmation
+  - independent_held_out_confirmation
+  - guaranteed_positive_result
