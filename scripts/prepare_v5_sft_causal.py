@@ -794,7 +794,17 @@ def analyze_simulation(
         calls = message.get("tool_calls") or []
         if calls:
             if message.get("role") != "assistant" or len(calls) != 1:
-                raise RuntimeError("Stage-1 requires one assistant tool call per turn")
+                return {
+                    "messages": messages,
+                    "outcomes": [],
+                    "first_user": first_user,
+                    "eligible": False,
+                    "reason": "invalid_simulation_non_single_tool_call",
+                    "final_success": False,
+                    "failed": [],
+                    "injected": [],
+                    "repair_index": None,
+                }
             if message.get("content") not in (None, ""):
                 raise RuntimeError("assistant may not mix text and tool call")
             name, arguments, call_id = _function_call(

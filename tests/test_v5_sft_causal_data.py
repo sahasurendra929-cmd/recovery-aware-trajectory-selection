@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from collections import Counter
+from copy import deepcopy
 from pathlib import Path
 
 from tests.v5_multifault_fixtures import (
@@ -547,6 +548,39 @@ class V5SFTCausalDataTests(unittest.TestCase):
         self.assertEqual(audit["status"], "PASS")
         self.assertEqual(
             audit["exclusions"]["clean:invalid_simulation_no_messages"],
+            1,
+        )
+        for arm in audit["arms"]:
+            rows = self.read_jsonl(self.output / "arms" / arm / "train.jsonl")
+            self.assertFalse(
+                any(
+                    row["metadata"]["task_id"] == "1"
+                    and row["metadata"]["trial"] == 3
+                    for row in rows
+                )
+            )
+
+    def test_multi_tool_call_rollout_is_excluded_without_truncation(self):
+        target = self.raw / "retail_clean.shard-001-of-002.json"
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        malformed = next(
+            row
+            for row in payload["simulations"]
+            if row["task_id"] == "1" and row["trial"] == 3
+        )
+        assistant = next(
+            message
+            for message in malformed["messages"]
+            if message.get("role") == "assistant" and message.get("tool_calls")
+        )
+        assistant["tool_calls"].append(deepcopy(assistant["tool_calls"][0]))
+        target.write_text(json.dumps(payload), encoding="utf-8")
+
+        audit = self.run_prepare()
+
+        self.assertEqual(audit["status"], "PASS")
+        self.assertEqual(
+            audit["exclusions"]["clean:invalid_simulation_non_single_tool_call"],
             1,
         )
         for arm in audit["arms"]:
