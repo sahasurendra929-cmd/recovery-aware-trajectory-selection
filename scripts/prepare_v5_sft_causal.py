@@ -766,7 +766,20 @@ def analyze_simulation(
 ) -> dict[str, Any]:
     messages = simulation.get("messages")
     if not isinstance(messages, list) or not messages:
-        raise RuntimeError("simulation has no messages")
+        # tau2 may persist an empty rollout when inference terminates before the
+        # first message (for example, after a context-window rejection). Such a
+        # rollout has no evidence that can safely become an SFT label.
+        return {
+            "messages": [],
+            "outcomes": [],
+            "first_user": None,
+            "eligible": False,
+            "reason": "invalid_simulation_no_messages",
+            "final_success": False,
+            "failed": [],
+            "injected": [],
+            "repair_index": None,
+        }
     outcomes: list[dict[str, Any]] = []
     tool_result_indices: set[int] = set()
     first_user = next(
@@ -1447,6 +1460,14 @@ def prepare(
         recovery_analysis = analyze_simulation(
             error_raw[(domain, task_id, trial)], condition="error"
         )
+        if not clean_analysis["eligible"] or not recovery_analysis["eligible"]:
+            exclusions[f"clean:{clean_analysis['reason']}"] += (
+                not clean_analysis["eligible"]
+            )
+            exclusions[f"recovery:{recovery_analysis['reason']}"] += (
+                not recovery_analysis["eligible"]
+            )
+            continue
         injected = recovery_analysis["injected"]
         if len(injected) != 1 or (
             injected[0]["name"],
@@ -1459,14 +1480,6 @@ def prepare(
                 f"{domain}:{task_id}:{trial}: injected fault differs from "
                 "multi-fault manifest"
             )
-        if not clean_analysis["eligible"] or not recovery_analysis["eligible"]:
-            exclusions[f"clean:{clean_analysis['reason']}"] += (
-                not clean_analysis["eligible"]
-            )
-            exclusions[f"recovery:{recovery_analysis['reason']}"] += (
-                not recovery_analysis["eligible"]
-            )
-            continue
         pair_id = f"{domain}:{task_id}:{trial}"
         context = domain_contexts[domain]
         clean = make_source_example(

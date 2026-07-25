@@ -531,6 +531,34 @@ class V5SFTCausalDataTests(unittest.TestCase):
                 self.assertIn("call_0001", serialized)
         self.assertTrue(all(value == task_multisets[0] for value in task_multisets))
 
+    def test_empty_tau2_rollout_is_excluded_without_becoming_a_label(self):
+        target = self.raw / "retail_clean.shard-001-of-002.json"
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        empty = next(
+            row
+            for row in payload["simulations"]
+            if row["task_id"] == "1" and row["trial"] == 3
+        )
+        empty["messages"] = []
+        target.write_text(json.dumps(payload), encoding="utf-8")
+
+        audit = self.run_prepare()
+
+        self.assertEqual(audit["status"], "PASS")
+        self.assertEqual(
+            audit["exclusions"]["clean:invalid_simulation_no_messages"],
+            1,
+        )
+        for arm in audit["arms"]:
+            rows = self.read_jsonl(self.output / "arms" / arm / "train.jsonl")
+            self.assertFalse(
+                any(
+                    row["metadata"]["task_id"] == "1"
+                    and row["metadata"]["trial"] == 3
+                    for row in rows
+                )
+            )
+
     def test_raw_and_masked_labels_have_strict_outcomes(self):
         self.run_prepare()
         raw_rows = self.read_jsonl(
