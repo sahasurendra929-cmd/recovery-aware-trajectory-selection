@@ -491,6 +491,7 @@ def validate_generation_contracts(
     expected_seed: int,
     expected_source_commit: str,
     dynamic_audit_identity: dict[str, Any],
+    expected_generation_source_commit: str | None = None,
     expected_shards: int = 4,
     observed_source_commit: str | None = None,
 ) -> dict[str, Any]:
@@ -508,6 +509,8 @@ def validate_generation_contracts(
             "local source commit drift: "
             f"HEAD={observed_source_commit}, expected={expected_source_commit}"
         )
+    if expected_generation_source_commit is None:
+        expected_generation_source_commit = expected_source_commit
     manifest = json.loads(generation_manifest.read_text(encoding="utf-8"))
     rows = manifest.get("rows")
     if not isinstance(rows, list):
@@ -643,7 +646,7 @@ def validate_generation_contracts(
             or any(character not in "0123456789abcdef" for character in source_commit)
         ):
             raise RuntimeError(f"{path}: invalid source commit")
-        if source_commit != expected_source_commit:
+        if source_commit != expected_generation_source_commit:
             raise RuntimeError(f"{path}: source commit differs from frozen invocation")
         source_commits.add(source_commit)
         for role in ("teacher", "user", "judge"):
@@ -1385,6 +1388,7 @@ def prepare(
     validation_dynamic_audit: Path | None = None,
     strict_generation_contracts: bool = True,
     expected_source_commit: str | None = None,
+    expected_generation_source_commit: str | None = None,
 ) -> dict[str, Any]:
     if not tokenizer_revision:
         raise RuntimeError("A pinned 7B tokenizer revision is required")
@@ -1456,6 +1460,7 @@ def prepare(
             expected_trials=expected_trials,
             expected_seed=seed,
             expected_source_commit=expected_source_commit,
+            expected_generation_source_commit=expected_generation_source_commit,
             dynamic_audit_identity=generation_dynamic_audit_identity,
         )
     clean_raw, error_raw, raw_paths = load_raw(
@@ -1817,6 +1822,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--generation-dynamic-audit", type=Path, required=True)
     parser.add_argument("--validation-dynamic-audit", type=Path, required=True)
     parser.add_argument("--expected-source-commit", required=True)
+    parser.add_argument("--expected-generation-source-commit")
     parser.add_argument("--raw-dir", type=Path, required=True)
     parser.add_argument("--tau2-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -1864,6 +1870,16 @@ def main() -> None:
         )
     ):
         raise RuntimeError("--expected-source-commit must be a full lowercase commit")
+    if args.expected_generation_source_commit is not None and (
+        len(args.expected_generation_source_commit) != 40
+        or any(
+            character not in "0123456789abcdef"
+            for character in args.expected_generation_source_commit
+        )
+    ):
+        raise RuntimeError(
+            "--expected-generation-source-commit must be a full lowercase commit"
+        )
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -1880,6 +1896,7 @@ def main() -> None:
         generation_dynamic_audit=args.generation_dynamic_audit.resolve(),
         validation_dynamic_audit=args.validation_dynamic_audit.resolve(),
         expected_source_commit=args.expected_source_commit,
+        expected_generation_source_commit=args.expected_generation_source_commit,
         raw_dir=args.raw_dir.resolve(),
         output_dir=args.output_dir.resolve(),
         tokenizer=tokenizer,

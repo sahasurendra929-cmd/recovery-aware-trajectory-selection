@@ -468,6 +468,24 @@ class V5SFTCausalDataTests(unittest.TestCase):
             observed_source_commit="4" * 40,
         )
 
+    def test_generation_and_processing_commits_are_audited_separately(self):
+        raw_dir, generation_manifest, _, audit_identity, _, _ = (
+            self.strict_generation_fixture("separate-source-commits")
+        )
+        audit = MODULE.validate_generation_contracts(
+            raw_dir=raw_dir,
+            split_manifest=self.split_path,
+            split=MODULE.load_split(self.split_path, strict_counts=False),
+            generation_manifest=generation_manifest,
+            expected_trials=3,
+            expected_seed=MODULE.SEED,
+            expected_source_commit="5" * 40,
+            expected_generation_source_commit="4" * 40,
+            dynamic_audit_identity=audit_identity,
+            observed_source_commit="5" * 40,
+        )
+        self.assertEqual(audit["source_commit"], "4" * 40)
+
     def test_builds_paired_pool_and_all_schedules(self):
         audit = self.run_prepare()
         self.assertEqual(audit["status"], "PASS")
