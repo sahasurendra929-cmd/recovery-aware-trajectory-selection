@@ -175,6 +175,52 @@ def write_host_preflight(path):
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def runtime_capacity_evidence(request_id):
+    return {
+        "status": "PASS",
+        "probe_kind": MODULE.SCREEN_RUNTIME_CAPACITY_PROBE_KIND,
+        "request_id": request_id,
+        "endpoint": "chat/completions",
+        "finish_reason": "stop",
+        "max_tokens": MODULE.SCREEN_MAX_TOKENS,
+        "prompt_tokens": 27_500,
+        "completion_tokens": 5,
+        "total_tokens": 27_505,
+        "tool_call_count": 0,
+        "content_utf8_bytes": 2,
+        "content_sha256": "a" * 64,
+        "response_sha256": "b" * 64,
+    }
+
+
+def runtime_tool_evidence(request_id):
+    return {
+        "status": "PASS",
+        "probe_kind": MODULE.SCREEN_RUNTIME_TOOL_PROBE_KIND,
+        "request_id": request_id,
+        "endpoint": "chat/completions",
+        "tool_choice_mode": MODULE.SCREEN_RUNTIME_TOOL_CHOICE_MODE,
+        "finish_reason": MODULE.SCREEN_RUNTIME_FINISH_REASON,
+        "parallel_tool_calls": False,
+        "max_tokens": MODULE.SCREEN_RUNTIME_TOOL_MAX_TOKENS,
+        "prompt_tokens": 83,
+        "completion_tokens": 23,
+        "total_tokens": 106,
+        "tool_call_count": 1,
+        "tool_name": MODULE.SCREEN_RUNTIME_TOOL_NAME,
+        "request_schema_sha256": MODULE.canonical_sha256(
+            MODULE.screen_runtime_probe_tool(request_id)
+        ),
+        "tool_arguments_sha256": MODULE.canonical_sha256(
+            {
+                "marker": MODULE.SCREEN_RUNTIME_MARKER,
+                "request_id": request_id,
+            }
+        ),
+        "response_sha256": "c" * 64,
+    }
+
+
 def make_runtime_receipt(source_commit, host_path):
     inventory = [
         {
@@ -204,6 +250,7 @@ def make_runtime_receipt(source_commit, host_path):
     for role, (model, revision, indices, tensor_parallel_size) in (
         specifications.items()
     ):
+        long_request_id = f"screen-{role}-long"
         roles[role] = {
             "model": model,
             "revision": revision,
@@ -213,13 +260,24 @@ def make_runtime_receipt(source_commit, host_path):
                 else "http://127.0.0.1:8001/v1"
             ),
             "tensor_parallel_size": tensor_parallel_size,
-            "long_context_probe": {
+            "long_context_probe": runtime_capacity_evidence(
+                long_request_id
+            ),
+            "tool_interface_probe": runtime_tool_evidence(
+                f"screen-{role}-tool-interface"
+            ),
+            "concurrency_probe": {
                 "status": "PASS",
-                "parallel_tool_calls": False,
-                "max_tokens": 512,
-                "prompt_tokens": 27_500,
-                "completion_tokens": 5,
-                "total_tokens": 27_505,
+                "probe_kind": MODULE.SCREEN_RUNTIME_CAPACITY_PROBE_KIND,
+                "requests": 3,
+                "client_barrier_size": 3,
+                "max_tokens": MODULE.SCREEN_MAX_TOKENS,
+                "results": [
+                    runtime_capacity_evidence(
+                        f"screen-{role}-concurrent-{index}"
+                    )
+                    for index in range(3)
+                ],
             },
         }
         services[role] = {
@@ -395,13 +453,41 @@ class V5312HourGenerationTests(unittest.TestCase):
             path = root / "runtime.json"
             host_path = root / "preflight.json"
             write_host_preflight(host_path)
-            for mutation in ("context", "model"):
+            for mutation in (
+                "context",
+                "model",
+                "old_protocol",
+                "capacity_kind",
+                "tool_finish",
+                "tool_schema",
+                "missing_concurrency",
+            ):
                 with self.subTest(mutation=mutation):
                     payload = make_runtime_receipt("b" * 40, host_path)
                     if mutation == "context":
                         payload["max_model_len"] = 16384
-                    else:
+                    elif mutation == "model":
                         payload["roles"]["teacher"]["model"] = "wrong/model"
+                    elif mutation == "old_protocol":
+                        payload["protocol"] = (
+                            "v5_3_generation_runtime_preflight_v2"
+                        )
+                    elif mutation == "capacity_kind":
+                        payload["roles"]["user_and_judge"][
+                            "long_context_probe"
+                        ]["probe_kind"] = "named_tool_interface"
+                    elif mutation == "tool_finish":
+                        payload["roles"]["teacher"]["tool_interface_probe"][
+                            "finish_reason"
+                        ] = "length"
+                    elif mutation == "tool_schema":
+                        payload["roles"]["teacher"]["tool_interface_probe"][
+                            "request_schema_sha256"
+                        ] = "0" * 64
+                    else:
+                        payload["roles"]["teacher"].pop(
+                            "concurrency_probe"
+                        )
                     payload["canonical_receipt_sha256"] = MODULE.canonical_sha256(
                         {
                             key: value

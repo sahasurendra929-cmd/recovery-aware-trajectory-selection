@@ -73,20 +73,26 @@ def snapshot_fixture(root: Path, model: str, revision: str) -> dict:
     }
 
 
-def probe_evidence(request_id: str) -> dict:
-    prompt_tokens = 28_123
+def tool_probe_evidence(request_id: str) -> dict:
+    prompt_tokens = 83
     completion_tokens = 23
     return {
         "status": "PASS",
+        "probe_kind": MODULE.RUNTIME_PREFLIGHT_TOOL_PROBE_KIND,
         "request_id": request_id,
         "endpoint": "chat/completions",
+        "tool_choice_mode": MODULE.RUNTIME_PREFLIGHT_TOOL_CHOICE_MODE,
+        "finish_reason": MODULE.RUNTIME_PREFLIGHT_FINISH_REASON,
         "parallel_tool_calls": False,
-        "max_tokens": 512,
+        "max_tokens": MODULE.RUNTIME_PREFLIGHT_TOOL_MAX_TOKENS,
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": prompt_tokens + completion_tokens,
         "tool_call_count": 1,
         "tool_name": MODULE.RUNTIME_PREFLIGHT_TOOL_NAME,
+        "request_schema_sha256": MODULE.canonical_sha256(
+            MODULE._runtime_probe_tool(request_id)
+        ),
         "tool_arguments_sha256": MODULE.canonical_sha256(
             {
                 "marker": MODULE.RUNTIME_PREFLIGHT_MARKER,
@@ -99,15 +105,45 @@ def probe_evidence(request_id: str) -> dict:
     }
 
 
+def capacity_probe_evidence(
+    request_id: str, *, finish_reason: str = "stop", content: str = "ok"
+) -> dict:
+    prompt_tokens = 28_123
+    completion_tokens = (
+        MODULE.RUNTIME_PREFLIGHT_MAX_TOKENS
+        if finish_reason == "length"
+        else 2
+    )
+    return {
+        "status": "PASS",
+        "probe_kind": MODULE.RUNTIME_PREFLIGHT_CAPACITY_PROBE_KIND,
+        "request_id": request_id,
+        "endpoint": "chat/completions",
+        "finish_reason": finish_reason,
+        "max_tokens": MODULE.RUNTIME_PREFLIGHT_MAX_TOKENS,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": prompt_tokens + completion_tokens,
+        "tool_call_count": 0,
+        "content_utf8_bytes": len(content.encode("utf-8")),
+        "content_sha256": MODULE.hashlib.sha256(
+            content.encode("utf-8")
+        ).hexdigest(),
+        "response_sha256": MODULE.canonical_sha256(
+            {"request_id": request_id, "content": content}
+        ),
+    }
+
+
 def valid_chat_tool_response(request_id: str) -> dict:
     return {
         "id": f"chatcmpl-{request_id}",
         "choices": [
             {
-                "finish_reason": "tool_calls",
+                "finish_reason": MODULE.RUNTIME_PREFLIGHT_FINISH_REASON,
                 "message": {
                     "role": "assistant",
-                    "content": None,
+                    "content": "",
                     "tool_calls": [
                         {
                             "id": f"call-{request_id}",
@@ -129,9 +165,36 @@ def valid_chat_tool_response(request_id: str) -> dict:
             }
         ],
         "usage": {
-            "prompt_tokens": 28_123,
+            "prompt_tokens": 83,
             "completion_tokens": 23,
-            "total_tokens": 28_146,
+            "total_tokens": 106,
+        },
+    }
+
+
+def valid_chat_capacity_response(
+    *, finish_reason: str = "stop", content: str = "ok"
+) -> dict:
+    completion_tokens = (
+        MODULE.RUNTIME_PREFLIGHT_MAX_TOKENS
+        if finish_reason == "length"
+        else 2
+    )
+    return {
+        "id": "chatcmpl-capacity",
+        "choices": [
+            {
+                "finish_reason": finish_reason,
+                "message": {
+                    "role": "assistant",
+                    "content": content,
+                },
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 28_123,
+            "completion_tokens": completion_tokens,
+            "total_tokens": 28_123 + completion_tokens,
         },
     }
 
@@ -560,7 +623,7 @@ class V53SingleHostTests(unittest.TestCase):
         self.assertEqual(command[command.index("--dtype") + 1], "bfloat16")
 
     def test_chat_tool_probe_uses_frozen_payload_and_rejects_bad_calls(self):
-        request_id = "pilot-teacher-long"
+        request_id = "pilot-teacher-tool-interface"
         with mock.patch.object(
             MODULE,
             "http_post_json",
@@ -570,28 +633,54 @@ class V53SingleHostTests(unittest.TestCase):
                 api_base="http://127.0.0.1:8011/v1",
                 api_key="local",
                 model=MODULE.TEACHER_MODEL,
-                prompt="x " * 28_000,
+                prompt="Short named-tool interface check.",
                 request_id=request_id,
             )
         self.assertEqual(evidence["status"], "PASS")
         url, api_key, payload = post.call_args.args
         self.assertEqual(url, "http://127.0.0.1:8011/v1/chat/completions")
         self.assertEqual(api_key, "local")
-        self.assertEqual(payload["max_tokens"], 512)
+        self.assertEqual(
+            payload["max_tokens"],
+            MODULE.RUNTIME_PREFLIGHT_TOOL_MAX_TOKENS,
+        )
         self.assertIs(payload["parallel_tool_calls"], False)
+        self.assertEqual(
+            evidence["finish_reason"],
+            MODULE.RUNTIME_PREFLIGHT_FINISH_REASON,
+        )
+        self.assertEqual(
+            evidence["tool_choice_mode"],
+            MODULE.RUNTIME_PREFLIGHT_TOOL_CHOICE_MODE,
+        )
         self.assertEqual(
             payload["tool_choice"]["function"]["name"],
             MODULE.RUNTIME_PREFLIGHT_TOOL_NAME,
         )
         self.assertEqual(len(payload["tools"]), 1)
+        properties = payload["tools"][0]["function"]["parameters"][
+            "properties"
+        ]
+        self.assertEqual(
+            properties["marker"]["enum"],
+            [MODULE.RUNTIME_PREFLIGHT_MARKER],
+        )
+        self.assertEqual(properties["request_id"]["enum"], [request_id])
+        self.assertEqual(
+            evidence["request_schema_sha256"],
+            MODULE.canonical_sha256(payload["tools"]),
+        )
 
         def variants():
             value = valid_chat_tool_response(request_id)
             value["choices"][0]["message"]["content"] = "hidden text"
             yield "mixed_content", value
             value = valid_chat_tool_response(request_id)
-            value["choices"][0]["finish_reason"] = "stop"
-            yield "wrong_finish", value
+            value["choices"][0]["finish_reason"] = "tool_calls"
+            yield "vllm_incompatible_finish_reason", value
+            value = valid_chat_tool_response(request_id)
+            value["choices"][0]["finish_reason"] = "length"
+            yield "truncated_finish_reason", value
             value = valid_chat_tool_response(request_id)
             value["choices"][0]["message"]["tool_calls"][0]["id"] = ""
             yield "empty_call_id", value
@@ -603,6 +692,9 @@ class V53SingleHostTests(unittest.TestCase):
             value = valid_chat_tool_response(request_id)
             value.pop("usage")
             yield "missing_usage", value
+            value = valid_chat_tool_response(request_id)
+            value["choices"] = ["not-an-object"]
+            yield "non_object_choice", value
 
         for label, response in variants():
             with (
@@ -616,11 +708,78 @@ class V53SingleHostTests(unittest.TestCase):
                     api_base="http://127.0.0.1:8011/v1",
                     api_key="local",
                     model=MODULE.TEACHER_MODEL,
+                    prompt="Short named-tool interface check.",
+                    request_id=request_id,
+                )
+        truncated = valid_chat_tool_response(request_id)
+        truncated["choices"][0]["finish_reason"] = "length"
+        with (
+            mock.patch.object(
+                MODULE, "http_post_json", return_value=truncated
+            ),
+            self.assertRaisesRegex(
+                MODULE.StageError, "finish_reason='length'"
+            ),
+        ):
+            MODULE._chat_tool_probe(
+                api_base="http://127.0.0.1:8011/v1",
+                api_key="local",
+                model=MODULE.TEACHER_MODEL,
+                prompt="Short named-tool interface check.",
+                request_id=request_id,
+            )
+
+    def test_chat_capacity_probe_accepts_stop_or_length_without_tools(self):
+        request_id = "pilot-user_and_judge-long"
+        for finish_reason, content in (("stop", "ok"), ("length", "")):
+            with (
+                self.subTest(finish_reason=finish_reason),
+                mock.patch.object(
+                    MODULE,
+                    "http_post_json",
+                    return_value=valid_chat_capacity_response(
+                        finish_reason=finish_reason,
+                        content=content,
+                    ),
+                ) as post,
+            ):
+                evidence = MODULE._chat_capacity_probe(
+                    api_base="http://127.0.0.1:8001/v1",
+                    api_key="local",
+                    model=MODULE.USER_MODEL,
                     prompt="x " * 28_000,
                     request_id=request_id,
                 )
+            payload = post.call_args.args[2]
+            self.assertNotIn("tools", payload)
+            self.assertNotIn("tool_choice", payload)
+            self.assertNotIn("parallel_tool_calls", payload)
+            self.assertEqual(
+                evidence["probe_kind"],
+                MODULE.RUNTIME_PREFLIGHT_CAPACITY_PROBE_KIND,
+            )
+            self.assertEqual(evidence["finish_reason"], finish_reason)
+            self.assertEqual(evidence["tool_call_count"], 0)
 
-    def test_runtime_preflight_replaces_v1_and_binds_live_invocation(self):
+        malformed = valid_chat_capacity_response()
+        malformed["choices"][0]["message"]["tool_calls"] = [
+            {"type": "function"}
+        ]
+        with (
+            mock.patch.object(
+                MODULE, "http_post_json", return_value=malformed
+            ),
+            self.assertRaises(MODULE.StageError),
+        ):
+            MODULE._chat_capacity_probe(
+                api_base="http://127.0.0.1:8001/v1",
+                api_key="local",
+                model=MODULE.USER_MODEL,
+                prompt="x " * 28_000,
+                request_id=request_id,
+            )
+
+    def test_runtime_preflight_replaces_v2_and_binds_live_invocation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             args = args_for(root)
@@ -632,7 +791,7 @@ class V53SingleHostTests(unittest.TestCase):
             write_json(
                 path,
                 {
-                    "protocol": "v5_3_generation_runtime_preflight_v1",
+                    "protocol": "v5_3_generation_runtime_preflight_v2",
                     "status": "PASS",
                 },
             )
@@ -643,7 +802,7 @@ class V53SingleHostTests(unittest.TestCase):
             lock = threading.Lock()
             request_ids = []
 
-            def fake_probe(**kwargs):
+            def fake_capacity_probe(**kwargs):
                 nonlocal active, maximum_active
                 request_ids.append(kwargs["request_id"])
                 if "-concurrent-" in kwargs["request_id"]:
@@ -653,7 +812,11 @@ class V53SingleHostTests(unittest.TestCase):
                     time.sleep(0.04)
                     with lock:
                         active -= 1
-                return probe_evidence(kwargs["request_id"])
+                return capacity_probe_evidence(kwargs["request_id"])
+
+            def fake_tool_probe(**kwargs):
+                request_ids.append(kwargs["request_id"])
+                return tool_probe_evidence(kwargs["request_id"])
 
             def models(url, _api_key):
                 model = (
@@ -672,7 +835,12 @@ class V53SingleHostTests(unittest.TestCase):
                 ),
                 mock.patch.object(MODULE, "http_json", side_effect=models),
                 mock.patch.object(
-                    MODULE, "_chat_tool_probe", side_effect=fake_probe
+                    MODULE,
+                    "_chat_capacity_probe",
+                    side_effect=fake_capacity_probe,
+                ),
+                mock.patch.object(
+                    MODULE, "_chat_tool_probe", side_effect=fake_tool_probe
                 ),
             ):
                 MODULE.run_generation_runtime_preflight(
@@ -688,7 +856,11 @@ class V53SingleHostTests(unittest.TestCase):
                         args, phase="pilot"
                     )
                 )
-            self.assertEqual(len(request_ids), 8)
+            self.assertEqual(len(request_ids), 10)
+            self.assertEqual(
+                sum(identifier.endswith("-tool-interface") for identifier in request_ids),
+                2,
+            )
             self.assertEqual(maximum_active, 3)
             self.assertEqual(
                 len(list((path.parent / "archive").glob("*.json"))), 1

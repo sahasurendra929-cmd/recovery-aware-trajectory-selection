@@ -1040,10 +1040,16 @@ def generation_runtime_preflight_path(
     )
 
 
-RUNTIME_PREFLIGHT_PROTOCOL = "v5_3_generation_runtime_preflight_v2"
+RUNTIME_PREFLIGHT_PROTOCOL = "v5_3_generation_runtime_preflight_v3"
 RUNTIME_PREFLIGHT_TOOL_NAME = "runtime_preflight_echo"
 RUNTIME_PREFLIGHT_MARKER = "v5_3_live_chat_tools"
+RUNTIME_PREFLIGHT_TOOL_CHOICE_MODE = "named_function"
+RUNTIME_PREFLIGHT_FINISH_REASON = "stop"
+RUNTIME_PREFLIGHT_CAPACITY_PROBE_KIND = "plain_chat_capacity"
+RUNTIME_PREFLIGHT_TOOL_PROBE_KIND = "named_tool_interface"
 RUNTIME_PREFLIGHT_MAX_TOKENS = 512
+RUNTIME_PREFLIGHT_TOOL_MAX_TOKENS = 128
+RUNTIME_PREFLIGHT_TOOL_MAX_PROMPT_TOKENS = 1_024
 RUNTIME_PREFLIGHT_PROMPT_REPETITIONS = 28_000
 RUNTIME_PREFLIGHT_MIN_PROMPT_TOKENS = 27_000
 RUNTIME_PREFLIGHT_FATAL_LOG_PATTERNS = (
@@ -1263,7 +1269,7 @@ def _runtime_receipt_pointer(
     }
 
 
-def _runtime_probe_tool() -> list[dict[str, Any]]:
+def _runtime_probe_tool(request_id: str) -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
@@ -1275,8 +1281,14 @@ def _runtime_probe_tool() -> list[dict[str, Any]]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "marker": {"type": "string"},
-                        "request_id": {"type": "string"},
+                        "marker": {
+                            "type": "string",
+                            "enum": [RUNTIME_PREFLIGHT_MARKER],
+                        },
+                        "request_id": {
+                            "type": "string",
+                            "enum": [request_id],
+                        },
                     },
                     "required": ["marker", "request_id"],
                     "additionalProperties": False,
@@ -1284,6 +1296,110 @@ def _runtime_probe_tool() -> list[dict[str, Any]]:
             },
         }
     ]
+
+
+def _chat_capacity_probe(
+    *,
+    api_base: str,
+    api_key: str,
+    model: str,
+    prompt: str,
+    request_id: str,
+) -> dict[str, Any]:
+    """Exercise long-context KV/runtime capacity without a semantic oracle."""
+
+    request_payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "This is a runtime capacity preflight. Return a plain-text "
+                    "response; no particular wording is required."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"{prompt}\nReturn any plain-text response for "
+                    f"request {request_id}."
+                ),
+            },
+        ],
+        "temperature": 0.0,
+        "max_tokens": RUNTIME_PREFLIGHT_MAX_TOKENS,
+        "stream": False,
+    }
+    payload = http_post_json(
+        f"{api_base}/chat/completions", api_key, request_payload
+    )
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    if not isinstance(choices, list) or len(choices) != 1:
+        raise StageError(
+            f"{request_id} capacity probe returned malformed choices"
+        )
+    choice = choices[0]
+    message = choice.get("message") if isinstance(choice, dict) else None
+    finish_reason = (
+        choice.get("finish_reason") if isinstance(choice, dict) else None
+    )
+    content = message.get("content") if isinstance(message, dict) else None
+    calls = message.get("tool_calls") if isinstance(message, dict) else None
+    if (
+        not isinstance(choice, dict)
+        or finish_reason not in {"stop", "length"}
+        or not isinstance(message, dict)
+        or message.get("role") != "assistant"
+        or not isinstance(content, str)
+        or calls not in (None, [])
+    ):
+        observed_calls = len(calls) if isinstance(calls, list) else None
+        observed_role = (
+            message.get("role") if isinstance(message, dict) else None
+        )
+        raise StageError(
+            f"{request_id} capacity probe returned an invalid response "
+            f"(finish_reason={finish_reason!r}, "
+            f"assistant_role={observed_role!r}, "
+            f"content_is_string={isinstance(content, str)}, "
+            f"tool_call_count={observed_calls!r})"
+        )
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    if not isinstance(usage, dict):
+        raise StageError(f"{request_id} capacity probe returned no token usage")
+    prompt_tokens = usage.get("prompt_tokens")
+    completion_tokens = usage.get("completion_tokens")
+    total_tokens = usage.get("total_tokens")
+    if (
+        isinstance(prompt_tokens, bool)
+        or not isinstance(prompt_tokens, int)
+        or not RUNTIME_PREFLIGHT_MIN_PROMPT_TOKENS
+        <= prompt_tokens
+        <= MAX_MODEL_LEN - RUNTIME_PREFLIGHT_MAX_TOKENS
+        or isinstance(completion_tokens, bool)
+        or not isinstance(completion_tokens, int)
+        or not 0 < completion_tokens <= RUNTIME_PREFLIGHT_MAX_TOKENS
+        or total_tokens != prompt_tokens + completion_tokens
+    ):
+        raise StageError(
+            f"{request_id} capacity probe returned invalid token usage: "
+            f"{usage}"
+        )
+    return {
+        "status": "PASS",
+        "probe_kind": RUNTIME_PREFLIGHT_CAPACITY_PROBE_KIND,
+        "request_id": request_id,
+        "endpoint": "chat/completions",
+        "finish_reason": finish_reason,
+        "max_tokens": RUNTIME_PREFLIGHT_MAX_TOKENS,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "tool_call_count": 0,
+        "content_utf8_bytes": len(content.encode("utf-8")),
+        "content_sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+        "response_sha256": canonical_sha256(payload),
+    }
 
 
 def _chat_tool_probe(
@@ -1294,6 +1410,7 @@ def _chat_tool_probe(
     prompt: str,
     request_id: str,
 ) -> dict[str, Any]:
+    probe_tool = _runtime_probe_tool(request_id)
     request_payload = {
         "model": model,
         "messages": [
@@ -1313,14 +1430,14 @@ def _chat_tool_probe(
                 ),
             },
         ],
-        "tools": _runtime_probe_tool(),
+        "tools": probe_tool,
         "tool_choice": {
             "type": "function",
             "function": {"name": RUNTIME_PREFLIGHT_TOOL_NAME},
         },
         "parallel_tool_calls": False,
         "temperature": 0.0,
-        "max_tokens": RUNTIME_PREFLIGHT_MAX_TOKENS,
+        "max_tokens": RUNTIME_PREFLIGHT_TOOL_MAX_TOKENS,
         "stream": False,
     }
     payload = http_post_json(
@@ -1333,16 +1450,32 @@ def _chat_tool_probe(
     message = choice.get("message") if isinstance(choice, dict) else None
     calls = message.get("tool_calls") if isinstance(message, dict) else None
     content = message.get("content") if isinstance(message, dict) else None
+    observed_finish_reason = (
+        choice.get("finish_reason") if isinstance(choice, dict) else None
+    )
     if (
         not isinstance(choice, dict)
-        or choice.get("finish_reason") != "tool_calls"
+        or observed_finish_reason != RUNTIME_PREFLIGHT_FINISH_REASON
         or not isinstance(message, dict)
         or message.get("role") != "assistant"
         or (content is not None and str(content).strip())
         or not isinstance(calls, list)
         or len(calls) != 1
     ):
-        raise StageError(f"{request_id} did not return one clean tool call")
+        observed_calls = len(calls) if isinstance(calls, list) else None
+        observed_role = (
+            message.get("role") if isinstance(message, dict) else None
+        )
+        content_nonempty = (
+            bool(str(content).strip()) if content is not None else False
+        )
+        raise StageError(
+            f"{request_id} did not return one clean named tool call "
+            f"(finish_reason={observed_finish_reason!r}, "
+            f"assistant_role={observed_role!r}, "
+            f"content_nonempty={content_nonempty}, "
+            f"tool_call_count={observed_calls!r})"
+        )
     call = calls[0]
     function = call.get("function") if isinstance(call, dict) else None
     arguments_text = (
@@ -1375,41 +1508,45 @@ def _chat_tool_probe(
     if (
         isinstance(prompt_tokens, bool)
         or not isinstance(prompt_tokens, int)
-        or not RUNTIME_PREFLIGHT_MIN_PROMPT_TOKENS
-        <= prompt_tokens
-        <= MAX_MODEL_LEN - RUNTIME_PREFLIGHT_MAX_TOKENS
+        or not 0 < prompt_tokens <= RUNTIME_PREFLIGHT_TOOL_MAX_PROMPT_TOKENS
         or isinstance(completion_tokens, bool)
         or not isinstance(completion_tokens, int)
-        or not 0 < completion_tokens <= RUNTIME_PREFLIGHT_MAX_TOKENS
+        or not 0 < completion_tokens <= RUNTIME_PREFLIGHT_TOOL_MAX_TOKENS
         or total_tokens != prompt_tokens + completion_tokens
     ):
         raise StageError(f"{request_id} returned invalid token usage: {usage}")
     return {
         "status": "PASS",
+        "probe_kind": RUNTIME_PREFLIGHT_TOOL_PROBE_KIND,
         "request_id": request_id,
         "endpoint": "chat/completions",
+        "tool_choice_mode": RUNTIME_PREFLIGHT_TOOL_CHOICE_MODE,
+        "finish_reason": RUNTIME_PREFLIGHT_FINISH_REASON,
         "parallel_tool_calls": False,
-        "max_tokens": RUNTIME_PREFLIGHT_MAX_TOKENS,
+        "max_tokens": RUNTIME_PREFLIGHT_TOOL_MAX_TOKENS,
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": total_tokens,
         "tool_call_count": 1,
         "tool_name": RUNTIME_PREFLIGHT_TOOL_NAME,
+        "request_schema_sha256": canonical_sha256(probe_tool),
         "tool_arguments_sha256": canonical_sha256(arguments),
         "response_sha256": canonical_sha256(payload),
     }
 
 
-def _probe_evidence_valid(value: Any, *, request_id: str) -> bool:
+def _capacity_probe_evidence_valid(value: Any, *, request_id: str) -> bool:
     if not isinstance(value, dict):
         return False
     prompt_tokens = value.get("prompt_tokens")
     completion_tokens = value.get("completion_tokens")
     return (
         value.get("status") == "PASS"
+        and value.get("probe_kind")
+        == RUNTIME_PREFLIGHT_CAPACITY_PROBE_KIND
         and value.get("request_id") == request_id
         and value.get("endpoint") == "chat/completions"
-        and value.get("parallel_tool_calls") is False
+        and value.get("finish_reason") in {"stop", "length"}
         and value.get("max_tokens") == RUNTIME_PREFLIGHT_MAX_TOKENS
         and isinstance(prompt_tokens, int)
         and not isinstance(prompt_tokens, bool)
@@ -1419,9 +1556,49 @@ def _probe_evidence_valid(value: Any, *, request_id: str) -> bool:
         and isinstance(completion_tokens, int)
         and not isinstance(completion_tokens, bool)
         and 0 < completion_tokens <= RUNTIME_PREFLIGHT_MAX_TOKENS
+        and (
+            value.get("finish_reason") != "length"
+            or completion_tokens == RUNTIME_PREFLIGHT_MAX_TOKENS
+        )
+        and value.get("total_tokens") == prompt_tokens + completion_tokens
+        and value.get("tool_call_count") == 0
+        and isinstance(value.get("content_utf8_bytes"), int)
+        and not isinstance(value.get("content_utf8_bytes"), bool)
+        and value["content_utf8_bytes"] >= 0
+        and isinstance(value.get("content_sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", value["content_sha256"])
+        is not None
+        and isinstance(value.get("response_sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", value["response_sha256"]) is not None
+    )
+
+
+def _tool_probe_evidence_valid(value: Any, *, request_id: str) -> bool:
+    if not isinstance(value, dict):
+        return False
+    prompt_tokens = value.get("prompt_tokens")
+    completion_tokens = value.get("completion_tokens")
+    return (
+        value.get("status") == "PASS"
+        and value.get("probe_kind") == RUNTIME_PREFLIGHT_TOOL_PROBE_KIND
+        and value.get("request_id") == request_id
+        and value.get("endpoint") == "chat/completions"
+        and value.get("tool_choice_mode")
+        == RUNTIME_PREFLIGHT_TOOL_CHOICE_MODE
+        and value.get("finish_reason") == RUNTIME_PREFLIGHT_FINISH_REASON
+        and value.get("parallel_tool_calls") is False
+        and value.get("max_tokens") == RUNTIME_PREFLIGHT_TOOL_MAX_TOKENS
+        and isinstance(prompt_tokens, int)
+        and not isinstance(prompt_tokens, bool)
+        and 0 < prompt_tokens <= RUNTIME_PREFLIGHT_TOOL_MAX_PROMPT_TOKENS
+        and isinstance(completion_tokens, int)
+        and not isinstance(completion_tokens, bool)
+        and 0 < completion_tokens <= RUNTIME_PREFLIGHT_TOOL_MAX_TOKENS
         and value.get("total_tokens") == prompt_tokens + completion_tokens
         and value.get("tool_call_count") == 1
         and value.get("tool_name") == RUNTIME_PREFLIGHT_TOOL_NAME
+        and value.get("request_schema_sha256")
+        == canonical_sha256(_runtime_probe_tool(request_id))
         and value.get("tool_arguments_sha256")
         == canonical_sha256(
             {
@@ -1557,6 +1734,11 @@ def generation_runtime_preflight_complete(
         concurrency_probe = (
             value.get("concurrency_probe") if isinstance(value, dict) else None
         )
+        tool_interface_probe = (
+            value.get("tool_interface_probe")
+            if isinstance(value, dict)
+            else None
+        )
         expected_gpu_indices = [
             int(index)
             for index in str(specification["visible_gpus"]).split(",")
@@ -1569,6 +1751,7 @@ def generation_runtime_preflight_complete(
             or not isinstance(service, dict)
             or not isinstance(models_endpoint, dict)
             or not isinstance(concurrency_probe, dict)
+            or not isinstance(tool_interface_probe, dict)
             or value.get("model") != specification["model"]
             or value.get("revision") != specification["revision"]
             or value.get("tensor_parallel_size")
@@ -1586,22 +1769,26 @@ def generation_runtime_preflight_complete(
                 r"[0-9a-f]{64}", models_endpoint["response_sha256"]
             )
             is None
-            or not _probe_evidence_valid(
+            or not _capacity_probe_evidence_valid(
                 value.get("long_context_probe"),
                 request_id=f"{phase}-{role}-long",
             )
+            or not _tool_probe_evidence_valid(
+                tool_interface_probe,
+                request_id=f"{phase}-{role}-tool-interface",
+            )
             or concurrency_probe.get("status") != "PASS"
+            or concurrency_probe.get("probe_kind")
+            != RUNTIME_PREFLIGHT_CAPACITY_PROBE_KIND
             or concurrency_probe.get("requests") != 3
             or concurrency_probe.get("client_barrier_size")
             != 3
-            or concurrency_probe.get("parallel_tool_calls")
-            is not False
             or concurrency_probe.get("max_tokens")
             != RUNTIME_PREFLIGHT_MAX_TOKENS
             or not isinstance(concurrency_probe.get("results"), list)
             or len(concurrency_probe["results"]) != 3
             or any(
-                not _probe_evidence_valid(
+                not _capacity_probe_evidence_valid(
                     result,
                     request_id=f"{phase}-{role}-concurrent-{index}",
                 )
@@ -1808,18 +1995,25 @@ def run_generation_runtime_preflight(
         )
         if specification["model"] not in observed_model_ids:
             raise StageError(f"{role} live model alias is absent")
-        long_result = _chat_tool_probe(
+        long_result = _chat_capacity_probe(
             api_base=api_base,
             api_key=str(specification["api_key"]),
             model=str(specification["model"]),
             prompt=long_prompt,
             request_id=f"{phase}-{role}-long",
         )
+        tool_result = _chat_tool_probe(
+            api_base=api_base,
+            api_key=str(specification["api_key"]),
+            model=str(specification["model"]),
+            prompt="Short named-tool interface check.",
+            request_id=f"{phase}-{role}-tool-interface",
+        )
         barrier = threading.Barrier(3)
 
         def concurrent_probe(index: int) -> dict[str, Any]:
             barrier.wait(timeout=30)
-            return _chat_tool_probe(
+            return _chat_capacity_probe(
                 api_base=api_base,
                 api_key=str(specification["api_key"]),
                 model=str(specification["model"]),
@@ -1853,11 +2047,12 @@ def run_generation_runtime_preflight(
                 "response_sha256": canonical_sha256(models_payload),
             },
             "long_context_probe": long_result,
+            "tool_interface_probe": tool_result,
             "concurrency_probe": {
                 "status": "PASS",
+                "probe_kind": RUNTIME_PREFLIGHT_CAPACITY_PROBE_KIND,
                 "requests": 3,
                 "client_barrier_size": 3,
-                "parallel_tool_calls": False,
                 "max_tokens": RUNTIME_PREFLIGHT_MAX_TOKENS,
                 "results": concurrent,
             },

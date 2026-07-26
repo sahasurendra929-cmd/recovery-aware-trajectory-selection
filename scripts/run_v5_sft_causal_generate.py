@@ -73,7 +73,15 @@ SCREEN_TAU2_COMMIT = "fc0055dc4e0a316c3f83133267fbd6faaa770992"
 SCREEN_SPLIT_SHA256 = (
     "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a"
 )
-SCREEN_RUNTIME_EVIDENCE_PROTOCOL = "v5_3_generation_runtime_preflight_v2"
+SCREEN_RUNTIME_EVIDENCE_PROTOCOL = "v5_3_generation_runtime_preflight_v3"
+SCREEN_RUNTIME_TOOL_NAME = "runtime_preflight_echo"
+SCREEN_RUNTIME_MARKER = "v5_3_live_chat_tools"
+SCREEN_RUNTIME_TOOL_CHOICE_MODE = "named_function"
+SCREEN_RUNTIME_FINISH_REASON = "stop"
+SCREEN_RUNTIME_CAPACITY_PROBE_KIND = "plain_chat_capacity"
+SCREEN_RUNTIME_TOOL_PROBE_KIND = "named_tool_interface"
+SCREEN_RUNTIME_TOOL_MAX_TOKENS = 128
+SCREEN_RUNTIME_TOOL_MAX_PROMPT_TOKENS = 1_024
 SCREEN_TASK_IDS = {
     "airline:1",
     "airline:11",
@@ -1328,6 +1336,118 @@ def run_condition(
     return output_path
 
 
+def screen_runtime_probe_tool(request_id: str) -> list[dict[str, Any]]:
+    """Reconstruct the frozen named-tool schema used by the host preflight."""
+
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": SCREEN_RUNTIME_TOOL_NAME,
+                "description": (
+                    "Echo the immutable runtime-preflight marker and request id."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "marker": {
+                            "type": "string",
+                            "enum": [SCREEN_RUNTIME_MARKER],
+                        },
+                        "request_id": {
+                            "type": "string",
+                            "enum": [request_id],
+                        },
+                    },
+                    "required": ["marker", "request_id"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+    ]
+
+
+def screen_runtime_capacity_evidence_valid(
+    value: Any, *, request_id: str
+) -> bool:
+    if not isinstance(value, dict):
+        return False
+    prompt_tokens = value.get("prompt_tokens")
+    completion_tokens = value.get("completion_tokens")
+    return (
+        value.get("status") == "PASS"
+        and value.get("probe_kind")
+        == SCREEN_RUNTIME_CAPACITY_PROBE_KIND
+        and value.get("request_id") == request_id
+        and value.get("endpoint") == "chat/completions"
+        and value.get("finish_reason") in {"stop", "length"}
+        and value.get("max_tokens") == SCREEN_MAX_TOKENS
+        and isinstance(prompt_tokens, int)
+        and not isinstance(prompt_tokens, bool)
+        and 27_000
+        <= prompt_tokens
+        <= SCREEN_MAX_MODEL_LEN - SCREEN_MAX_TOKENS
+        and isinstance(completion_tokens, int)
+        and not isinstance(completion_tokens, bool)
+        and 0 < completion_tokens <= SCREEN_MAX_TOKENS
+        and (
+            value.get("finish_reason") != "length"
+            or completion_tokens == SCREEN_MAX_TOKENS
+        )
+        and value.get("total_tokens") == prompt_tokens + completion_tokens
+        and value.get("tool_call_count") == 0
+        and isinstance(value.get("content_utf8_bytes"), int)
+        and not isinstance(value.get("content_utf8_bytes"), bool)
+        and value["content_utf8_bytes"] >= 0
+        and isinstance(value.get("content_sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", value["content_sha256"])
+        is not None
+        and isinstance(value.get("response_sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", value["response_sha256"])
+        is not None
+    )
+
+
+def screen_runtime_tool_evidence_valid(
+    value: Any, *, request_id: str
+) -> bool:
+    if not isinstance(value, dict):
+        return False
+    prompt_tokens = value.get("prompt_tokens")
+    completion_tokens = value.get("completion_tokens")
+    expected_arguments = {
+        "marker": SCREEN_RUNTIME_MARKER,
+        "request_id": request_id,
+    }
+    return (
+        value.get("status") == "PASS"
+        and value.get("probe_kind") == SCREEN_RUNTIME_TOOL_PROBE_KIND
+        and value.get("request_id") == request_id
+        and value.get("endpoint") == "chat/completions"
+        and value.get("tool_choice_mode")
+        == SCREEN_RUNTIME_TOOL_CHOICE_MODE
+        and value.get("finish_reason") == SCREEN_RUNTIME_FINISH_REASON
+        and value.get("parallel_tool_calls") is False
+        and value.get("max_tokens") == SCREEN_RUNTIME_TOOL_MAX_TOKENS
+        and isinstance(prompt_tokens, int)
+        and not isinstance(prompt_tokens, bool)
+        and 0 < prompt_tokens <= SCREEN_RUNTIME_TOOL_MAX_PROMPT_TOKENS
+        and isinstance(completion_tokens, int)
+        and not isinstance(completion_tokens, bool)
+        and 0 < completion_tokens <= SCREEN_RUNTIME_TOOL_MAX_TOKENS
+        and value.get("total_tokens") == prompt_tokens + completion_tokens
+        and value.get("tool_call_count") == 1
+        and value.get("tool_name") == SCREEN_RUNTIME_TOOL_NAME
+        and value.get("request_schema_sha256")
+        == canonical_sha256(screen_runtime_probe_tool(request_id))
+        and value.get("tool_arguments_sha256")
+        == canonical_sha256(expected_arguments)
+        and isinstance(value.get("response_sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", value["response_sha256"])
+        is not None
+    )
+
+
 def validate_screen_runtime_evidence(
     path: Path | None,
     *,
@@ -1452,14 +1572,14 @@ def validate_screen_runtime_evidence(
             if isinstance(role_receipt, dict)
             else None
         )
-        prompt_tokens = (
-            long_probe.get("prompt_tokens")
-            if isinstance(long_probe, dict)
+        concurrency_probe = (
+            role_receipt.get("concurrency_probe")
+            if isinstance(role_receipt, dict)
             else None
         )
-        completion_tokens = (
-            long_probe.get("completion_tokens")
-            if isinstance(long_probe, dict)
+        tool_interface_probe = (
+            role_receipt.get("tool_interface_probe")
+            if isinstance(role_receipt, dict)
             else None
         )
         indices = expected["visible_gpu_indices"]
@@ -1470,20 +1590,32 @@ def validate_screen_runtime_evidence(
             or role_receipt.get("tensor_parallel_size")
             != expected["tensor_parallel_size"]
             or not isinstance(role_receipt.get("api_base"), str)
-            or not isinstance(long_probe, dict)
-            or long_probe.get("status") != "PASS"
-            or long_probe.get("parallel_tool_calls") is not False
-            or long_probe.get("max_tokens") != SCREEN_MAX_TOKENS
-            or isinstance(prompt_tokens, bool)
-            or not isinstance(prompt_tokens, int)
-            or not 27_000
-            <= prompt_tokens
-            <= SCREEN_MAX_MODEL_LEN - SCREEN_MAX_TOKENS
-            or isinstance(completion_tokens, bool)
-            or not isinstance(completion_tokens, int)
-            or not 0 < completion_tokens <= SCREEN_MAX_TOKENS
-            or long_probe.get("total_tokens")
-            != prompt_tokens + completion_tokens
+            or not screen_runtime_capacity_evidence_valid(
+                long_probe,
+                request_id=f"screen-{role}-long",
+            )
+            or not screen_runtime_tool_evidence_valid(
+                tool_interface_probe,
+                request_id=f"screen-{role}-tool-interface",
+            )
+            or not isinstance(concurrency_probe, dict)
+            or concurrency_probe.get("status") != "PASS"
+            or concurrency_probe.get("probe_kind")
+            != SCREEN_RUNTIME_CAPACITY_PROBE_KIND
+            or concurrency_probe.get("requests") != 3
+            or concurrency_probe.get("client_barrier_size") != 3
+            or concurrency_probe.get("max_tokens") != SCREEN_MAX_TOKENS
+            or not isinstance(concurrency_probe.get("results"), list)
+            or len(concurrency_probe["results"]) != 3
+            or any(
+                not screen_runtime_capacity_evidence_valid(
+                    result,
+                    request_id=f"screen-{role}-concurrent-{index}",
+                )
+                for index, result in enumerate(
+                    concurrency_probe["results"]
+                )
+            )
             or not isinstance(service, dict)
             or service.get("visible_gpu_indices") != indices
             or service.get("gpu_identity")
