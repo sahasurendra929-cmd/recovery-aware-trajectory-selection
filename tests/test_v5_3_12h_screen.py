@@ -10,7 +10,9 @@ import unittest
 from unittest import mock
 
 from scripts import prepare_v5_3_12h_screen as data
+from scripts import prepare_v5_sft_causal as base_data
 from scripts import run_v5_3_12h_screen as controller
+from scripts import run_v5_3_12h_supervisor as supervisor
 from scripts import run_v5_3_single_host as base_controller
 from scripts import summarize_v5_3_12h_screen as summary
 from scripts import train_v5_sft_causal as train
@@ -23,6 +25,281 @@ from tests.v5_multifault_fixtures import (
 
 
 class ScreenControllerTests(unittest.TestCase):
+    def test_prepare_and_train_share_data_audit_protocol(self) -> None:
+        self.assertEqual(
+            base_data.DATA_AUDIT_PROTOCOL,
+            train.DATA_AUDIT_PROTOCOL,
+        )
+        self.assertEqual(
+            data.v5.DATA_AUDIT_PROTOCOL,
+            train.DATA_AUDIT_PROTOCOL,
+        )
+
+    def test_prepare_normalizes_expected_fail_closed_worker_exit(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args = SimpleNamespace(
+                processed_root=root / "processed",
+                results_root=root / "results",
+                train_python=Path("/venv/bin/python"),
+                train_venv=Path("/venv"),
+                tau2_root=root / "tau2",
+                raw_root=root / "raw",
+                expected_source_commit="a" * 40,
+                expected_generation_source_commit="b" * 40,
+            )
+            with (
+                mock.patch.object(controller, "data_complete", return_value=False),
+                mock.patch.object(
+                    controller,
+                    "screen_protocol_files",
+                    return_value={
+                        "source_generation": root / "generation.json",
+                        "validation": root / "validation.json",
+                        "screen": root / "screen.json",
+                        "generation_audit": root / "generation-audit.json",
+                        "validation_audit": root / "validation-audit.json",
+                    },
+                ),
+                mock.patch.object(
+                    controller,
+                    "spawn_logged",
+                    return_value=(mock.Mock(), mock.Mock()),
+                ),
+                mock.patch.object(
+                    controller,
+                    "wait_processes",
+                    side_effect=controller.ScreenStageError(
+                        "worker failures: [('prepare-screen', 1)]"
+                    ),
+                ),
+                mock.patch.object(
+                    controller,
+                    "fail_closed_data_gate_complete",
+                    return_value=True,
+                ),
+                mock.patch.object(controller, "write_terminal") as terminal,
+                self.assertRaisesRegex(
+                    controller.ScreenStageError,
+                    "failed closed",
+                ),
+            ):
+                controller.prepare(args)
+            terminal.assert_called_once_with(
+                args,
+                status="DATA_GATE_FAIL_NO_TRAIN",
+                reason="DO_NOT_TRAIN",
+                no_claim=True,
+            )
+
+    def test_fail_closed_audit_is_hash_and_commit_bound(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            processed = root / "processed"
+            processed.mkdir()
+            attempt = processed / "attempt_audit.jsonl"
+            attempt.write_text('{"attempt":"fixture"}\n', encoding="utf-8")
+            pair_counts = {
+                task: (1 if index < 8 else 0)
+                for index, task in enumerate(protocol.PILOT_TASK_IDS)
+            }
+            audit = {
+                "protocol": base_data.DATA_AUDIT_PROTOCOL,
+                "design_protocol": protocol.DATA_PROTOCOL,
+                "design_version": protocol.DESIGN_VERSION,
+                "screen_protocol": protocol.PROTOCOL,
+                "processing_source_commit": "a" * 40,
+                "source_generation_commit": "b" * 40,
+                "generation_contracts": {
+                    "source_generation_commit": "b" * 40,
+                },
+                "source_snapshot": {
+                    "protocol": "fixture",
+                    "status": "PASS",
+                    "source_generation_commit": "b" * 40,
+                    "receipt_sha256": "d" * 64,
+                    "file_ledger_sha256": "e" * 64,
+                },
+                "status": "FAIL_CLOSED",
+                "decision": "DO_NOT_TRAIN",
+                "arm_files_written": False,
+                "expected_rollouts": protocol.EXPECTED_ROLLOUTS,
+                "official_test_used": False,
+                "official_test_sealed": True,
+                "task_yield": {
+                    task: {"selected_pairs": count}
+                    for task, count in pair_counts.items()
+                },
+                "data_gate": protocol.data_gate(pair_counts),
+            }
+            audit_path = processed / "audit.json"
+            audit_path.write_text(
+                json.dumps(audit, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            hashes_path = processed / "hashes.json"
+            hashes_path.write_text(
+                json.dumps(
+                    {
+                        "attempt_audit.jsonl": controller.sha256_file(
+                            attempt
+                        ),
+                        "audit.json": controller.sha256_file(audit_path),
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            args = SimpleNamespace(
+                processed_root=processed,
+                results_root=root / "results",
+                raw_root=root / "raw",
+                expected_source_commit="a" * 40,
+                expected_generation_source_commit="b" * 40,
+            )
+            with mock.patch.object(
+                data.source_snapshot,
+                "validate_source_snapshot",
+                return_value=audit["source_snapshot"],
+            ):
+                self.assertTrue(
+                    controller.fail_closed_data_gate_complete(args)
+                )
+                args.expected_generation_source_commit = "c" * 40
+                self.assertFalse(
+                    controller.fail_closed_data_gate_complete(args)
+                )
+                args.expected_generation_source_commit = "b" * 40
+                strict_pass_counts = {
+                    task: (
+                        2
+                        if index < 3
+                        else (1 if index < 14 else 0)
+                    )
+                    for index, task in enumerate(protocol.PILOT_TASK_IDS)
+                }
+                audit["task_yield"] = {
+                    task: {"selected_pairs": count}
+                    for task, count in strict_pass_counts.items()
+                }
+                audit["data_gate"] = protocol.data_gate(
+                    strict_pass_counts
+                )
+                audit["matching"] = {"status": "INCONCLUSIVE"}
+                audit_path.write_text(
+                    json.dumps(audit, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                hashes_path.write_text(
+                    json.dumps(
+                        {
+                            "attempt_audit.jsonl": (
+                                controller.sha256_file(attempt)
+                            ),
+                            "audit.json": controller.sha256_file(
+                                audit_path
+                            ),
+                        },
+                        sort_keys=True,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                self.assertTrue(
+                    controller.fail_closed_matching_complete(args)
+                )
+                self.assertFalse(
+                    controller.fail_closed_data_gate_complete(args)
+                )
+
+    def test_supervisor_accepts_audited_no_claim_data_terminal(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            results = root / "results/v5_3_12h_screen"
+            processed = root / "data/processed/v5_3_12h_screen"
+            results.mkdir(parents=True)
+            processed.mkdir(parents=True)
+            receipt = root / supervisor.source_snapshot.RECEIPT_NAME
+            receipt.write_bytes(
+                (
+                    Path(__file__).resolve().parents[1]
+                    / supervisor.source_snapshot.RECEIPT_NAME
+                ).read_bytes()
+            )
+            receipt_payload = json.loads(
+                receipt.read_text(encoding="utf-8")
+            )
+            snapshot_identity = {
+                "receipt_sha256": supervisor.sha256_file(receipt),
+            }
+            attempt = processed / "attempt_audit.jsonl"
+            attempt.write_text('{"fixture":true}\n', encoding="utf-8")
+            audit = processed / "audit.json"
+            audit.write_text(
+                json.dumps(
+                    {
+                        "processing_source_commit": "a" * 40,
+                        "source_generation_commit": (
+                            receipt_payload["source_generation_commit"]
+                        ),
+                        "source_snapshot": snapshot_identity,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            hashes = processed / "hashes.json"
+            hashes.write_text(
+                json.dumps(
+                    {
+                        "audit.json": supervisor.sha256_file(audit),
+                        "attempt_audit.jsonl": supervisor.sha256_file(
+                            attempt
+                        ),
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            terminal = results / "TERMINAL_STATUS.json"
+            terminal.write_text(
+                json.dumps(
+                    {
+                        "protocol": f"{protocol.PROTOCOL}:terminal_v1",
+                        "status": "DATA_GATE_FAIL_NO_TRAIN",
+                        "reason": "DO_NOT_TRAIN",
+                        "no_scientific_claim": True,
+                        "official_test_used": False,
+                        "official_test_sealed": True,
+                        "processing_source_commit": "a" * 40,
+                        "source_generation_commit": (
+                            receipt_payload["source_generation_commit"]
+                        ),
+                        "source_audit_sha256": supervisor.sha256_file(
+                            audit
+                        ),
+                        "source_hashes_sha256": supervisor.sha256_file(
+                            hashes
+                        ),
+                        "source_snapshot_receipt_sha256": (
+                            supervisor.sha256_file(receipt)
+                        ),
+                        "source_snapshot_file_ledger_sha256": (
+                            supervisor.source_snapshot.canonical_sha256(
+                                receipt_payload["file_sha256"]
+                            )
+                        ),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.assertTrue(
+                supervisor._controller_completed_no_claim_by_terminal(
+                    terminal
+                )
+            )
+
     def test_deadline_resume_never_resets_t0(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

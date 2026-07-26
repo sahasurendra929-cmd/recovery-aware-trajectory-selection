@@ -283,6 +283,23 @@ def load_arm_raw(
             "revision": expected_user_judge_revision,
             "api_base": contract.get("user", {}).get("api_base"),
         }
+        low_support_endpoint_drift = False
+        if (
+            expected_registry_profile
+            == evaluation.V5_3_LOW_SUPPORT_PROFILE
+        ):
+            low_support_endpoint_drift = (
+                contract.get("agent")
+                != {
+                    "model": registry["entries"][arm]["model_id"],
+                    "revision": registry["base_model_revision"],
+                    "api_base": (
+                        f"http://127.0.0.1:{8101 + shard}/v1"
+                    ),
+                }
+                or expected_user_judge["api_base"]
+                != "http://127.0.0.1:8001/v1"
+            )
         judge = contract.get("judge")
         if (
             contract.get("status") != "COMPLETE"
@@ -304,6 +321,7 @@ def load_arm_raw(
             or contract.get("decoding") != expected_decoding
             or contract.get("official_test_used") is not False
             or contract.get("user") != expected_user_judge
+            or low_support_endpoint_drift
             or not isinstance(judge, dict)
             or judge.get("model") != expected_user_judge_model_id
             or judge.get("revision") != expected_user_judge_revision

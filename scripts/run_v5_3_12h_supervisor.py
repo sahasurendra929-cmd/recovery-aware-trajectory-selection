@@ -25,8 +25,10 @@ from typing import Any, Sequence
 
 try:
     import v5_3_12h_protocol as protocol
+    import v5_3_source_snapshot_contract as source_snapshot
 except ModuleNotFoundError:
     from scripts import v5_3_12h_protocol as protocol
+    from scripts import v5_3_source_snapshot_contract as source_snapshot
 
 
 SUPERVISOR_PROTOCOL = f"{protocol.PROTOCOL}:supervisor_v1"
@@ -42,6 +44,10 @@ DEFAULT_TERM_GRACE_SECONDS = 30.0
 FINAL_CONTROLLER_STATUSES = {
     "COMPLETE_DIRECTIONAL_POSITIVE_SCREEN",
     "COMPLETE_EXPLORATORY_INCONCLUSIVE",
+}
+FINAL_NO_CLAIM_CONTROLLER_STATUSES = {
+    "DATA_GATE_FAIL_NO_TRAIN",
+    "MATCHING_INCONCLUSIVE_NO_TRAIN",
 }
 _DETACHED_HANDLES: list[subprocess.Popen[bytes]] = []
 
@@ -470,6 +476,72 @@ def _controller_completed_by_terminal(
     )
 
 
+def _controller_completed_no_claim_by_terminal(
+    terminal_receipt: Path | None,
+) -> bool:
+    if terminal_receipt is None or not terminal_receipt.is_file():
+        return False
+    try:
+        terminal = read_json(terminal_receipt)
+    except SupervisorError:
+        return False
+    try:
+        repo_root = terminal_receipt.resolve().parents[2]
+    except IndexError:
+        return False
+    processed_root = repo_root / "data/processed/v5_3_12h_screen"
+    audit_path = processed_root / "audit.json"
+    hashes_path = processed_root / "hashes.json"
+    receipt_path = repo_root / source_snapshot.RECEIPT_NAME
+    try:
+        audit = read_json(audit_path)
+        hashes = read_json(hashes_path)
+        snapshot_receipt = read_json(receipt_path)
+    except SupervisorError:
+        return False
+    processing_commit = terminal.get("processing_source_commit")
+    return bool(
+        terminal.get("protocol") == f"{protocol.PROTOCOL}:terminal_v1"
+        and terminal.get("status") in FINAL_NO_CLAIM_CONTROLLER_STATUSES
+        and terminal.get("reason") in {
+            "DO_NOT_TRAIN",
+            "FIXED_JOINT_MATCHER_FOUND_NO_REGISTERED_SCHEDULE",
+        }
+        and terminal.get("no_scientific_claim") is True
+        and terminal.get("official_test_used") is False
+        and terminal.get("official_test_sealed") is True
+        and isinstance(processing_commit, str)
+        and len(processing_commit) == 40
+        and processing_commit.lower() == processing_commit
+        and all(
+            character in "0123456789abcdef"
+            for character in processing_commit
+        )
+        and processing_commit
+        != snapshot_receipt.get("source_generation_commit")
+        and terminal.get("source_generation_commit")
+        == snapshot_receipt.get("source_generation_commit")
+        and terminal.get("source_audit_sha256") == sha256_file(audit_path)
+        and terminal.get("source_hashes_sha256") == sha256_file(hashes_path)
+        and terminal.get("source_snapshot_receipt_sha256")
+        == sha256_file(receipt_path)
+        and terminal.get("source_snapshot_file_ledger_sha256")
+        == source_snapshot.canonical_sha256(
+            snapshot_receipt.get("file_sha256")
+        )
+        and audit.get("processing_source_commit") == processing_commit
+        and audit.get("source_generation_commit")
+        == terminal.get("source_generation_commit")
+        and audit.get("source_snapshot", {}).get("receipt_sha256")
+        == sha256_file(receipt_path)
+        and set(hashes) == {"audit.json", "attempt_audit.jsonl"}
+        and hashes.get("audit.json") == sha256_file(audit_path)
+        and (processed_root / "attempt_audit.jsonl").is_file()
+        and hashes.get("attempt_audit.jsonl")
+        == sha256_file(processed_root / "attempt_audit.jsonl")
+    )
+
+
 def validated_core_snapshot(
     runtime_root: Path,
     terminal_receipt: Path | None,
@@ -706,23 +778,32 @@ def watchdog_loop(
             completed = _controller_completed_by_terminal(
                 terminal_receipt
             )
+            completed_no_claim = (
+                _controller_completed_no_claim_by_terminal(
+                    terminal_receipt
+                )
+            )
             write_action_receipt(
                 runtime_root,
                 status=(
                     "CONTROLLER_COMPLETED"
                     if completed
-                    else "ACTION_REQUIRED"
+                    else (
+                        "CONTROLLER_COMPLETED_NO_CLAIM"
+                        if completed_no_claim
+                        else "ACTION_REQUIRED"
+                    )
                 ),
                 reason=(
                     "AUDITED_TERMINAL_RECEIPT_PRESENT"
-                    if completed
+                    if completed or completed_no_claim
                     else "CONTROLLER_EXITED_WITHOUT_FINAL_SCREEN_RECEIPT"
                 ),
-                action_required=not completed,
+                action_required=not (completed or completed_no_claim),
                 ledger=ledger,
                 termination=None,
             )
-            return 0 if completed else 22
+            return 0 if completed or completed_no_claim else 22
         time.sleep(POLL_SECONDS)
 
 

@@ -5,7 +5,17 @@ seed: 20260731
 
 trigger:
   source_run: v5_3_12h_exploratory_screen_v1
+  source_generation_commit: f631dd0d7d795daad037e3548e637045ee1425e7
   source_generation_must_be_complete: true
+  source_generation_contracts: 3
+  source_generation_rollouts: 288
+  source_snapshot_receipt: V5_3_12H_SOURCE_SNAPSHOT_C3.json
+  source_snapshot_files: 15
+  source_snapshot_sha256sum_stream: 56418d6b8d06822947b7f67888d32adfe764c26db1cfefa84a4c5a2a2ea47082
+  source_snapshot_must_match_before_and_after_prepare: true
+  source_terminal_status_required: DATA_GATE_FAIL_NO_TRAIN
+  source_terminal_reason_required: DO_NOT_TRAIN
+  source_fail_closed_audit_required: true
   source_strict_data_gate_must_be: FAIL_CLOSED
   allowed_source_failure_class: abundance_only
   integrity_or_contract_failure_allows_fallback: false
@@ -39,6 +49,35 @@ isolation:
   processed_root: data/processed/v5_3_low_support_diagnostic
   results_root: results/v5_3_low_support_diagnostic
   runtime_root: artifacts/v5_3_low_support_diagnostic
+  diagnostic_controller_lock: exclusive_whole_run
+  source_controller_lock: shared_whole_run
+  child_process_lock_fd_inheritance: required
+
+controller:
+  entrypoint: scripts/run_v5_3_low_support_diagnostic.py
+  mode: unattended_single_host
+  stage_barriers:
+    - source_admission
+    - preflight
+    - prepare
+    - smoke_training
+    - formal_training
+    - checkpoint_registry
+    - runtime_services
+    - evaluation
+    - raw_summary
+  terminal_status_write: atomic
+  child_process_groups_cleaned_in_finally: true
+  sighup_fail_closed_cleanup: true
+  persistent_launch_session_required: true
+  child_process_identity:
+    pid_starttime_boot_id_bound: true
+    command_sha256_bound: true
+    pid_reuse_protection: true
+    term_then_kill_group_cleanup: true
+  stale_cuda_compute_processes_allowed: false
+  hf_home_shared_across_all_children: true
+  offline_huggingface_environment: true
 
 data_gate:
   minimum_distinct_tasks: 8
@@ -81,6 +120,16 @@ evaluation:
   max_steps: 60
   task_timeout_seconds: 900
   model_performance_adaptive_decisions: false
+  exact_v1_models_sets_required: true
+  runtime_services: 4
+  endpoint_alias_one_token_smokes: 10
+  raw_models_responses_sha256_recomputed: true
+  raw_alias_smoke_responses_sha256_recomputed: true
+  service_pid_starttime_live_validation: true
+  exact_live_alias_sets_required_by_evaluator: true
+  live_service_revalidation: after_each_arm_barrier
+  runtime_service_evidence_hash_bound_to_every_contract: true
+  shard_execution: three_concurrent_each_three_arms_serial
 
 reporting:
   independent_unit: task_id

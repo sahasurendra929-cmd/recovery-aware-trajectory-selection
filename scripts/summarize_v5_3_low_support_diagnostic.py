@@ -252,6 +252,18 @@ def summarize(
     training_support = _training_support(registry)
 
     registry_sha = screen_summary.sha256_file(checkpoint_registry_path)
+    runtime_service_path = (
+        results_root / protocol.RUNTIME_SERVICE_EVIDENCE_NAME
+    )
+    _, runtime_service_binding = (
+        evaluation.load_low_support_runtime_service_evidence(
+            runtime_service_path,
+            checkpoint_registry_path=checkpoint_registry_path,
+            checkpoint_registry=registry,
+            expected_source_commit=registry["source_commit"],
+            require_live_services=False,
+        )
+    )
     manifest_sha = screen_summary.sha256_file(evaluation_manifest_path)
     split_sha = screen_summary.sha256_file(split_manifest_path)
     required_contract_metadata = {
@@ -259,6 +271,7 @@ def summarize(
         "diagnostic_claim_boundary": (
             evaluation.V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
         ),
+        "runtime_service_evidence": runtime_service_binding,
     }
     loaded = {
         arm: screen_summary.load_arm_raw(
@@ -309,6 +322,7 @@ def summarize(
         "evaluation_manifest_sha256": manifest_sha,
         "dynamic_audit_sha256": dynamic_identity["sha256"],
         "checkpoint_registry_sha256": registry_sha,
+        "runtime_service_evidence": runtime_service_binding,
         "contract_sha256": {
             arm: loaded[arm]["contract_sha256"] for arm in EXACT_ARMS
         },

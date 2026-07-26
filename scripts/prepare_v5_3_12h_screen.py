@@ -13,6 +13,7 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 import json
 from pathlib import Path
+import subprocess
 from typing import Any
 
 try:
@@ -20,6 +21,7 @@ try:
     import prepare_v5_sft_causal as v5
     import run_v5_sft_causal_generate as generation
     import v5_3_12h_protocol as protocol
+    import v5_3_source_snapshot_contract as source_snapshot
     import v5_judge_audit_contract as judge_contract
     from v5_dynamic_audit_contract import load_complete_dynamic_audit
 except ModuleNotFoundError:
@@ -27,6 +29,7 @@ except ModuleNotFoundError:
     from scripts import prepare_v5_sft_causal as v5
     from scripts import run_v5_sft_causal_generate as generation
     from scripts import v5_3_12h_protocol as protocol
+    from scripts import v5_3_source_snapshot_contract as source_snapshot
     from scripts import v5_judge_audit_contract as judge_contract
     from scripts.v5_dynamic_audit_contract import load_complete_dynamic_audit
 
@@ -39,10 +42,31 @@ SCREEN_MANIFEST_PROTOCOL = f"{protocol.PROTOCOL}:manifest_v1"
 SCREEN_CONTRACT_PROTOCOL = "v5_stage1_inner_train_generation_run"
 SCHEDULE_ROWS = v5.SCHEDULE_ROWS
 MAX_SEQUENCE_TOKENS = 8192
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE_SNAPSHOT_RECEIPT = ROOT / source_snapshot.RECEIPT_NAME
 
 
 class ScreenDataError(RuntimeError):
     """The screen data cannot cross its fail-closed barrier."""
+
+
+def require_processing_checkout(expected_source_commit: str) -> str:
+    """Bind post-generation processing to one clean reviewed commit."""
+
+    v5.require_clean_tracked_source()
+    observed = subprocess.run(
+        ["git", "rev-parse", "HEAD^{commit}"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if observed != expected_source_commit:
+        raise ScreenDataError(
+            "screen processing source commit drift: "
+            f"HEAD={observed}, expected={expected_source_commit}"
+        )
+    return observed
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -684,6 +708,7 @@ def validate_generation_contracts(
         raise ScreenDataError("strict-judge evidence is empty or incomplete")
     return {
         "protocol": f"{protocol.PROTOCOL}:generation_contract_audit_v1",
+        "source_generation_commit": expected_source_commit,
         "task_union": len(observed_tasks),
         "shards": protocol.NUM_GENERATION_SHARDS,
         "contract_files": contract_files,
@@ -725,6 +750,7 @@ def prepare(
     screen_manifest: Path,
     generation_dynamic_audit: Path,
     validation_dynamic_audit: Path,
+    source_snapshot_receipt: Path | None = None,
     raw_dir: Path,
     output_dir: Path,
     tokenizer: Any,
@@ -732,6 +758,7 @@ def prepare(
     tokenizer_revision: str,
     domain_contexts: dict[str, dict[str, Any]],
     expected_source_commit: str | None,
+    expected_generation_source_commit: str | None = None,
     strict_generation_contracts: bool = True,
     strict_dynamic_audits: bool = True,
     schedule_rows: int = SCHEDULE_ROWS,
@@ -854,14 +881,43 @@ def prepare(
     generation_contract_audit: dict[str, Any] | None = None
     if strict_generation_contracts:
         if expected_source_commit is None:
-            raise ScreenDataError("screen contracts require source commit")
+            raise ScreenDataError(
+                "screen processing requires its source commit"
+            )
+        if expected_generation_source_commit is None:
+            raise ScreenDataError(
+                "screen processing requires the source generation commit"
+            )
+        processing_source_commit = require_processing_checkout(
+            expected_source_commit
+        )
+        if source_snapshot_receipt is None:
+            raise ScreenDataError(
+                "screen processing requires the frozen source snapshot receipt"
+            )
+        try:
+            source_snapshot_identity = (
+                source_snapshot.validate_source_snapshot(
+                    raw_dir=raw_dir,
+                    receipt_path=source_snapshot_receipt,
+                    expected_generation_commit=(
+                        expected_generation_source_commit
+                    ),
+                )
+            )
+        except source_snapshot.SourceSnapshotError as error:
+            raise ScreenDataError(str(error)) from error
         generation_contract_audit = validate_generation_contracts(
             raw_dir=raw_dir,
             screen_manifest_path=screen_manifest,
             generation_manifest_path=generation_manifest,
             dynamic_identity=dynamic_identities["generation"],
-            expected_source_commit=expected_source_commit,
+            expected_source_commit=expected_generation_source_commit,
         )
+    else:
+        processing_source_commit = expected_source_commit
+        expected_generation_source_commit = expected_source_commit
+        source_snapshot_identity = {"status": "TEST_ONLY"}
 
     pools, raw_paths = _load_attempts(raw_dir, task_ids=task_ids)
     selected_by_task: dict[str, list[dict[str, Any]]] = {}
@@ -991,6 +1047,9 @@ def prepare(
         "design_protocol": protocol.DATA_PROTOCOL,
         "design_version": protocol.DESIGN_VERSION,
         "screen_protocol": protocol.PROTOCOL,
+        "processing_source_commit": processing_source_commit,
+        "source_generation_commit": expected_generation_source_commit,
+        "source_snapshot": source_snapshot_identity,
         "seed": protocol.BASE_SEED,
         "trial_seeds": list(protocol.TRIAL_SEEDS),
         "model_tokenizer": tokenizer_name,
@@ -1298,20 +1357,52 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--screen-manifest", type=Path, required=True)
     parser.add_argument("--generation-dynamic-audit", type=Path, required=True)
     parser.add_argument("--validation-dynamic-audit", type=Path, required=True)
+    parser.add_argument(
+        "--source-snapshot-receipt", type=Path, required=True
+    )
     parser.add_argument("--raw-dir", type=Path, required=True)
     parser.add_argument("--tau2-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--tokenizer", default=v5.MODEL)
     parser.add_argument("--tokenizer-revision", required=True)
     parser.add_argument("--expected-source-commit", required=True)
+    parser.add_argument(
+        "--expected-generation-source-commit",
+        required=True,
+        help=(
+            "Immutable commit recorded by the generation contracts; it may "
+            "differ from the reviewed processing commit."
+        ),
+    )
     parser.add_argument("--local-files-only", action="store_true")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    args.expected_source_commit = args.expected_source_commit.lower()
+    args.expected_generation_source_commit = (
+        args.expected_generation_source_commit.lower()
+    )
+    for label, value in (
+        ("--expected-source-commit", args.expected_source_commit),
+        (
+            "--expected-generation-source-commit",
+            args.expected_generation_source_commit,
+        ),
+    ):
+        if (
+            len(value) != 40
+            or any(character not in "0123456789abcdef" for character in value)
+        ):
+            raise ScreenDataError(f"{label} must be a full lowercase commit")
     if args.tokenizer_revision != v5.MODEL_REVISION:
         raise ScreenDataError("screen tokenizer revision drift")
+    if args.source_snapshot_receipt.resolve() != SOURCE_SNAPSHOT_RECEIPT:
+        raise ScreenDataError(
+            "source snapshot receipt must equal the reviewed repository "
+            f"receipt: {SOURCE_SNAPSHOT_RECEIPT}"
+        )
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -1327,13 +1418,17 @@ def main() -> None:
         screen_manifest=args.screen_manifest.resolve(),
         generation_dynamic_audit=args.generation_dynamic_audit.resolve(),
         validation_dynamic_audit=args.validation_dynamic_audit.resolve(),
+        source_snapshot_receipt=args.source_snapshot_receipt.resolve(),
         raw_dir=args.raw_dir.resolve(),
         output_dir=args.output_dir.resolve(),
         tokenizer=tokenizer,
         tokenizer_name=args.tokenizer,
         tokenizer_revision=args.tokenizer_revision,
         domain_contexts=v5.load_tau2_contexts(args.tau2_root.resolve()),
-        expected_source_commit=args.expected_source_commit.lower(),
+        expected_source_commit=args.expected_source_commit,
+        expected_generation_source_commit=(
+            args.expected_generation_source_commit
+        ),
     )
     print(json.dumps(audit, indent=2, ensure_ascii=False))
 

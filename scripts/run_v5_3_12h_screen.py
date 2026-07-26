@@ -388,11 +388,56 @@ def write_terminal(
     reason: str,
     no_claim: bool,
 ) -> None:
+    processed_root = getattr(args, "processed_root", None)
+    audit_path = (
+        processed_root / "audit.json"
+        if isinstance(processed_root, Path)
+        else None
+    )
+    hashes_path = (
+        processed_root / "hashes.json"
+        if isinstance(processed_root, Path)
+        else None
+    )
+    source_snapshot_identity = None
+    if audit_path is not None and audit_path.is_file():
+        try:
+            source_snapshot_identity = read_json(audit_path).get(
+                "source_snapshot"
+            )
+        except ScreenStageError:
+            source_snapshot_identity = None
     payload = {
         "protocol": f"{protocol.PROTOCOL}:terminal_v1",
         "status": status,
         "reason": reason,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "processing_source_commit": getattr(
+            args, "expected_source_commit", None
+        ),
+        "source_generation_commit": (
+            getattr(args, "expected_generation_source_commit", None)
+        ),
+        "source_audit_sha256": (
+            sha256_file(audit_path)
+            if audit_path is not None and audit_path.is_file()
+            else None
+        ),
+        "source_hashes_sha256": (
+            sha256_file(hashes_path)
+            if hashes_path is not None and hashes_path.is_file()
+            else None
+        ),
+        "source_snapshot_receipt_sha256": (
+            source_snapshot_identity.get("receipt_sha256")
+            if isinstance(source_snapshot_identity, dict)
+            else None
+        ),
+        "source_snapshot_file_ledger_sha256": (
+            source_snapshot_identity.get("file_ledger_sha256")
+            if isinstance(source_snapshot_identity, dict)
+            else None
+        ),
         "deadline_receipt": str(deadline_path(args).resolve()),
         "deadline_receipt_sha256": (
             sha256_file(deadline_path(args))
@@ -932,12 +977,19 @@ def generation_complete(args: argparse.Namespace) -> bool:
                 for row in read_json(files["source_generation"])["rows"]
             },
         )
+        screen_data.source_snapshot.validate_source_snapshot(
+            raw_dir=args.raw_root,
+            receipt_path=screen_data.SOURCE_SNAPSHOT_RECEIPT,
+            expected_generation_commit=(
+                args.expected_generation_source_commit
+            ),
+        )
         screen_data.validate_generation_contracts(
             raw_dir=args.raw_root,
             screen_manifest_path=files["screen"],
             generation_manifest_path=files["source_generation"],
             dynamic_identity=dynamic,
-            expected_source_commit=args.expected_source_commit,
+            expected_source_commit=args.expected_generation_source_commit,
         )
         pools, _ = screen_data._load_attempts(
             args.raw_root, task_ids=set(protocol.PILOT_TASK_IDS)
@@ -1029,7 +1081,8 @@ def generate(args: argparse.Namespace) -> None:
                 "--max-steps", "60",
                 "--timeout", "900",
                 "--max-tokens", "512",
-                "--expected-source-commit", args.expected_source_commit,
+                "--expected-source-commit",
+                args.expected_generation_source_commit,
             ]
             process, handle = spawn_logged(
                 command,
@@ -1054,13 +1107,23 @@ def data_complete(args: argparse.Namespace) -> bool:
     try:
         audit = read_json(audit_path)
         hashes = read_json(hashes_path)
+        snapshot_identity = (
+            screen_data.source_snapshot.validate_source_snapshot(
+                raw_dir=args.raw_root,
+                receipt_path=screen_data.SOURCE_SNAPSHOT_RECEIPT,
+                expected_generation_commit=(
+                    args.expected_generation_source_commit
+                ),
+            )
+        )
         return (
             audit.get("status") == "PASS"
-            and audit.get("decision") == "TRAIN"
+            and audit.get("decision") == "SCREEN_TRAINING_AUTHORIZED"
             and audit.get("design_version") == protocol.DESIGN_VERSION
             and (audit.get("data_gate") or {}).get("training_authorized")
             is True
             and audit.get("official_test_used") is False
+            and audit.get("source_snapshot") == snapshot_identity
             and all(
                 (args.processed_root / name).is_file()
                 and sha256_file(args.processed_root / name) == digest
@@ -1068,7 +1131,163 @@ def data_complete(args: argparse.Namespace) -> bool:
             )
             and hashes.get("audit.json") == sha256_file(audit_path)
         )
-    except (OSError, KeyError, TypeError, ValueError):
+    except (
+        OSError,
+        KeyError,
+        TypeError,
+        ValueError,
+        screen_data.source_snapshot.SourceSnapshotError,
+    ):
+        return False
+
+
+def fail_closed_data_gate_complete(args: argparse.Namespace) -> bool:
+    """Validate the expected no-training abundance-gate artifact atomically."""
+
+    audit_path = args.processed_root / "audit.json"
+    hashes_path = args.processed_root / "hashes.json"
+    attempt_path = args.processed_root / "attempt_audit.jsonl"
+    if not all(
+        path.is_file() for path in (audit_path, hashes_path, attempt_path)
+    ):
+        return False
+    try:
+        audit = read_json(audit_path)
+        hashes = read_json(hashes_path)
+        snapshot_identity = (
+            screen_data.source_snapshot.validate_source_snapshot(
+                raw_dir=args.raw_root,
+                receipt_path=screen_data.SOURCE_SNAPSHOT_RECEIPT,
+                expected_generation_commit=(
+                    args.expected_generation_source_commit
+                ),
+            )
+        )
+        pair_counts = {
+            task: int(
+                (audit.get("task_yield") or {})
+                .get(task, {})
+                .get("selected_pairs", -1)
+            )
+            for task in protocol.PILOT_TASK_IDS
+        }
+        expected_gate = protocol.data_gate(pair_counts)
+        expected_hashes = {
+            "attempt_audit.jsonl": sha256_file(attempt_path),
+            "audit.json": sha256_file(audit_path),
+        }
+        return bool(
+            audit.get("protocol") == screen_data.v5.DATA_AUDIT_PROTOCOL
+            and audit.get("design_protocol") == protocol.DATA_PROTOCOL
+            and audit.get("design_version") == protocol.DESIGN_VERSION
+            and audit.get("screen_protocol") == protocol.PROTOCOL
+            and audit.get("processing_source_commit")
+            == args.expected_source_commit
+            and audit.get("source_generation_commit")
+            == args.expected_generation_source_commit
+            and (
+                (audit.get("generation_contracts") or {}).get(
+                    "source_generation_commit"
+                )
+                == args.expected_generation_source_commit
+            )
+            and audit.get("source_snapshot") == snapshot_identity
+            and audit.get("status") == "FAIL_CLOSED"
+            and audit.get("decision") == "DO_NOT_TRAIN"
+            and audit.get("arm_files_written") is False
+            and audit.get("expected_rollouts")
+            == protocol.EXPECTED_ROLLOUTS
+            and audit.get("official_test_used") is False
+            and audit.get("official_test_sealed") is True
+            and audit.get("data_gate") == expected_gate
+            and expected_gate.get("status") == "FAIL_CLOSED"
+            and expected_gate.get("training_authorized") is False
+            and hashes == expected_hashes
+            and not (args.results_root / "training").exists()
+            and not (args.results_root / "evaluation").exists()
+        )
+    except (
+        OSError,
+        KeyError,
+        TypeError,
+        ValueError,
+        RuntimeError,
+        screen_data.source_snapshot.SourceSnapshotError,
+    ):
+        return False
+
+
+def fail_closed_matching_complete(args: argparse.Namespace) -> bool:
+    """Validate a hash-bound matcher failure after the data gate passed."""
+
+    audit_path = args.processed_root / "audit.json"
+    hashes_path = args.processed_root / "hashes.json"
+    attempt_path = args.processed_root / "attempt_audit.jsonl"
+    if not all(
+        path.is_file() for path in (audit_path, hashes_path, attempt_path)
+    ):
+        return False
+    try:
+        audit = read_json(audit_path)
+        hashes = read_json(hashes_path)
+        snapshot_identity = (
+            screen_data.source_snapshot.validate_source_snapshot(
+                raw_dir=args.raw_root,
+                receipt_path=screen_data.SOURCE_SNAPSHOT_RECEIPT,
+                expected_generation_commit=(
+                    args.expected_generation_source_commit
+                ),
+            )
+        )
+        pair_counts = {
+            task: int(
+                (audit.get("task_yield") or {})
+                .get(task, {})
+                .get("selected_pairs", -1)
+            )
+            for task in protocol.PILOT_TASK_IDS
+        }
+        expected_gate = protocol.data_gate(pair_counts)
+        expected_hashes = {
+            "attempt_audit.jsonl": sha256_file(attempt_path),
+            "audit.json": sha256_file(audit_path),
+        }
+        return bool(
+            audit.get("protocol") == screen_data.v5.DATA_AUDIT_PROTOCOL
+            and audit.get("design_protocol") == protocol.DATA_PROTOCOL
+            and audit.get("design_version") == protocol.DESIGN_VERSION
+            and audit.get("screen_protocol") == protocol.PROTOCOL
+            and audit.get("processing_source_commit")
+            == args.expected_source_commit
+            and audit.get("source_generation_commit")
+            == args.expected_generation_source_commit
+            and (audit.get("generation_contracts") or {}).get(
+                "source_generation_commit"
+            )
+            == args.expected_generation_source_commit
+            and audit.get("source_snapshot") == snapshot_identity
+            and audit.get("status") == "FAIL_CLOSED"
+            and audit.get("decision") == "DO_NOT_TRAIN"
+            and audit.get("arm_files_written") is False
+            and isinstance(audit.get("matching"), dict)
+            and audit.get("expected_rollouts")
+            == protocol.EXPECTED_ROLLOUTS
+            and audit.get("official_test_used") is False
+            and audit.get("official_test_sealed") is True
+            and audit.get("data_gate") == expected_gate
+            and expected_gate.get("training_authorized") is True
+            and hashes == expected_hashes
+            and not (args.results_root / "training").exists()
+            and not (args.results_root / "evaluation").exists()
+        )
+    except (
+        OSError,
+        KeyError,
+        TypeError,
+        ValueError,
+        RuntimeError,
+        screen_data.source_snapshot.SourceSnapshotError,
+    ):
         return False
 
 
@@ -1081,22 +1300,27 @@ def prepare(args: argparse.Namespace) -> None:
         if audit.is_file():
             value = read_json(audit)
             if value.get("status") == "FAIL_CLOSED":
-                decision = value.get("decision")
-                if "matching" in value:
+                if fail_closed_matching_complete(args):
                     write_terminal(
                         args,
                         status="MATCHING_INCONCLUSIVE_NO_TRAIN",
                         reason="FIXED_JOINT_MATCHER_FOUND_NO_REGISTERED_SCHEDULE",
                         no_claim=True,
                     )
-                else:
+                elif fail_closed_data_gate_complete(args):
                     write_terminal(
                         args,
                         status="DATA_GATE_FAIL_NO_TRAIN",
-                        reason=str(decision or "DATA_GATE_FAILED"),
+                        reason="DO_NOT_TRAIN",
                         no_claim=True,
                     )
-                raise ScreenStageError("data preparation previously failed closed")
+                else:
+                    raise ScreenStageError(
+                        "partial fail-closed data audit is invalid"
+                    )
+                raise ScreenStageError(
+                    "data preparation previously failed closed"
+                )
         raise ScreenStageError(
             f"partial processed root must be archived: {args.processed_root}"
         )
@@ -1110,12 +1334,16 @@ def prepare(args: argparse.Namespace) -> None:
         "--screen-manifest", str(files["screen"]),
         "--generation-dynamic-audit", str(files["generation_audit"]),
         "--validation-dynamic-audit", str(files["validation_audit"]),
+        "--source-snapshot-receipt",
+        str(screen_data.SOURCE_SNAPSHOT_RECEIPT),
         "--raw-dir", str(args.raw_root),
         "--tau2-root", str(args.tau2_root),
         "--output-dir", str(args.processed_root),
         "--tokenizer", STUDENT_MODEL,
         "--tokenizer-revision", STUDENT_REVISION,
         "--expected-source-commit", args.expected_source_commit,
+        "--expected-generation-source-commit",
+        args.expected_generation_source_commit,
         "--local-files-only",
     ]
     process, handle = spawn_logged(
@@ -1123,22 +1351,48 @@ def prepare(args: argparse.Namespace) -> None:
         env=base.base_env(offline=True, gpu=0),
         log_path=args.results_root / "logs/prepare-screen.log",
     )
-    wait_processes([(process, handle, "prepare-screen")])
-    if not data_complete(args):
-        audit = args.processed_root / "audit.json"
-        if audit.is_file() and "matching" in read_json(audit):
+    try:
+        wait_processes([(process, handle, "prepare-screen")])
+    except ScreenStageError as error:
+        if fail_closed_matching_complete(args):
             write_terminal(
                 args,
                 status="MATCHING_INCONCLUSIVE_NO_TRAIN",
                 reason="FIXED_JOINT_MATCHER_FOUND_NO_REGISTERED_SCHEDULE",
                 no_claim=True,
             )
-        else:
+            raise ScreenStageError(
+                "screen matching search failed closed"
+            ) from error
+        if fail_closed_data_gate_complete(args):
             write_terminal(
                 args,
                 status="DATA_GATE_FAIL_NO_TRAIN",
-                reason="REGISTERED_14_TASK_17_PAIR_GATE_FAILED",
+                reason="DO_NOT_TRAIN",
                 no_claim=True,
+            )
+            raise ScreenStageError(
+                "screen data preparation failed closed"
+            ) from error
+        raise
+    if not data_complete(args):
+        if fail_closed_matching_complete(args):
+            write_terminal(
+                args,
+                status="MATCHING_INCONCLUSIVE_NO_TRAIN",
+                reason="FIXED_JOINT_MATCHER_FOUND_NO_REGISTERED_SCHEDULE",
+                no_claim=True,
+            )
+        elif fail_closed_data_gate_complete(args):
+            write_terminal(
+                args,
+                status="DATA_GATE_FAIL_NO_TRAIN",
+                reason="DO_NOT_TRAIN",
+                no_claim=True,
+            )
+        else:
+            raise ScreenStageError(
+                "screen data preparation left invalid partial output"
             )
         raise ScreenStageError("screen data preparation failed closed")
 
@@ -2149,6 +2403,7 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--expected-source-commit")
+    parser.add_argument("--expected-generation-source-commit")
     parser.add_argument(
         "--tau2-root", type=Path, default=ROOT / "data/raw/tau2-bench"
     )
@@ -2217,6 +2472,31 @@ def main() -> None:
     if not args.expected_source_commit:
         raise SystemExit(
             "--expected-source-commit is required except for stop-services"
+        )
+    args.expected_source_commit = args.expected_source_commit.lower()
+    args.expected_generation_source_commit = (
+        args.expected_generation_source_commit
+        or args.expected_source_commit
+    ).lower()
+    for label, value in (
+        ("--expected-source-commit", args.expected_source_commit),
+        (
+            "--expected-generation-source-commit",
+            args.expected_generation_source_commit,
+        ),
+    ):
+        if (
+            len(value) != 40
+            or any(character not in "0123456789abcdef" for character in value)
+        ):
+            raise SystemExit(f"{label} must be a full lowercase commit")
+    if (
+        args.expected_generation_source_commit
+        != args.expected_source_commit
+        and args.stage not in {"prepare", "status"}
+    ):
+        raise SystemExit(
+            "cross-commit generation reuse is allowed only for prepare/status"
         )
     verify_execution_commit(args.expected_source_commit)
     validate_isolation(args)

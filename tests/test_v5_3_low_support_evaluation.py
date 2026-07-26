@@ -300,6 +300,14 @@ class V53LowSupportEvaluationIdentityTests(unittest.TestCase):
             "diagnostic_claim_boundary": dict(
                 EVALUATION.V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
             ),
+            "runtime_service_evidence": {
+                "path": (
+                    "/repo/results/v5_3_low_support_diagnostic/"
+                    "runtime_service_evidence.json"
+                ),
+                "sha256": "1" * 64,
+                "canonical_sha256": "2" * 64,
+            },
             "tool_action_interface": dict(
                 EVALUATION.TOOL_ACTION_INTERFACE
             ),

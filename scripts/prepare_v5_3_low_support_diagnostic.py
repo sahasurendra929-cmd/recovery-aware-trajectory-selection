@@ -23,6 +23,7 @@ try:
     import run_v5_sft_causal_generate as generation
     import v5_3_12h_protocol as protocol
     import v5_3_low_support_protocol as diagnostic
+    import v5_3_source_snapshot_contract as source_snapshot
     import v5_judge_audit_contract as judge_contract
     from v5_dynamic_audit_contract import load_complete_dynamic_audit
 except ModuleNotFoundError:
@@ -31,6 +32,7 @@ except ModuleNotFoundError:
     from scripts import run_v5_sft_causal_generate as generation
     from scripts import v5_3_12h_protocol as protocol
     from scripts import v5_3_low_support_protocol as diagnostic
+    from scripts import v5_3_source_snapshot_contract as source_snapshot
     from scripts import v5_judge_audit_contract as judge_contract
     from scripts.v5_dynamic_audit_contract import load_complete_dynamic_audit
 
@@ -44,6 +46,7 @@ SCREEN_CONTRACT_PROTOCOL = "v5_stage1_inner_train_generation_run"
 SCHEDULE_ROWS = v5.SCHEDULE_ROWS
 MAX_SEQUENCE_TOKENS = 8192
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_SNAPSHOT_RECEIPT = ROOT / source_snapshot.RECEIPT_NAME
 
 
 class ScreenDataError(RuntimeError):
@@ -800,6 +803,7 @@ def prepare(
     screen_manifest: Path,
     generation_dynamic_audit: Path,
     validation_dynamic_audit: Path,
+    source_snapshot_receipt: Path | None = None,
     raw_dir: Path,
     output_dir: Path,
     tokenizer: Any,
@@ -947,6 +951,22 @@ def prepare(
                 "post-yield processing and source generation commits must be "
                 "recorded separately"
             )
+        if source_snapshot_receipt is None:
+            raise ScreenDataError(
+                "diagnostic processing requires the frozen source snapshot"
+            )
+        try:
+            source_snapshot_identity = (
+                source_snapshot.validate_source_snapshot(
+                    raw_dir=raw_dir,
+                    receipt_path=source_snapshot_receipt,
+                    expected_generation_commit=(
+                        expected_generation_source_commit
+                    ),
+                )
+            )
+        except source_snapshot.SourceSnapshotError as error:
+            raise ScreenDataError(str(error)) from error
         generation_contract_audit = validate_generation_contracts(
             raw_dir=raw_dir,
             screen_manifest_path=screen_manifest,
@@ -956,6 +976,7 @@ def prepare(
         )
     else:
         processing_source_commit = expected_source_commit
+        source_snapshot_identity = {"status": "TEST_ONLY"}
 
     pools, raw_paths = _load_attempts(raw_dir, task_ids=task_ids)
     selected_by_task: dict[str, list[dict[str, Any]]] = {}
@@ -1088,6 +1109,7 @@ def prepare(
         "source_screen_protocol": protocol.PROTOCOL,
         "processing_source_commit": processing_source_commit,
         "source_generation_commit": expected_generation_source_commit,
+        "source_snapshot": source_snapshot_identity,
         "seed": diagnostic.BASE_SEED,
         "trial_seeds": list(diagnostic.TRIAL_SEEDS),
         "model_tokenizer": tokenizer_name,
@@ -1364,6 +1386,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--screen-manifest", type=Path, required=True)
     parser.add_argument("--generation-dynamic-audit", type=Path, required=True)
     parser.add_argument("--validation-dynamic-audit", type=Path, required=True)
+    parser.add_argument(
+        "--source-snapshot-receipt", type=Path, required=True
+    )
     parser.add_argument("--raw-dir", type=Path, required=True)
     parser.add_argument("--tau2-root", type=Path, required=True)
     parser.add_argument(
@@ -1411,6 +1436,11 @@ def main() -> None:
             raise ScreenDataError(f"{label} must be a full lowercase commit")
     if args.tokenizer_revision != v5.MODEL_REVISION:
         raise ScreenDataError("screen tokenizer revision drift")
+    if args.source_snapshot_receipt.resolve() != SOURCE_SNAPSHOT_RECEIPT:
+        raise ScreenDataError(
+            "source snapshot receipt must equal the reviewed repository "
+            f"receipt: {SOURCE_SNAPSHOT_RECEIPT}"
+        )
     expected_output = diagnostic.artifact_root(ROOT, "processed_root")
     if args.output_dir.resolve() != expected_output:
         raise ScreenDataError(
@@ -1442,6 +1472,7 @@ def main() -> None:
         screen_manifest=args.screen_manifest.resolve(),
         generation_dynamic_audit=args.generation_dynamic_audit.resolve(),
         validation_dynamic_audit=args.validation_dynamic_audit.resolve(),
+        source_snapshot_receipt=args.source_snapshot_receipt.resolve(),
         raw_dir=args.raw_dir.resolve(),
         output_dir=args.output_dir.resolve(),
         tokenizer=tokenizer,

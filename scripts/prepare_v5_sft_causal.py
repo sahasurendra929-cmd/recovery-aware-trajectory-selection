@@ -44,6 +44,7 @@ except ModuleNotFoundError:
 SEED = 20260722
 MODEL = "Qwen/Qwen2.5-7B-Instruct"
 MODEL_REVISION = "a09a35458c702b33eeacc393d103063234e8bc28"
+DATA_AUDIT_PROTOCOL = "v5_stage1_sft_causal"
 TEACHER_MODEL = "Qwen/Qwen2.5-14B-Instruct-AWQ"
 TEACHER_REVISION = "539535859b135b0244c91f3e59816150c8056698"
 USER_JUDGE_MODEL = "Qwen/Qwen2.5-7B-Instruct-AWQ"
@@ -1877,7 +1878,7 @@ def prepare(
 
     audit = {
         "status": "PASS",
-        "protocol": "v5_stage1_sft_causal",
+        "protocol": DATA_AUDIT_PROTOCOL,
         "claim_scope": "multi_fault_family_post_fault_robustness_screen",
         "semantic_repair_claim_allowed": False,
         "seed": seed,

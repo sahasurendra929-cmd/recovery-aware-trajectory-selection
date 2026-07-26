@@ -172,6 +172,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dynamic-audit", type=Path, required=True)
     parser.add_argument("--checkpoint-registry", type=Path, required=True)
     parser.add_argument(
+        "--runtime-service-evidence",
+        type=Path,
+        help=(
+            "Required only for the V5.3 low-support diagnostic. This immutable "
+            "receipt binds exact /v1/models sets and all ten endpoint×alias "
+            "one-token smokes to every evaluation contract."
+        ),
+    )
+    parser.add_argument(
         "--provenance-profile",
         choices=PROVENANCE_PROFILES,
         help=(
@@ -618,8 +627,9 @@ def verify_served_registry_aliases(
     registry: dict[str, Any],
     *,
     timeout_seconds: float = 15.0,
+    require_exact: bool = False,
 ) -> list[str]:
-    """Query ``/v1/models`` and require all five frozen aliases."""
+    """Query ``/v1/models`` and require registered aliases."""
 
     url = f"{api_base.rstrip('/')}/models"
     request = Request(
@@ -635,16 +645,25 @@ def verify_served_registry_aliases(
     rows = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
         raise RuntimeError("/v1/models response lacks a data list")
-    served = {
+    served_rows = [
         row.get("id")
         for row in rows
         if isinstance(row, dict) and isinstance(row.get("id"), str)
-    }
+    ]
+    served = set(served_rows)
     expected = set(registry_served_aliases(registry))
     missing = sorted(expected - served)
     if missing:
         raise RuntimeError(
             f"/v1/models is missing checkpoint-registry aliases: {missing}"
+        )
+    if require_exact and (
+        len(served_rows) != len(served)
+        or served != expected
+    ):
+        raise RuntimeError(
+            "/v1/models must contain exactly the checkpoint-registry "
+            f"aliases: expected={sorted(expected)}, observed={sorted(served)}"
         )
     return sorted(expected)
 
@@ -655,6 +674,7 @@ def verify_served_model_id(
     expected_model_id: str,
     *,
     timeout_seconds: float = 15.0,
+    require_exact: bool = False,
 ) -> str:
     """Require one independently served, pinned model alias."""
 
@@ -670,16 +690,487 @@ def verify_served_model_id(
     except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as error:
         raise RuntimeError(f"cannot verify served model at {url}: {error}") from error
     rows = payload.get("data") if isinstance(payload, dict) else None
-    observed = {
+    observed_rows = [
         row.get("id")
         for row in rows or []
         if isinstance(row, dict) and isinstance(row.get("id"), str)
-    }
-    if expected_model_id.removeprefix("openai/") not in observed:
+    ]
+    observed = set(observed_rows)
+    expected = expected_model_id.removeprefix("openai/")
+    if expected not in observed:
         raise RuntimeError(
             f"/v1/models is missing {expected_model_id!r}: {sorted(observed)}"
         )
-    return expected_model_id.removeprefix("openai/")
+    if require_exact and (
+        len(observed_rows) != len(observed)
+        or observed != {expected}
+    ):
+        raise RuntimeError(
+            "/v1/models must contain exactly the independently served model: "
+            f"expected={[expected]}, observed={sorted(observed)}"
+        )
+    return expected
+
+
+def _linux_process_identity(pid: int) -> dict[str, Any]:
+    if not isinstance(pid, int) or pid <= 1:
+        raise RuntimeError("runtime process identity has unsafe PID")
+    proc = Path("/proc") / str(pid)
+    try:
+        stat = (proc / "stat").read_text(encoding="utf-8")
+        cmdline = (proc / "cmdline").read_bytes()
+        boot_id = Path("/proc/sys/kernel/random/boot_id").read_text(
+            encoding="utf-8"
+        ).strip()
+    except OSError as error:
+        raise RuntimeError(
+            f"runtime service PID {pid} is not live"
+        ) from error
+    closing = stat.rfind(")")
+    fields = stat[closing + 2 :].split() if closing >= 0 else []
+    if len(fields) < 20 or not cmdline or not boot_id:
+        raise RuntimeError(f"runtime service PID {pid} identity is malformed")
+    try:
+        process_group_id = int(fields[2])
+        start_time_ticks = int(fields[19])
+    except ValueError as error:
+        raise RuntimeError(
+            f"runtime service PID {pid} identity has non-integer fields"
+        ) from error
+    return {
+        "protocol": low_support.PROCESS_IDENTITY_PROTOCOL,
+        "pid": pid,
+        "process_group_id": process_group_id,
+        "start_time_ticks": start_time_ticks,
+        "boot_id": boot_id,
+        "cmdline_sha256": hashlib.sha256(cmdline).hexdigest(),
+    }
+
+
+def _validate_process_identity(value: Any) -> dict[str, Any]:
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {
+            "protocol",
+            "pid",
+            "process_group_id",
+            "start_time_ticks",
+            "boot_id",
+            "cmdline_sha256",
+        }
+        or value.get("protocol") != low_support.PROCESS_IDENTITY_PROTOCOL
+        or not isinstance(value.get("pid"), int)
+        or value["pid"] <= 1
+        or value.get("process_group_id") != value["pid"]
+        or not isinstance(value.get("start_time_ticks"), int)
+        or value["start_time_ticks"] <= 0
+        or not isinstance(value.get("boot_id"), str)
+        or not value["boot_id"]
+        or not _valid_sha256(value.get("cmdline_sha256"))
+        or value.get("cmdline_sha256")
+        == hashlib.sha256(b"").hexdigest()
+    ):
+        raise RuntimeError("runtime service process identity drift")
+    return dict(value)
+
+
+def _same_live_process(
+    expected: dict[str, Any], observed: dict[str, Any]
+) -> bool:
+    return all(
+        expected.get(field) == observed.get(field)
+        for field in (
+            "protocol",
+            "pid",
+            "process_group_id",
+            "start_time_ticks",
+            "boot_id",
+            "cmdline_sha256",
+        )
+    )
+
+
+def load_low_support_runtime_service_evidence(
+    path: Path,
+    *,
+    checkpoint_registry_path: Path,
+    checkpoint_registry: dict[str, Any],
+    expected_source_commit: str,
+    require_live_services: bool = True,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Validate and hash-bind the controller's exact live service receipt."""
+
+    resolved = path.expanduser().resolve()
+    expected_path = (
+        low_support.artifact_root(ROOT, "results_root")
+        / low_support.RUNTIME_SERVICE_EVIDENCE_NAME
+    ).resolve()
+    if resolved != expected_path:
+        raise RuntimeError(
+            "low-support runtime service evidence must use its isolated "
+            f"canonical path: {expected_path}"
+        )
+    try:
+        payload = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise RuntimeError(
+            f"invalid low-support runtime service evidence: {resolved}"
+        ) from error
+    if not isinstance(payload, dict):
+        raise RuntimeError("runtime service evidence must be a JSON object")
+    canonical = payload.get("canonical_sha256")
+    core = {
+        key: value
+        for key, value in payload.items()
+        if key != "canonical_sha256"
+    }
+    expected_endpoint_aliases = {
+        endpoint: list(aliases)
+        for endpoint, aliases in (
+            low_support.RUNTIME_ENDPOINT_MODEL_ALIASES.items()
+        )
+    }
+    services = payload.get("services")
+    if not isinstance(services, list) or len(services) != 4:
+        raise RuntimeError("runtime service evidence requires exactly 4 services")
+    exact_service_identity = {
+        low_support.RUNTIME_ENDPOINTS[0]: {
+            "role": "user_and_strict_judge",
+            "gpu": 0,
+            "model": low_support.USER_JUDGE_MODEL,
+            "revision": low_support.USER_JUDGE_REVISION,
+            "dtype": "float16",
+            "quantization": "awq",
+        },
+        **{
+            endpoint: {
+                "role": f"agent_shard_{gpu - 1}",
+                "gpu": gpu,
+                "model": low_support.STUDENT_MODEL,
+                "revision": low_support.STUDENT_REVISION,
+                "dtype": "bfloat16",
+                "quantization": None,
+            }
+            for gpu, endpoint in enumerate(
+                low_support.RUNTIME_ENDPOINTS[1:], start=1
+            )
+        },
+    }
+    observed_service_endpoints: set[str] = set()
+    for row in services:
+        if not isinstance(row, dict):
+            raise RuntimeError("runtime service row must be an object")
+        endpoint = row.get("api_base")
+        if (
+            endpoint not in expected_endpoint_aliases
+            or endpoint in observed_service_endpoints
+        ):
+            raise RuntimeError("runtime service endpoint set drift")
+        expected_served_name = expected_endpoint_aliases[endpoint][0]
+        expected_port = endpoint.rsplit(":", 1)[1].removesuffix("/v1")
+        command = row.get("command")
+        if (
+            not isinstance(command, list)
+            or not command
+            or any(not isinstance(value, str) for value in command)
+            or not _valid_sha256(row.get("command_sha256"))
+            or row.get("command_sha256")
+            != low_support.canonical_sha256(command)
+        ):
+            raise RuntimeError("runtime service command evidence drift")
+        required_command_values = {
+            "--revision": row.get("revision"),
+            "--tokenizer-revision": row.get("tokenizer_revision"),
+            "--host": "127.0.0.1",
+            "--dtype": row.get("dtype"),
+            "--max-model-len": str(row.get("max_model_len")),
+            "--max-num-seqs": str(row.get("max_num_seqs")),
+            "--gpu-memory-utilization": "0.90",
+            "--tool-call-parser": "hermes",
+            "--generation-config": "vllm",
+            "--served-model-name": expected_served_name,
+            "--port": expected_port,
+        }
+        for flag, expected_value in required_command_values.items():
+            if command.count(flag) != 1:
+                raise RuntimeError(
+                    f"runtime service command {flag} count drift"
+                )
+            index = command.index(flag)
+            if (
+                index + 1 >= len(command)
+                or command[index + 1] != expected_value
+            ):
+                raise RuntimeError(
+                    f"runtime service command {flag} value drift"
+                )
+        if command.count("--enable-auto-tool-choice") != 1:
+            raise RuntimeError(
+                "runtime service auto-tool-choice command drift"
+            )
+        if (
+            len(command) < 3
+            or command[1:3] != ["serve", row.get("model")]
+        ):
+            raise RuntimeError("runtime service serve/model/port command drift")
+        models_response = row.get("models_response")
+        models_rows = (
+            models_response.get("data")
+            if isinstance(models_response, dict)
+            else None
+        )
+        if not isinstance(models_rows, list):
+            raise RuntimeError("runtime raw /models response is absent")
+        raw_model_ids = [
+            item.get("id")
+            for item in models_rows
+            if isinstance(item, dict)
+            and isinstance(item.get("id"), str)
+        ]
+        if (
+            len(raw_model_ids) != len(models_rows)
+            or len(raw_model_ids) != len(set(raw_model_ids))
+            or sorted(raw_model_ids) != expected_endpoint_aliases[endpoint]
+            or row.get("models_response_sha256")
+            != low_support.canonical_sha256(models_response)
+        ):
+            raise RuntimeError(
+                "runtime raw /models response/hash binding drift"
+            )
+        process_identity = _validate_process_identity(
+            row.get("process_identity")
+        )
+        expected_pid_receipt_path = (
+            resolved.parent
+            / "pids"
+            / f"eval-server-gpu{row.get('gpu')}.json"
+        ).resolve()
+        try:
+            pid_receipt_path = Path(
+                row.get("pid_receipt_path")
+            ).expanduser().resolve()
+        except TypeError as error:
+            raise RuntimeError(
+                "runtime service PID receipt path drift"
+            ) from error
+        if (
+            pid_receipt_path != expected_pid_receipt_path
+            or not pid_receipt_path.is_file()
+            or not _valid_sha256(row.get("pid_receipt_sha256"))
+            or row.get("pid_receipt_sha256")
+            != sha256_file(pid_receipt_path)
+        ):
+            raise RuntimeError("runtime service PID receipt binding drift")
+        try:
+            pid_receipt = json.loads(
+                pid_receipt_path.read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            raise RuntimeError(
+                "runtime service PID receipt is invalid"
+            ) from error
+        if not isinstance(pid_receipt, dict):
+            raise RuntimeError("runtime service PID receipt is not an object")
+        pid_receipt_canonical = pid_receipt.get("canonical_sha256")
+        pid_receipt_core = {
+            key: value
+            for key, value in pid_receipt.items()
+            if key != "canonical_sha256"
+        }
+        if (
+            pid_receipt.get("protocol")
+            != low_support.SERVICE_PID_RECEIPT_PROTOCOL
+            or pid_receipt.get("service_role") != row.get("role")
+            or pid_receipt.get("gpu") != row.get("gpu")
+            or pid_receipt.get("api_base") != endpoint
+            or pid_receipt.get("command_sha256")
+            != row.get("command_sha256")
+            or pid_receipt.get("process_identity") != process_identity
+            or not _valid_sha256(pid_receipt_canonical)
+            or pid_receipt_canonical
+            != low_support.canonical_sha256(pid_receipt_core)
+        ):
+            raise RuntimeError("runtime service PID receipt content drift")
+        if (
+            require_live_services
+            and not _same_live_process(
+                process_identity,
+                _linux_process_identity(process_identity["pid"]),
+            )
+        ):
+            raise RuntimeError(
+                "runtime evidence is not bound to the same live service"
+            )
+        adapter_aliases = {
+            low_support.MODEL_IDS[arm].removeprefix("openai/")
+            for arm in low_support.TRAINED_ARMS
+        }
+        lora_module_values = {
+            value
+            for value in command
+            if "=" in value and value.split("=", 1)[0] in adapter_aliases
+        }
+        expected_lora_module_values = {
+            (
+                f"{low_support.MODEL_IDS[arm].removeprefix('openai/')}="
+                f"{resolved.parent / 'training' / arm / 'formal' / 'checkpoint_final'}"
+            )
+            for arm in low_support.TRAINED_ARMS
+        }
+        expected_lora_flag_values = {
+            "--max-lora-rank": "16",
+            "--max-loras": "1",
+            "--max-cpu-loras": "4",
+        }
+        lora_flag_drift = False
+        for flag, expected_value in expected_lora_flag_values.items():
+            if endpoint == low_support.RUNTIME_ENDPOINTS[0]:
+                lora_flag_drift = lora_flag_drift or flag in command
+                continue
+            if command.count(flag) != 1:
+                lora_flag_drift = True
+                continue
+            index = command.index(flag)
+            lora_flag_drift = lora_flag_drift or (
+                index + 1 >= len(command)
+                or command[index + 1] != expected_value
+            )
+        lora_command_drift = (
+            (
+                "--enable-lora" in command
+                or "--lora-modules" in command
+                or lora_module_values
+            )
+            if endpoint == low_support.RUNTIME_ENDPOINTS[0]
+            else (
+                "--enable-lora" not in command
+                or command.count("--lora-modules") != 1
+                or lora_module_values != expected_lora_module_values
+            )
+        ) or lora_flag_drift
+        if (
+            endpoint not in expected_endpoint_aliases
+            or endpoint in observed_service_endpoints
+            or row.get("expected_models")
+            != expected_endpoint_aliases[endpoint]
+            or row.get("observed_models")
+            != expected_endpoint_aliases[endpoint]
+            or row.get("models_exact") is not True
+            or row.get("tokenizer_revision") != row.get("revision")
+            or row.get("max_model_len") != MAX_MODEL_LEN
+            or row.get("max_num_seqs") != 1
+            or row.get("gpu_memory_utilization") != 0.90
+            or lora_command_drift
+            or any(
+                row.get(key) != value
+                for key, value in exact_service_identity[endpoint].items()
+            )
+            or (
+                row.get("quantization") == "awq"
+                and (
+                    command.count("--quantization") != 1
+                    or command.index("--quantization") + 1 >= len(command)
+                    or command[command.index("--quantization") + 1] != "awq"
+                )
+            )
+            or (
+                row.get("quantization") is None
+                and "--quantization" in command
+            )
+        ):
+            raise RuntimeError(
+                "runtime service exact endpoint/model-set evidence drift"
+            )
+        observed_service_endpoints.add(endpoint)
+    expected_pairs = {
+        (endpoint, alias)
+        for endpoint, aliases in expected_endpoint_aliases.items()
+        for alias in aliases
+    }
+    smokes = payload.get("alias_smokes")
+    if (
+        not isinstance(smokes, list)
+        or len(smokes) != low_support.RUNTIME_ALIAS_SMOKE_COUNT
+    ):
+        raise RuntimeError(
+            "runtime service evidence must contain exactly ten alias smokes"
+        )
+    observed_pairs: set[tuple[str, str]] = set()
+    for row in smokes:
+        if not isinstance(row, dict):
+            raise RuntimeError("runtime alias smoke must be an object")
+        pair = (row.get("api_base"), row.get("model_alias"))
+        response_sha = row.get("response_sha256")
+        response = row.get("response")
+        choices = (
+            response.get("choices")
+            if isinstance(response, dict)
+            else None
+        )
+        choice = (
+            choices[0]
+            if isinstance(choices, list) and len(choices) == 1
+            else None
+        )
+        if (
+            pair not in expected_pairs
+            or pair in observed_pairs
+            or row.get("status") != "PASS"
+            or row.get("max_tokens") != 1
+            or row.get("response_model") != pair[1]
+            or row.get("finish_reason") not in {"stop", "length"}
+            or not _valid_sha256(response_sha)
+            or not isinstance(response, dict)
+            or response_sha != low_support.canonical_sha256(response)
+            or response.get("model") != pair[1]
+            or not isinstance(choice, dict)
+            or choice.get("finish_reason") != row.get("finish_reason")
+        ):
+            raise RuntimeError("runtime endpoint×alias smoke evidence drift")
+        observed_pairs.add(pair)
+    registry_path = checkpoint_registry_path.resolve()
+    source_admission_path = (
+        low_support.artifact_root(ROOT, "runtime_root")
+        / "source_admission_receipt.json"
+    ).resolve()
+    if (
+        payload.get("protocol")
+        != low_support.RUNTIME_SERVICE_EVIDENCE_PROTOCOL
+        or payload.get("status") != "PASS"
+        or payload.get("processing_source_commit")
+        != expected_source_commit
+        or payload.get("source_generation_commit")
+        != low_support.SOURCE_GENERATION_COMMIT
+        or payload.get("checkpoint_registry_path") != str(registry_path)
+        or payload.get("checkpoint_registry_sha256")
+        != sha256_file(registry_path)
+        or checkpoint_registry.get("source_commit")
+        != expected_source_commit
+        or payload.get("registry_model_ids")
+        != {
+            arm: checkpoint_registry["entries"][arm]["model_id"]
+            for arm in sorted(low_support.EVAL_ARMS)
+        }
+        or observed_service_endpoints != set(expected_endpoint_aliases)
+        or observed_pairs != expected_pairs
+        or payload.get("alias_smoke_count")
+        != low_support.RUNTIME_ALIAS_SMOKE_COUNT
+        or payload.get("all_model_sets_exact") is not True
+        or not source_admission_path.is_file()
+        or payload.get("source_admission_receipt_sha256")
+        != sha256_file(source_admission_path)
+        or payload.get("official_test_used") is not False
+        or payload.get("official_test_sealed") is not True
+        or not _valid_sha256(canonical)
+        or canonical != low_support.canonical_sha256(core)
+    ):
+        raise RuntimeError("runtime service evidence provenance/identity drift")
+    return payload, {
+        "path": str(resolved),
+        "sha256": sha256_file(resolved),
+        "canonical_sha256": canonical,
+    }
 
 
 def load_checkpoint_registry(
@@ -1539,11 +2030,22 @@ def validate_contract_core(payload: dict[str, Any]) -> None:
         expected_decoding = V5_3_12H_FROZEN_DECODING
     elif provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
         expected_decoding = V5_3_LOW_SUPPORT_FROZEN_DECODING
+        runtime_service_evidence = payload.get(
+            "runtime_service_evidence"
+        )
         if (
             payload.get("diagnostic_protocol")
             != V5_3_LOW_SUPPORT_EXPERIMENT_PROTOCOL
             or payload.get("diagnostic_claim_boundary")
             != V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
+            or not isinstance(runtime_service_evidence, dict)
+            or set(runtime_service_evidence)
+            != {"path", "sha256", "canonical_sha256"}
+            or not isinstance(runtime_service_evidence.get("path"), str)
+            or not _valid_sha256(runtime_service_evidence.get("sha256"))
+            or not _valid_sha256(
+                runtime_service_evidence.get("canonical_sha256")
+            )
         ):
             raise RuntimeError(
                 "Run contract low-support diagnostic identity drift"
@@ -1817,6 +2319,7 @@ def write_contract(
     dynamic_audit_identity: dict[str, Any],
     local_adapter_identity: dict[str, dict[str, str]],
     served_registry_aliases: list[str],
+    runtime_service_evidence: dict[str, str] | None = None,
 ) -> Path:
     contract_path = args.output_dir / (
         "run_contract.json"
@@ -1923,11 +2426,27 @@ def write_contract(
             "official_test_sealed": True,
         }
     elif provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
+        if (
+            not isinstance(runtime_service_evidence, dict)
+            or set(runtime_service_evidence)
+            != {"path", "sha256", "canonical_sha256"}
+            or not _valid_sha256(runtime_service_evidence.get("sha256"))
+            or not _valid_sha256(
+                runtime_service_evidence.get("canonical_sha256")
+            )
+        ):
+            raise RuntimeError(
+                "low-support contract requires hash-bound runtime service "
+                "evidence"
+            )
         contract["diagnostic_claim_boundary"] = dict(
             V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
         )
         contract["diagnostic_protocol"] = (
             V5_3_LOW_SUPPORT_EXPERIMENT_PROTOCOL
+        )
+        contract["runtime_service_evidence"] = dict(
+            runtime_service_evidence
         )
     contract["contract_core_sha256"] = contract_core_sha256(contract)
     contract_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2110,6 +2629,16 @@ def main() -> None:
         args.user_api_base = user_judge_api_base
         args.judge_api_base = user_judge_api_base
         judge_api_base = user_judge_api_base
+        if profile == V5_3_LOW_SUPPORT_PROFILE:
+            if (
+                args.shard_index not in range(low_support.EVALUATION_SHARDS)
+                or args.agent_api_base
+                != low_support.RUNTIME_ENDPOINTS[args.shard_index + 1]
+                or args.user_api_base != low_support.RUNTIME_ENDPOINTS[0]
+            ):
+                raise RuntimeError(
+                    "low-support shard/service endpoint topology drift"
+                )
     else:
         shared_api_base = require_shared_api_base(
             args.agent_api_base,
@@ -2147,6 +2676,7 @@ def main() -> None:
         args.agent_api_base,
         args.agent_api_key,
         checkpoint_registry,
+        require_exact=(profile == V5_3_LOW_SUPPORT_PROFILE),
     )
     if profile == "v5_3_12h_screen":
         verify_served_model_id(
@@ -2159,9 +2689,30 @@ def main() -> None:
             args.user_api_base,
             args.user_api_key,
             V5_3_LOW_SUPPORT_USER_JUDGE["model_id"],
+            require_exact=True,
         )
     require_clean_tracked_source()
     local_source_commit = git_commit()
+    runtime_service_binding: dict[str, str] | None = None
+    if profile == V5_3_LOW_SUPPORT_PROFILE:
+        if args.runtime_service_evidence is None:
+            raise RuntimeError(
+                "--runtime-service-evidence is required for the low-support "
+                "diagnostic"
+            )
+        _, runtime_service_binding = (
+            load_low_support_runtime_service_evidence(
+                args.runtime_service_evidence,
+                checkpoint_registry_path=checkpoint_registry_path,
+                checkpoint_registry=checkpoint_registry,
+                expected_source_commit=local_source_commit,
+            )
+        )
+    elif args.runtime_service_evidence is not None:
+        raise RuntimeError(
+            "--runtime-service-evidence is reserved for the low-support "
+            "diagnostic"
+        )
     checkpoint_entry = validate_checkpoint_identity(
         checkpoint_registry,
         arm=args.arm,
@@ -2185,6 +2736,7 @@ def main() -> None:
         dynamic_audit_identity=dynamic_audit_identity,
         local_adapter_identity=local_adapter_identity,
         served_registry_aliases=served_registry_aliases,
+        runtime_service_evidence=runtime_service_binding,
     )
     configure_tau2_path(args.tau2_root)
     os.environ.setdefault("OPENAI_API_KEY", args.agent_api_key)

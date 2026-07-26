@@ -23,9 +23,14 @@ PROTOCOL = "v5_3_low_support_diagnostic_v1"
 DESIGN_VERSION = "5.3-low-support-diagnostic"
 DATA_PROTOCOL = "v5_3_low_support_diagnostic_sft_data_v1"
 REGISTRY_PROFILE = "v5_3_low_support_diagnostic"
+CONTROLLER_PROTOCOL = f"{PROTOCOL}:single_host_controller_v1"
+RUNTIME_SERVICE_EVIDENCE_PROTOCOL = (
+    f"{PROTOCOL}:runtime_service_evidence_v1"
+)
 SOURCE_SCREEN_PROTOCOL = source.PROTOCOL
 SOURCE_DATA_PROTOCOL = source.DATA_PROTOCOL
 SOURCE_RUNTIME_ROOT = "artifacts/v5_3_12h_screen"
+SOURCE_GENERATION_COMMIT = "f631dd0d7d795daad037e3548e637045ee1425e7"
 
 BASE_SEED = source.BASE_SEED
 TRIAL_SEEDS = source.TRIAL_SEEDS
@@ -72,6 +77,34 @@ MODEL_IDS = {
 USER_JUDGE_MODEL = source.USER_JUDGE_MODEL
 USER_JUDGE_MODEL_ID = "openai/v5-3-low-support-user-judge"
 USER_JUDGE_REVISION = source.USER_JUDGE_REVISION
+STUDENT_MODEL = "Qwen/Qwen2.5-7B-Instruct"
+STUDENT_REVISION = "a09a35458c702b33eeacc393d103063234e8bc28"
+RUNTIME_SERVICE_EVIDENCE_NAME = "runtime_service_evidence.json"
+PROCESS_IDENTITY_PROTOCOL = "v5_3_low_support_linux_process_identity_v1"
+SERVICE_PID_RECEIPT_PROTOCOL = "v5_3_low_support_service_pid_receipt_v1"
+RUNTIME_ENDPOINTS = (
+    "http://127.0.0.1:8001/v1",
+    "http://127.0.0.1:8101/v1",
+    "http://127.0.0.1:8102/v1",
+    "http://127.0.0.1:8103/v1",
+)
+RUNTIME_ENDPOINT_MODEL_ALIASES = {
+    RUNTIME_ENDPOINTS[0]: (
+        USER_JUDGE_MODEL_ID.removeprefix("openai/"),
+    ),
+    **{
+        endpoint: tuple(
+            sorted(
+                MODEL_IDS[arm].removeprefix("openai/")
+                for arm in EVAL_ARMS
+            )
+        )
+        for endpoint in RUNTIME_ENDPOINTS[1:]
+    },
+}
+RUNTIME_ALIAS_SMOKE_COUNT = sum(
+    len(aliases) for aliases in RUNTIME_ENDPOINT_MODEL_ALIASES.values()
+)
 
 CLAIM_BOUNDARY = {
     "post_yield_exploratory_diagnostic": True,
@@ -180,6 +213,8 @@ def validate_constants() -> None:
         or DATA_PROTOCOL != "v5_3_low_support_diagnostic_sft_data_v1"
         or REGISTRY_PROFILE != "v5_3_low_support_diagnostic"
         or SOURCE_RUNTIME_ROOT != "artifacts/v5_3_12h_screen"
+        or SOURCE_GENERATION_COMMIT
+        != "f631dd0d7d795daad037e3548e637045ee1425e7"
         or MIN_DISTINCT_TASKS != 8
         or MIN_CAPPED_PAIRS != 10
         or MAX_PAIRS_PER_TASK != 2
@@ -197,6 +232,21 @@ def validate_constants() -> None:
         or EVAL_ARMS != ("base_model", "perfect_success", "repair_50")
         or EVALUATION_SHARDS != 3
         or EVALUATION_ROLLOUTS != 126
+        or STUDENT_MODEL != "Qwen/Qwen2.5-7B-Instruct"
+        or STUDENT_REVISION
+        != "a09a35458c702b33eeacc393d103063234e8bc28"
+        or PROCESS_IDENTITY_PROTOCOL
+        != "v5_3_low_support_linux_process_identity_v1"
+        or SERVICE_PID_RECEIPT_PROTOCOL
+        != "v5_3_low_support_service_pid_receipt_v1"
+        or RUNTIME_ENDPOINTS
+        != (
+            "http://127.0.0.1:8001/v1",
+            "http://127.0.0.1:8101/v1",
+            "http://127.0.0.1:8102/v1",
+            "http://127.0.0.1:8103/v1",
+        )
+        or RUNTIME_ALIAS_SMOKE_COUNT != 10
     ):
         raise LowSupportProtocolError("low-support constants drift")
     if set(ARM_RECOVERY_ROW_RATIOS) != set(TRAINED_ARMS):

@@ -252,6 +252,17 @@ class LowSupportProtocolTests(unittest.TestCase):
             "--num-shards 3",
             "diagnostic_summary.json",
             "official test",
+            "run_v5_3_low_support_diagnostic.py",
+            "--stage all",
+            "runtime_service_evidence.json",
+            "exactly 10 smokes",
+            "DATA_GATE_FAIL_NO_TRAIN",
+            "raw smoke responses",
+            "PID/start-time",
+            "V5_3_12H_SOURCE_SNAPSHOT_C3.json",
+            "--source-snapshot-receipt",
+            "tmux new-session",
+            protocol.SOURCE_GENERATION_COMMIT,
         ):
             self.assertIn(required, handoff)
 
