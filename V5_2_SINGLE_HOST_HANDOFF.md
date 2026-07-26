@@ -72,8 +72,13 @@ Stage-0 split SHA-256:
 a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a
 ```
 
-Before launch replace `<V5_2_SOURCE_COMMIT>` everywhere with the exact
-published V5.2 implementation commit. Never run from a moving branch tip.
+The frozen published V5.2 implementation commit is:
+
+```text
+3e5e9bb6e42435cf09a5c4b73b26ea35e9927bb5
+```
+
+Never run from a moving branch tip.
 
 The 83 derived-inner-train tasks are partitioned, within domain, into 75
 arm-training tasks and 8 loss-validation tasks:
@@ -209,7 +214,7 @@ mkdir -p /workspace/repos /workspace/venvs /workspace/cache/huggingface
 cd /workspace/repos
 git clone https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git
 cd recovery-aware-trajectory-selection
-git checkout --detach <V5_2_SOURCE_COMMIT>
+git checkout --detach 3e5e9bb6e42435cf09a5c4b73b26ea35e9927bb5
 git submodule update --init --recursive
 
 mkdir -p data/raw
@@ -376,8 +381,8 @@ python scripts/prepare_v5_2_sft_causal.py \
   --output-dir data/processed/v5_2_sft_causal \
   --tokenizer Qwen/Qwen2.5-7B-Instruct \
   --tokenizer-revision a09a35458c702b33eeacc393d103063234e8bc28 \
-  --expected-source-commit <V5_2_SOURCE_COMMIT> \
-  --expected-generation-source-commit <V5_2_SOURCE_COMMIT> \
+  --expected-source-commit 3e5e9bb6e42435cf09a5c4b73b26ea35e9927bb5 \
+  --expected-generation-source-commit 3e5e9bb6e42435cf09a5c4b73b26ea35e9927bb5 \
   --local-files-only
 ```
 
@@ -537,17 +542,18 @@ For the small audited package, create a result branch from the exact source
 commit:
 
 ```bash
-git switch -c results/v5.2-4x4090-<UTC_DATE>
+git switch -c results/v5.2-4x4090-20260726
 git add <AUDITED_SMALL_RESULT_PACKAGE>
 test -z "$(git diff --cached --name-only | grep -E '\\.safetensors$|(^|/)secrets?(/|$)')"
 git commit -m "Add audited V5.2 single-host screen results"
-git push -u origin results/v5.2-4x4090-<UTC_DATE>
+git push -u origin results/v5.2-4x4090-20260726
 ```
 
 Before pushing, inspect the staged file list and package size, scan for
 credentials, and confirm tracked experiment code/config still matches
-`<V5_2_SOURCE_COMMIT>`. If Git authentication is absent, stop after packaging
-and report the exact branch/push command; do not paste a token into logs.
+`3e5e9bb6e42435cf09a5c4b73b26ea35e9927bb5`. If Git authentication is
+absent, stop after packaging and report the exact branch/push command; do not
+paste a token into logs.
 
 ## 8. One-command formal run
 

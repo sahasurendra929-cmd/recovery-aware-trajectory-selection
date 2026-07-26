@@ -1,8 +1,8 @@
 # Copy-paste prompt: V5.2 on one RunPod host with 4×RTX 4090
 
 Copy everything below into the Codex task that can operate the rented RunPod
-host. Before sending it, replace `<V5_2_SOURCE_COMMIT>` and
-`<RESULT_BRANCH_DATE>` with frozen values.
+host. The implementation commit and launch-date result branch are already
+frozen.
 
 ---
 
@@ -21,18 +21,17 @@ https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection
 Frozen implementation commit:
 
 ```text
-<V5_2_SOURCE_COMMIT>
+3e5e9bb6e42435cf09a5c4b73b26ea35e9927bb5
 ```
 
 Expected result branch:
 
 ```text
-results/v5.2-4x4090-<RESULT_BRANCH_DATE>
+results/v5.2-4x4090-20260726
 ```
 
-The commit placeholder must be an actual 40-character published V5.2 commit.
-If it is still a placeholder, stop before spending GPU time and ask for the
-commit. Never run from a moving branch tip.
+The commit above is the required 40-character published V5.2 implementation
+commit. Never substitute a moving branch tip.
 
 ## Authority and limits
 
@@ -176,7 +175,7 @@ cd /workspace/repos
 git clone \
   https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git
 cd recovery-aware-trajectory-selection
-git checkout --detach <V5_2_SOURCE_COMMIT>
+git checkout --detach 3e5e9bb6e42435cf09a5c4b73b26ea35e9927bb5
 git submodule update --init --recursive
 
 mkdir -p data/raw
@@ -193,7 +192,8 @@ clean checkout or create a new V5.2-specific checkout.
 Hard checks:
 
 ```bash
-test "$(git rev-parse HEAD)" = "<V5_2_SOURCE_COMMIT>"
+test "$(git rev-parse HEAD)" = \
+  "3e5e9bb6e42435cf09a5c4b73b26ea35e9927bb5"
 test "$(git -C data/raw/tau2-bench rev-parse HEAD)" = \
   "fc0055dc4e0a316c3f83133267fbd6faaa770992"
 test -z "$(git status --porcelain --untracked-files=no)"
@@ -439,13 +439,13 @@ staged.
 Then create and upload the result branch:
 
 ```bash
-git switch -c results/v5.2-4x4090-<RESULT_BRANCH_DATE>
+git switch -c results/v5.2-4x4090-20260726
 git add <AUDITED_SMALL_RESULT_PACKAGE>
 test -z "$(git diff --cached --name-only | \
   grep -E '\\.safetensors$|(^|/)secrets?(/|$)|\\.pem$|id_ed25519')"
 git diff --cached --stat
 git commit -m "Add audited V5.2 single-host screen results"
-git push -u origin results/v5.2-4x4090-<RESULT_BRANCH_DATE>
+git push -u origin results/v5.2-4x4090-20260726
 ```
 
 Do not use `--force`. If authentication or repository authorization is
