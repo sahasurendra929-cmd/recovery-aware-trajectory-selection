@@ -1366,6 +1366,8 @@ def evaluation_service_specifications(
             "port": 8001,
             "model": USER_MODEL,
             "revision": USER_REVISION,
+            "dtype": "float16",
+            "quantization": "awq",
             "alias": protocol.USER_JUDGE_MODEL_ID.removeprefix("openai/"),
             "api_key": "screen-user-judge-local",
             "adapters": False,
@@ -1376,6 +1378,8 @@ def evaluation_service_specifications(
                 "port": 8100 + gpu,
                 "model": STUDENT_MODEL,
                 "revision": STUDENT_REVISION,
+                "dtype": "bfloat16",
+                "quantization": None,
                 "alias": protocol.MODEL_IDS["base_model"].removeprefix(
                     "openai/"
                 ),
@@ -1387,6 +1391,81 @@ def evaluation_service_specifications(
     ]
 
 
+def _evaluation_service_command(
+    args: argparse.Namespace, specification: dict[str, Any]
+) -> list[str]:
+    """Build one role-specific evaluation service command."""
+
+    command = [
+        *base.vllm_base_command(
+            args,
+            specification["model"],
+            specification["revision"],
+            dtype=specification["dtype"],
+        ),
+        "--tokenizer-revision", specification["revision"],
+        "--served-model-name", specification["alias"],
+        "--port", str(specification["port"]),
+        "--api-key", specification["api_key"],
+        "--gpu-memory-utilization", "0.90",
+        "--max-num-seqs", "1",
+    ]
+    if specification["quantization"] is not None:
+        command += ["--quantization", specification["quantization"]]
+    if specification["adapters"]:
+        loras = [
+            (
+                f"{protocol.MODEL_IDS[arm].removeprefix('openai/')}="
+                f"{args.results_root / 'training' / arm / 'formal' / 'checkpoint_final'}"
+            )
+            for arm in protocol.TRAINED_ARMS
+        ]
+        command += [
+            "--enable-lora",
+            "--max-lora-rank", "16",
+            "--max-loras", "1",
+            "--max-cpu-loras", "4",
+            "--lora-modules", *loras,
+        ]
+    return command
+
+
+def _smoke_evaluation_alias(
+    *, port: int, api_key: str, model_alias: str
+) -> dict[str, Any]:
+    """Force one token through a base or LoRA alias before formal evaluation."""
+
+    payload = base.http_post_json(
+        f"http://127.0.0.1:{port}/v1/chat/completions",
+        api_key,
+        {
+            "model": model_alias,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Reply with one short token.",
+                }
+            ],
+            "temperature": 0,
+            "max_tokens": 1,
+            "stream": False,
+        },
+    )
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    if (
+        not isinstance(payload, dict)
+        or payload.get("model") != model_alias
+        or not isinstance(choices, list)
+        or len(choices) != 1
+        or not isinstance(choices[0], dict)
+        or choices[0].get("finish_reason") not in {"stop", "length"}
+    ):
+        raise ScreenStageError(
+            f"evaluation alias smoke failed for {model_alias!r} on port {port}"
+        )
+    return payload
+
+
 def _start_evaluation_services(
     args: argparse.Namespace,
 ) -> list[tuple[subprocess.Popen[bytes], Any, Path]]:
@@ -1394,32 +1473,9 @@ def _start_evaluation_services(
     specifications = evaluation_service_specifications(args)
     try:
         for row in specifications:
-            command = [
-                *base.vllm_base_command(
-                    args, row["model"], row["revision"], dtype="bfloat16"
-                ),
-                "--served-model-name", row["alias"],
-                "--port", str(row["port"]),
-                "--api-key", row["api_key"],
-                "--gpu-memory-utilization", "0.90",
-                "--max-num-seqs", "1",
-            ]
+            command = _evaluation_service_command(args, row)
             expected = {row["alias"]}
             if row["adapters"]:
-                loras = [
-                    (
-                        f"{protocol.MODEL_IDS[arm].removeprefix('openai/')}="
-                        f"{args.results_root / 'training' / arm / 'formal' / 'checkpoint_final'}"
-                    )
-                    for arm in protocol.TRAINED_ARMS
-                ]
-                command += [
-                    "--enable-lora",
-                    "--max-lora-rank", "16",
-                    "--max-loras", "1",
-                    "--max-cpu-loras", "4",
-                    "--lora-modules", *loras,
-                ]
                 expected.update(
                     protocol.MODEL_IDS[arm].removeprefix("openai/")
                     for arm in protocol.TRAINED_ARMS
@@ -1444,6 +1500,12 @@ def _start_evaluation_services(
                 process=process,
                 timeout_seconds=args.health_timeout,
             )
+            for alias in sorted(expected):
+                _smoke_evaluation_alias(
+                    port=row["port"],
+                    api_key=row["api_key"],
+                    model_alias=alias,
+                )
         return services
     except Exception:
         stop_registered_services(services)

@@ -180,6 +180,147 @@ class ScreenControllerTests(unittest.TestCase):
                         protocol.MODEL_IDS[arm],
                     )
 
+    def test_evaluation_service_commands_freeze_role_specific_precision(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            args = SimpleNamespace(
+                vllm=Path("/serve/vllm"),
+                results_root=root / "results",
+            )
+            user_judge, *agents = controller.evaluation_service_specifications(
+                args
+            )
+            user_command = controller._evaluation_service_command(
+                args, user_judge
+            )
+            self.assertEqual(
+                user_command[user_command.index("--dtype") + 1],
+                "float16",
+            )
+            self.assertEqual(
+                user_command[user_command.index("--quantization") + 1],
+                "awq",
+            )
+            self.assertEqual(user_command.count("--tokenizer-revision"), 1)
+            self.assertEqual(
+                user_command[
+                    user_command.index("--tokenizer-revision") + 1
+                ],
+                user_judge["revision"],
+            )
+            self.assertNotIn("--enable-lora", user_command)
+
+            for specification in agents:
+                command = controller._evaluation_service_command(
+                    args, specification
+                )
+                self.assertEqual(
+                    command[command.index("--dtype") + 1],
+                    "bfloat16",
+                )
+                self.assertNotIn("--quantization", command)
+                self.assertEqual(command.count("--tokenizer-revision"), 1)
+                self.assertEqual(
+                    command[command.index("--tokenizer-revision") + 1],
+                    specification["revision"],
+                )
+                self.assertIn("--enable-lora", command)
+                modules = command[command.index("--lora-modules") + 1 :]
+                self.assertEqual(len(modules), len(protocol.TRAINED_ARMS))
+                self.assertEqual(
+                    {module.split("=", 1)[0] for module in modules},
+                    {
+                        protocol.MODEL_IDS[arm].removeprefix("openai/")
+                        for arm in protocol.TRAINED_ARMS
+                    },
+                )
+
+    def test_evaluation_alias_smoke_forces_exactly_one_token(self) -> None:
+        response = {
+            "model": "v5-3-12h-repair-50",
+            "choices": [{"finish_reason": "length", "message": {"content": "A"}}],
+        }
+        with mock.patch.object(
+            controller.base, "http_post_json", return_value=response
+        ) as post:
+            observed = controller._smoke_evaluation_alias(
+                port=8102,
+                api_key="screen-agent-local",
+                model_alias="v5-3-12h-repair-50",
+            )
+        self.assertEqual(observed, response)
+        url, api_key, payload = post.call_args.args
+        self.assertEqual(
+            url, "http://127.0.0.1:8102/v1/chat/completions"
+        )
+        self.assertEqual(api_key, "screen-agent-local")
+        self.assertEqual(payload["model"], "v5-3-12h-repair-50")
+        self.assertEqual(payload["max_tokens"], 1)
+        self.assertEqual(payload["temperature"], 0)
+        self.assertFalse(payload["stream"])
+
+    def test_evaluation_alias_smoke_rejects_wrong_routed_model(self) -> None:
+        response = {
+            "model": "v5-3-12h-base",
+            "choices": [{"finish_reason": "stop", "message": {"content": "A"}}],
+        }
+        with (
+            mock.patch.object(
+                controller.base, "http_post_json", return_value=response
+            ),
+            self.assertRaisesRegex(
+                controller.ScreenStageError, "alias smoke failed"
+            ),
+        ):
+            controller._smoke_evaluation_alias(
+                port=8102,
+                api_key="screen-agent-local",
+                model_alias="v5-3-12h-repair-50",
+            )
+
+    def test_evaluation_start_smokes_every_alias_on_every_shard(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            args = SimpleNamespace(
+                vllm=Path("/serve/vllm"),
+                results_root=Path(temporary) / "results",
+                health_timeout=30,
+            )
+            processes = [mock.Mock(pid=number) for number in range(4)]
+            handles = [mock.Mock() for _ in range(4)]
+            with (
+                mock.patch.object(
+                    controller.base,
+                    "spawn_logged",
+                    side_effect=list(zip(processes, handles)),
+                ),
+                mock.patch.object(controller, "_register_process"),
+                mock.patch.object(controller.base, "write_pid"),
+                mock.patch.object(controller.base, "wait_for_service"),
+                mock.patch.object(
+                    controller, "_smoke_evaluation_alias"
+                ) as smoke,
+            ):
+                services = controller._start_evaluation_services(args)
+        self.assertEqual(len(services), 4)
+        observed = {
+            (call.kwargs["port"], call.kwargs["model_alias"])
+            for call in smoke.call_args_list
+        }
+        agent_aliases = {
+            protocol.MODEL_IDS[arm].removeprefix("openai/")
+            for arm in protocol.ALL_EVAL_ARMS
+        }
+        expected = {
+            (8001, protocol.USER_JUDGE_MODEL_ID.removeprefix("openai/")),
+            *{
+                (port, alias)
+                for port in (8101, 8102, 8103)
+                for alias in agent_aliases
+            },
+        }
+        self.assertEqual(observed, expected)
+        self.assertEqual(smoke.call_count, 16)
+
     def test_evaluation_rejects_unregistered_mixed_arm_set(self) -> None:
         with self.assertRaisesRegex(
             controller.ScreenStageError,
