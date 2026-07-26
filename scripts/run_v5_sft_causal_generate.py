@@ -418,30 +418,50 @@ def configure_tau2_path(tau2_root: Path) -> None:
     sys.path.insert(0, str(source))
 
 
+def normalize_tool_only_message(message: Any) -> Any:
+    """Enforce one tool-only action before the environment executes it.
+
+    vLLM can preserve pre-tool prose and, for some Qwen responses, ignore the
+    OpenAI ``parallel_tool_calls=false`` hint. The ordered first call is
+    executed and the model replans after its result. Hashes of deferred calls
+    and removed text are retained in raw_data.
+    """
+
+    if message.tool_calls:
+        raw_data = dict(message.raw_data or {})
+        if len(message.tool_calls) > 1:
+            deferred = message.tool_calls[1:]
+            raw_data["v5_stage1_parallel_calls_serialized"] = {
+                "original_count": len(message.tool_calls),
+                "deferred_call_sha256": [
+                    hashlib.sha256(
+                        json.dumps(
+                            call.model_dump(),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    for call in deferred
+                ],
+            }
+            message.tool_calls = message.tool_calls[:1]
+        if message.content in (None, ""):
+            message.raw_data = raw_data
+            return message
+        content = message.content
+        raw_data["v5_stage1_mixed_content_normalized"] = {
+            "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+            "utf8_bytes": len(content.encode("utf-8")),
+        }
+        message.raw_data = raw_data
+        message.content = None
+    return message
+
+
 def register_fault_agents() -> None:
     from tau2.agent.llm_agent import LLMAgent, LLMGTAgent
     from tau2.data_model.message import AssistantMessage, ToolCall, UserMessage
     from tau2.registry import registry
-
-    def normalize_tool_only_message(message: AssistantMessage) -> AssistantMessage:
-        """Remove a model's textual preface when it also emitted a tool call.
-
-        The frozen agent protocol says a turn is either text or tools, never
-        both. vLLM preserves pre-tool prose in ``content`` for some Qwen
-        responses. The executed tool action is unchanged, and a hash of the
-        removed content is retained in raw_data for auditability.
-        """
-
-        if message.tool_calls and message.content not in (None, ""):
-            content = message.content
-            raw_data = dict(message.raw_data or {})
-            raw_data["v5_stage1_mixed_content_normalized"] = {
-                "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
-                "utf8_bytes": len(content.encode("utf-8")),
-            }
-            message.raw_data = raw_data
-            message.content = None
-        return message
 
     class Stage1Agent(LLMAgent):
         def _generate_next_message(self, message, state):
@@ -762,6 +782,7 @@ def write_contract(
             "temperature": 0,
             "max_tokens": args.max_tokens,
             "parallel_tool_calls": False,
+            "parallel_tool_call_normalization": "execute_first_then_replan",
             "mixed_tool_call_content_normalization": "drop_text_preserve_sha256",
             "max_steps": args.max_steps,
             "task_timeout_seconds": args.timeout,

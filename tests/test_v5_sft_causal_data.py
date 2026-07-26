@@ -396,6 +396,7 @@ class V5SFTCausalDataTests(unittest.TestCase):
                 "temperature": 0,
                 "max_tokens": 512,
                 "parallel_tool_calls": False,
+                "parallel_tool_call_normalization": "execute_first_then_replan",
                 "mixed_tool_call_content_normalization": "drop_text_preserve_sha256",
                 "max_steps": 60,
                 "task_timeout_seconds": 900,

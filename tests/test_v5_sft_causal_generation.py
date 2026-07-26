@@ -269,6 +269,10 @@ class V5SFTCausalGenerationTests(unittest.TestCase):
         self.assertEqual(initial["result_sha256"], {})
         self.assertFalse(initial["decoding"]["parallel_tool_calls"])
         self.assertEqual(
+            initial["decoding"]["parallel_tool_call_normalization"],
+            "execute_first_then_replan",
+        )
+        self.assertEqual(
             initial["decoding"]["mixed_tool_call_content_normalization"],
             "drop_text_preserve_sha256",
         )
@@ -304,6 +308,29 @@ class V5SFTCausalGenerationTests(unittest.TestCase):
             seed=20260722,
         )
         self.assertIs(args["parallel_tool_calls"], False)
+
+    def test_generation_interface_serializes_and_audits_parallel_calls(self):
+        first = mock.Mock()
+        first.model_dump.return_value = {"name": "first"}
+        second = mock.Mock()
+        second.model_dump.return_value = {"name": "second"}
+        message = SimpleNamespace(
+            tool_calls=[first, second],
+            content="I will use both tools.",
+            raw_data={"provider": "vllm"},
+        )
+
+        normalized = MODULE.normalize_tool_only_message(message)
+
+        self.assertEqual(normalized.tool_calls, [first])
+        self.assertIsNone(normalized.content)
+        parallel = normalized.raw_data["v5_stage1_parallel_calls_serialized"]
+        self.assertEqual(parallel["original_count"], 2)
+        self.assertEqual(len(parallel["deferred_call_sha256"]), 1)
+        self.assertRegex(parallel["deferred_call_sha256"][0], r"^[0-9a-f]{64}$")
+        mixed = normalized.raw_data["v5_stage1_mixed_content_normalized"]
+        self.assertEqual(mixed["utf8_bytes"], len("I will use both tools.".encode()))
+        self.assertRegex(mixed["sha256"], r"^[0-9a-f]{64}$")
 
 
 if __name__ == "__main__":
