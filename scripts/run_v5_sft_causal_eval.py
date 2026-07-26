@@ -31,6 +31,10 @@ try:
     import v5_judge_audit_contract as judge_audit_contract
 except ModuleNotFoundError:
     from scripts import v5_judge_audit_contract as judge_audit_contract
+try:
+    import v5_3_low_support_protocol as low_support
+except ModuleNotFoundError:
+    from scripts import v5_3_low_support_protocol as low_support
 
 
 PROTOCOL = "v5_stage1_sft_causal_validation"
@@ -51,7 +55,20 @@ ARMS = {
     "repair_100",
 }
 TRAINED_ARMS = ARMS - {"base_model"}
-PROVENANCE_PROFILES = ("legacy", "v5_3", "v5_3_12h_screen")
+V5_3_LOW_SUPPORT_PROFILE = low_support.REGISTRY_PROFILE
+V5_3_LOW_SUPPORT_DESIGN_VERSION = low_support.DESIGN_VERSION
+V5_3_LOW_SUPPORT_DESIGN_PROTOCOL = low_support.DATA_PROTOCOL
+V5_3_LOW_SUPPORT_EXPERIMENT_PROTOCOL = low_support.PROTOCOL
+V5_3_LOW_SUPPORT_ARMS = set(low_support.EVAL_ARMS)
+V5_3_LOW_SUPPORT_TRAINED_ARMS = (
+    V5_3_LOW_SUPPORT_ARMS - {"base_model"}
+)
+PROVENANCE_PROFILES = (
+    "legacy",
+    "v5_3",
+    "v5_3_12h_screen",
+    V5_3_LOW_SUPPORT_PROFILE,
+)
 V5_3_DESIGN_VERSION = "5.3"
 V5_3_DESIGN_PROTOCOL = "v5_3_task_level_cross_seed_sft_screen"
 V5_3_12H_DESIGN_VERSION = "5.3-12h-screen"
@@ -64,10 +81,20 @@ V5_3_12H_USER_JUDGE = {
     "roles": ["user_simulator", "strict_nl_judge"],
     "official_test_used": False,
 }
+V5_3_LOW_SUPPORT_USER_JUDGE = {
+    "model": low_support.USER_JUDGE_MODEL,
+    "model_id": low_support.USER_JUDGE_MODEL_ID,
+    "revision": low_support.USER_JUDGE_REVISION,
+    "roles": ["user_simulator", "strict_nl_judge"],
+    "official_test_used": False,
+}
+V5_3_LOW_SUPPORT_CLAIM_BOUNDARY = dict(low_support.CLAIM_BOUNDARY)
+ROOT = Path(__file__).resolve().parents[1]
 PROFILE_GENERATION_INJECTIONS = {
     "legacy": 83,
     "v5_3": 78,
     "v5_3_12h_screen": 78,
+    V5_3_LOW_SUPPORT_PROFILE: 78,
 }
 PROFILE_MODEL_IDS = {
     "legacy": {
@@ -91,6 +118,17 @@ PROFILE_MODEL_IDS = {
         "repair_50": "openai/v5-3-12h-repair-50",
         "repair_100": "openai/v5-3-12h-repair-100",
     },
+    V5_3_LOW_SUPPORT_PROFILE: {
+        "base_model": "openai/v5-3-low-support-base",
+        "perfect_success": "openai/v5-3-low-support-perfect-success",
+        "repair_50": "openai/v5-3-low-support-repair-50",
+    },
+}
+PROFILE_ARMS = {
+    "legacy": ARMS,
+    "v5_3": ARMS,
+    "v5_3_12h_screen": ARMS,
+    V5_3_LOW_SUPPORT_PROFILE: V5_3_LOW_SUPPORT_ARMS,
 }
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -106,6 +144,9 @@ V5_3_12H_FROZEN_DECODING = {
     **FROZEN_DECODING,
     "seed": 20260731,
 }
+V5_3_LOW_SUPPORT_FROZEN_DECODING = dict(
+    V5_3_12H_FROZEN_DECODING
+)
 FAULT_INJECTIONS: dict[str, dict[str, Any]] = {}
 MAX_MODEL_LEN = 32768
 STRICT_NL_JUDGE_MODULE = "v5_strict_nl_judge"
@@ -135,8 +176,9 @@ def parse_args() -> argparse.Namespace:
         choices=PROVENANCE_PROFILES,
         help=(
             "Optionally require the checkpoint registry's frozen legacy or "
-            "V5.3 provenance profile. The registry profile is otherwise "
-            "validated and used directly."
+            "V5.3 provenance profile, including the isolated low-support "
+            "diagnostic. The registry profile is otherwise validated and "
+            "used directly."
         ),
     )
     parser.add_argument(
@@ -146,7 +188,7 @@ def parse_args() -> argparse.Namespace:
         metavar="ARM=DIR",
         help=(
             "Local final adapter directory for a trained arm; provide exactly "
-            "perfect_success, failure_raw, repair_50, and repair_100."
+            "the selected registry profile's trained-arm set."
         ),
     )
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -241,6 +283,19 @@ def checkpoint_registry_provenance_profile(
     return profile
 
 
+def arms_for_profile(provenance_profile: str) -> set[str]:
+    try:
+        return set(PROFILE_ARMS[provenance_profile])
+    except KeyError as error:
+        raise RuntimeError(
+            f"unsupported provenance profile {provenance_profile!r}"
+        ) from error
+
+
+def trained_arms_for_profile(provenance_profile: str) -> set[str]:
+    return arms_for_profile(provenance_profile) - {"base_model"}
+
+
 def _validate_profile_design_provenance(
     provenance: dict[str, Any],
     *,
@@ -278,6 +333,46 @@ def _validate_profile_design_provenance(
                 "V5.3-12h checkpoint provenance lacks isolated screen identity"
             )
         return
+    if provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
+        if design_version != V5_3_LOW_SUPPORT_DESIGN_VERSION:
+            raise RuntimeError(
+                "low-support checkpoint provenance requires its frozen "
+                "design_version"
+            )
+        design = provenance.get("design_provenance")
+        expected = {
+            "design_version": V5_3_LOW_SUPPORT_DESIGN_VERSION,
+            "design_protocol": V5_3_LOW_SUPPORT_DESIGN_PROTOCOL,
+            "diagnostic_protocol": V5_3_LOW_SUPPORT_EXPERIMENT_PROTOCOL,
+            "validation_tasks": 21,
+            "trained_arms": sorted(V5_3_LOW_SUPPORT_TRAINED_ARMS),
+            "maximum_pairs_per_task": low_support.MAX_PAIRS_PER_TASK,
+            "schedule_rows_per_arm": low_support.SCHEDULE_ROWS,
+            "repeated_schedule_rows_are_independent_examples": False,
+            "formal_v5_3_result": False,
+            "official_test_used": False,
+            "official_test_sealed": True,
+        }
+        if not isinstance(design, dict) or any(
+            design.get(field) != value for field, value in expected.items()
+        ):
+            raise RuntimeError(
+                "low-support checkpoint provenance lacks its frozen "
+                "post-yield identity"
+            )
+        processing_commit = design.get("processing_source_commit")
+        generation_commit = design.get("source_generation_commit")
+        if (
+            not isinstance(processing_commit, str)
+            or COMMIT_RE.fullmatch(processing_commit) is None
+            or not isinstance(generation_commit, str)
+            or COMMIT_RE.fullmatch(generation_commit) is None
+            or processing_commit == generation_commit
+        ):
+            raise RuntimeError(
+                "low-support checkpoint source-commit provenance drift"
+            )
+        return
     if design_version != V5_3_DESIGN_VERSION:
         raise RuntimeError(
             "V5.3 checkpoint provenance requires design_version '5.3'"
@@ -313,6 +408,16 @@ def validate_registry_training_data_provenance(
         provenance,
         provenance_profile=provenance_profile,
     )
+    if (
+        provenance_profile == V5_3_LOW_SUPPORT_PROFILE
+        and provenance["design_provenance"].get(
+            "processing_source_commit"
+        )
+        != registry.get("source_commit")
+    ):
+        raise RuntimeError(
+            "low-support registry source/processing commit drift"
+        )
     if (
         provenance.get("official_test_used") is not False
         or provenance.get("official_test_sealed") is not True
@@ -356,9 +461,18 @@ def validate_registry_training_data_provenance(
     return provenance
 
 
-def parse_adapter_dir_bindings(values: list[str]) -> dict[str, Path]:
-    """Parse the four mandatory local adapter directories fail-closed."""
+def parse_adapter_dir_bindings(
+    values: list[str],
+    *,
+    expected_arms: set[str] | None = None,
+) -> dict[str, Path]:
+    """Parse one profile's exact local adapter directories fail-closed."""
 
+    expected = set(TRAINED_ARMS if expected_arms is None else expected_arms)
+    if not expected or not expected <= TRAINED_ARMS:
+        raise RuntimeError(
+            f"invalid expected trained adapter set: {sorted(expected)}"
+        )
     bindings: dict[str, Path] = {}
     resolved_paths: set[Path] = set()
     for value in values:
@@ -367,7 +481,7 @@ def parse_adapter_dir_bindings(values: list[str]) -> dict[str, Path]:
                 f"--adapter-dir must be ARM=DIR, got {value!r}"
             )
         arm, raw_path = value.split("=", 1)
-        if arm not in TRAINED_ARMS:
+        if arm not in expected:
             raise RuntimeError(f"unsupported trained adapter arm {arm!r}")
         if arm in bindings:
             raise RuntimeError(f"duplicate --adapter-dir binding for {arm}")
@@ -378,11 +492,11 @@ def parse_adapter_dir_bindings(values: list[str]) -> dict[str, Path]:
             raise RuntimeError(f"duplicate local adapter directory: {path}")
         bindings[arm] = path
         resolved_paths.add(path)
-    if set(bindings) != TRAINED_ARMS:
-        missing = sorted(TRAINED_ARMS - set(bindings))
-        extra = sorted(set(bindings) - TRAINED_ARMS)
+    if set(bindings) != expected:
+        missing = sorted(expected - set(bindings))
+        extra = sorted(set(bindings) - expected)
         raise RuntimeError(
-            "adapter bindings must contain exactly the four trained arms; "
+            "adapter bindings must contain exactly the profile's trained arms; "
             f"missing={missing}, extra={extra}"
         )
     return bindings
@@ -398,16 +512,19 @@ def validate_local_adapter_identity(
     omitting machine-local paths keeps run contracts comparable across workers.
     """
 
-    if set(adapter_dirs) != TRAINED_ARMS:
+    provenance_profile = checkpoint_registry_provenance_profile(registry)
+    expected_arms = trained_arms_for_profile(provenance_profile)
+    if set(adapter_dirs) != expected_arms:
         raise RuntimeError(
-            "local adapter directories must be exactly the four trained arms"
+            "local adapter directories must be exactly the profile's "
+            "trained arms"
         )
     resolved_paths = [path.expanduser().resolve() for path in adapter_dirs.values()]
     if len(set(resolved_paths)) != len(resolved_paths):
         raise RuntimeError("local trained arms contain duplicate adapter directories")
 
     identity: dict[str, dict[str, str]] = {}
-    for arm in sorted(TRAINED_ARMS):
+    for arm in sorted(expected_arms):
         adapter_dir = adapter_dirs[arm].expanduser().resolve()
         if not adapter_dir.is_dir():
             raise RuntimeError(f"{arm}: local adapter directory missing")
@@ -478,12 +595,19 @@ def registry_served_aliases(registry: dict[str, Any]) -> list[str]:
     """Translate LiteLLM ``openai/`` routes to vLLM served model IDs."""
 
     aliases = []
-    for arm in sorted(ARMS):
+    profile = checkpoint_registry_provenance_profile(registry)
+    expected_arms = arms_for_profile(profile)
+    entries = registry.get("entries")
+    if not isinstance(entries, dict) or set(entries) != expected_arms:
+        raise RuntimeError(
+            "checkpoint registry entries do not match the profile arm set"
+        )
+    for arm in sorted(expected_arms):
         model_id = registry["entries"][arm]["model_id"]
         if not model_id.startswith("openai/"):
             raise RuntimeError(f"{arm}: registry model ID lacks openai/ route")
         aliases.append(model_id.removeprefix("openai/"))
-    if len(set(aliases)) != len(ARMS):
+    if len(set(aliases)) != len(expected_arms):
         raise RuntimeError("registry served aliases must be unique")
     return sorted(aliases)
 
@@ -583,19 +707,22 @@ def load_checkpoint_registry(
         raise RuntimeError(
             "Checkpoint registry base_model_revision must be a full revision"
         )
-    entries = payload.get("entries")
-    if not isinstance(entries, dict) or set(entries) != ARMS:
-        raise RuntimeError(
-            f"Checkpoint registry entries must be exactly {tuple(sorted(ARMS))}"
-        )
-
     provenance_profile = checkpoint_registry_provenance_profile(
         payload,
         expected_profile=expected_profile,
     )
+    expected_arms = arms_for_profile(provenance_profile)
+    entries = payload.get("entries")
+    if not isinstance(entries, dict) or set(entries) != expected_arms:
+        raise RuntimeError(
+            "Checkpoint registry entries for "
+            f"{provenance_profile} must be exactly "
+            f"{tuple(sorted(expected_arms))}"
+        )
+
     expected_model_ids = PROFILE_MODEL_IDS[provenance_profile]
     model_ids: list[str] = []
-    for arm in sorted(ARMS):
+    for arm in sorted(expected_arms):
         entry = entries[arm]
         if not isinstance(entry, dict):
             raise RuntimeError(f"Checkpoint registry entry {arm} must be an object")
@@ -637,8 +764,10 @@ def load_checkpoint_registry(
                     f"{arm} has invalid training_run_manifest_sha256"
                 )
     if len(set(model_ids)) != len(model_ids):
-        raise RuntimeError("All five checkpoint registry model_id aliases must be unique")
-    for arm in sorted(ARMS):
+        raise RuntimeError(
+            "All checkpoint registry model_id aliases must be unique"
+        )
+    for arm in sorted(expected_arms):
         model_id = entries[arm]["model_id"]
         if model_id != expected_model_ids[arm]:
             raise RuntimeError(
@@ -657,6 +786,16 @@ def load_checkpoint_registry(
         raise RuntimeError(
             "V5.3-12h registry lacks the pinned 14B evaluator identity"
         )
+    if provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
+        if (
+            payload.get("diagnostic_evaluator")
+            != V5_3_LOW_SUPPORT_USER_JUDGE
+            or payload.get("diagnostic_claim_boundary")
+            != V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
+        ):
+            raise RuntimeError(
+                "low-support registry lacks its pinned diagnostic identity"
+            )
     return payload
 
 
@@ -692,6 +831,19 @@ def validate_checkpoint_identity(
             raise RuntimeError(
                 "V5.3-12h user/judge must equal the pinned 14B evaluator"
             )
+    elif profile == V5_3_LOW_SUPPORT_PROFILE:
+        if (
+            registry.get("diagnostic_evaluator")
+            != V5_3_LOW_SUPPORT_USER_JUDGE
+            or registry.get("diagnostic_claim_boundary")
+            != V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
+            or user_model != V5_3_LOW_SUPPORT_USER_JUDGE["model_id"]
+            or judge_model != V5_3_LOW_SUPPORT_USER_JUDGE["model_id"]
+        ):
+            raise RuntimeError(
+                "low-support user/judge must equal the pinned 14B "
+                "diagnostic evaluator"
+            )
     else:
         frozen_base_alias = registry["entries"]["base_model"]["model_id"]
         if user_model != frozen_base_alias or judge_model != frozen_base_alias:
@@ -711,12 +863,18 @@ def validate_evaluation_protocol(args: argparse.Namespace) -> None:
         "seed": args.seed,
         "num_trials": args.num_trials,
     }
-    expected = (
-        V5_3_12H_FROZEN_DECODING
-        if getattr(args, "provenance_profile", None)
-        == "v5_3_12h_screen"
-        else FROZEN_DECODING
-    )
+    profile = getattr(args, "provenance_profile", None)
+    if profile == "v5_3_12h_screen":
+        expected = V5_3_12H_FROZEN_DECODING
+    elif profile == V5_3_LOW_SUPPORT_PROFILE:
+        expected = V5_3_LOW_SUPPORT_FROZEN_DECODING
+        if args.num_shards != low_support.EVALUATION_SHARDS:
+            raise RuntimeError(
+                "low-support evaluation requires exactly "
+                f"{low_support.EVALUATION_SHARDS} shards"
+            )
+    else:
+        expected = FROZEN_DECODING
     if observed != expected:
         raise RuntimeError(
             f"Evaluation decoding must equal frozen protocol {expected}, "
@@ -1374,12 +1532,24 @@ def validate_contract_core(payload: dict[str, Any]) -> None:
             "Run contract tool-action interface drift; refusing completion"
         )
     preflight = payload.get("runtime_preflight")
-    expected_decoding = (
-        V5_3_12H_FROZEN_DECODING
-        if payload.get("checkpoint_registry_provenance_profile")
-        == "v5_3_12h_screen"
-        else FROZEN_DECODING
+    provenance_profile = payload.get(
+        "checkpoint_registry_provenance_profile"
     )
+    if provenance_profile == "v5_3_12h_screen":
+        expected_decoding = V5_3_12H_FROZEN_DECODING
+    elif provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
+        expected_decoding = V5_3_LOW_SUPPORT_FROZEN_DECODING
+        if (
+            payload.get("diagnostic_protocol")
+            != V5_3_LOW_SUPPORT_EXPERIMENT_PROTOCOL
+            or payload.get("diagnostic_claim_boundary")
+            != V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
+        ):
+            raise RuntimeError(
+                "Run contract low-support diagnostic identity drift"
+            )
+    else:
+        expected_decoding = FROZEN_DECODING
     expected_preflight = {
         "served_context_window_tokens": MAX_MODEL_LEN,
         "request_max_tokens": expected_decoding["max_tokens"],
@@ -1659,11 +1829,12 @@ def write_contract(
     provenance_profile = checkpoint_registry_provenance_profile(
         checkpoint_registry
     )
-    user_judge_revision = (
-        V5_3_12H_USER_JUDGE["revision"]
-        if provenance_profile == "v5_3_12h_screen"
-        else checkpoint_registry["base_model_revision"]
-    )
+    if provenance_profile == "v5_3_12h_screen":
+        user_judge_revision = V5_3_12H_USER_JUDGE["revision"]
+    elif provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
+        user_judge_revision = V5_3_LOW_SUPPORT_USER_JUDGE["revision"]
+    else:
+        user_judge_revision = checkpoint_registry["base_model_revision"]
     contract = {
         "protocol": RUN_CONTRACT_PROTOCOL,
         "status": "INCOMPLETE",
@@ -1751,6 +1922,13 @@ def write_contract(
             "official_test_used": False,
             "official_test_sealed": True,
         }
+    elif provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
+        contract["diagnostic_claim_boundary"] = dict(
+            V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
+        )
+        contract["diagnostic_protocol"] = (
+            V5_3_LOW_SUPPORT_EXPERIMENT_PROTOCOL
+        )
     contract["contract_core_sha256"] = contract_core_sha256(contract)
     contract_path.parent.mkdir(parents=True, exist_ok=True)
     contract_path.write_text(
@@ -1824,6 +2002,7 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
     if payload.get("checkpoint_registry_provenance_profile") in {
         "v5_3",
         "v5_3_12h_screen",
+        V5_3_LOW_SUPPORT_PROFILE,
     }:
         try:
             strict_evidence = (
@@ -1838,7 +2017,7 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
             ) from error
         if (
             payload.get("checkpoint_registry_provenance_profile")
-            == "v5_3_12h_screen"
+            in {"v5_3_12h_screen", V5_3_LOW_SUPPORT_PROFILE}
             and (
                 strict_evidence.get("status") != "PASS"
                 or isinstance(strict_evidence.get("expected_calls"), bool)
@@ -1909,7 +2088,19 @@ def main() -> None:
     judge_api_base = args.judge_api_base or args.user_api_base
     judge_api_key = args.judge_api_key or args.user_api_key
     profile = checkpoint_registry_provenance_profile(checkpoint_registry)
-    if profile == "v5_3_12h_screen":
+    if (
+        profile == V5_3_LOW_SUPPORT_PROFILE
+        and args.output_dir.resolve()
+        != low_support.artifact_root(ROOT, "results_root")
+        / "evaluation"
+        / args.arm
+    ):
+        raise RuntimeError(
+            "low-support evaluation output is outside its isolated root"
+        )
+    if profile == V5_3_LOW_SUPPORT_PROFILE:
+        low_support.require_whole_run_source_lock(ROOT)
+    if profile in {"v5_3_12h_screen", V5_3_LOW_SUPPORT_PROFILE}:
         agent_api_base, user_judge_api_base = require_screen_api_bases(
             args.agent_api_base,
             args.user_api_base,
@@ -1938,7 +2129,16 @@ def main() -> None:
         raise RuntimeError(
             "Checkpoint registry validation audit differs from evaluation audit"
         )
-    adapter_dirs = parse_adapter_dir_bindings(args.adapter_dir)
+    expected_arms = arms_for_profile(profile)
+    if args.arm not in expected_arms:
+        raise RuntimeError(
+            f"Arm {args.arm!r} is not registered for profile {profile!r}; "
+            f"expected exactly {sorted(expected_arms)}"
+        )
+    adapter_dirs = parse_adapter_dir_bindings(
+        args.adapter_dir,
+        expected_arms=trained_arms_for_profile(profile),
+    )
     local_adapter_identity = validate_local_adapter_identity(
         checkpoint_registry,
         adapter_dirs,
@@ -1953,6 +2153,12 @@ def main() -> None:
             args.user_api_base,
             args.user_api_key,
             V5_3_12H_USER_JUDGE["model_id"],
+        )
+    elif profile == V5_3_LOW_SUPPORT_PROFILE:
+        verify_served_model_id(
+            args.user_api_base,
+            args.user_api_key,
+            V5_3_LOW_SUPPORT_USER_JUDGE["model_id"],
         )
     require_clean_tracked_source()
     local_source_commit = git_commit()

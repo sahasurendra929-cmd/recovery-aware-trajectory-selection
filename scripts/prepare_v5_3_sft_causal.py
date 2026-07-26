@@ -1060,12 +1060,14 @@ def _beam_arm_schedules(
 
 def _matching_target_points(
     endpoint_bounds_by_arm: dict[str, dict[str, tuple[int, int]]],
+    *,
+    expected_arms: tuple[str, ...] = v5.CORE_ARMS,
 ) -> list[tuple[float, float]]:
     """Construct deterministic search landmarks without requiring overlap."""
 
     def landmarks(field: str) -> tuple[float, float, float, float, float]:
         bounds = [
-            endpoint_bounds_by_arm[arm][field] for arm in v5.CORE_ARMS
+            endpoint_bounds_by_arm[arm][field] for arm in expected_arms
         ]
         lower_bridge = max(row[0] for row in bounds)
         upper_bridge = min(row[1] for row in bounds)
@@ -1104,6 +1106,7 @@ def _deterministic_tolerance_aware_joint_match(
     task_ids: list[str],
     arm_candidates: dict[str, dict[str, list[dict[str, Any]]]],
     *,
+    expected_arms: tuple[str, ...] = v5.CORE_ARMS,
     recovery_ratios: dict[str, float] | None,
     recovery_row_ratios: dict[str, float] | None = None,
     seed: int,
@@ -1115,14 +1118,18 @@ def _deterministic_tolerance_aware_joint_match(
     beam_width_schedule: tuple[int, ...] = (128, 512),
     final_width: int = 16,
 ) -> tuple[dict[str, list[dict[str, Any]]] | None, dict[str, Any]]:
-    """Search jointly for four tolerance-compatible schedules.
+    """Search jointly for the exact registered tolerance-compatible arms.
 
     This is a bounded search, not an integer-programming proof system.
     Therefore failure is explicitly reported as inconclusive rather than as
     evidence that no feasible schedule exists.
     """
 
-    if set(arm_candidates) != set(v5.CORE_ARMS):
+    if (
+        not expected_arms
+        or len(expected_arms) != len(set(expected_arms))
+        or set(arm_candidates) != set(expected_arms)
+    ):
         raise RuntimeError("matching candidate arms drift")
     if recovery_ratios is None and recovery_row_ratios is None:
         raise RuntimeError("matching requires a registered recovery mixture")
@@ -1131,7 +1138,7 @@ def _deterministic_tolerance_aware_joint_match(
         ("recovery row ratios", recovery_row_ratios),
     ):
         if values is not None and (
-            not set(v5.CORE_ARMS) <= set(values)
+            not set(expected_arms) <= set(values)
             or any(
                 isinstance(value, bool)
                 or not isinstance(value, (int, float))
@@ -1153,9 +1160,12 @@ def _deterministic_tolerance_aware_joint_match(
                 "sequence_tokens",
             ),
         }
-        for arm in v5.CORE_ARMS
+        for arm in expected_arms
     }
-    target_points = _matching_target_points(endpoint_bounds_by_arm)
+    target_points = _matching_target_points(
+        endpoint_bounds_by_arm,
+        expected_arms=expected_arms,
+    )
     search_attempts: list[dict[str, Any]] = []
     best_observed: dict[str, Any] | None = None
 
@@ -1182,7 +1192,7 @@ def _deterministic_tolerance_aware_joint_match(
                     beam_width=beam_width,
                     final_width=final_width,
                 )
-                for arm in v5.CORE_ARMS
+                for arm in expected_arms
             }
             attempt_best: dict[str, Any] | None = None
             feasible: list[
@@ -1193,7 +1203,7 @@ def _deterministic_tolerance_aware_joint_match(
                 ]
             ] = []
             for combination in product(
-                *(finalists[arm] for arm in v5.CORE_ARMS)
+                *(finalists[arm] for arm in expected_arms)
             ):
                 token_gap = _relative_range(
                     [row["supervised_tokens"] for row in combination]
@@ -1207,10 +1217,10 @@ def _deterministic_tolerance_aware_joint_match(
                             row["recovery_supervised_token_ratio"]
                             - recovery_ratios[arm]
                         )
-                        for arm, row in zip(v5.CORE_ARMS, combination)
+                        for arm, row in zip(expected_arms, combination)
                     ]
                     if recovery_ratios is not None
-                    else [0.0] * len(v5.CORE_ARMS)
+                    else [0.0] * len(expected_arms)
                 )
                 row_ratio_deviations = (
                     [
@@ -1218,10 +1228,10 @@ def _deterministic_tolerance_aware_joint_match(
                             row["recovery_row_ratio"]
                             - recovery_row_ratios[arm]
                         )
-                        for arm, row in zip(v5.CORE_ARMS, combination)
+                        for arm, row in zip(expected_arms, combination)
                     ]
                     if recovery_row_ratios is not None
-                    else [0.0] * len(v5.CORE_ARMS)
+                    else [0.0] * len(expected_arms)
                 )
                 identity = tuple(row["selection_sha256"] for row in combination)
                 score = (
@@ -1248,7 +1258,7 @@ def _deterministic_tolerance_aware_joint_match(
                     ),
                     "selection_sha256_by_arm": {
                         arm: row["selection_sha256"]
-                        for arm, row in zip(v5.CORE_ARMS, combination)
+                        for arm, row in zip(expected_arms, combination)
                     },
                 }
                 if attempt_best is None or score < attempt_best["_score"]:
@@ -1272,7 +1282,7 @@ def _deterministic_tolerance_aware_joint_match(
                 "target_supervised_tokens": target_tokens,
                 "target_nonpadding_tokens": target_sequence,
                 "finalists_per_arm": {
-                    arm: len(finalists[arm]) for arm in v5.CORE_ARMS
+                    arm: len(finalists[arm]) for arm in expected_arms
                 },
                 "best_observed": (
                     {
@@ -1294,7 +1304,7 @@ def _deterministic_tolerance_aware_joint_match(
                 _, selected, observation = min(feasible, key=lambda row: row[0])
                 schedules = {
                     arm: candidate["rows"]
-                    for arm, candidate in zip(v5.CORE_ARMS, selected)
+                    for arm, candidate in zip(expected_arms, selected)
                 }
                 certificate = {
                     "algorithm": (
@@ -1315,23 +1325,23 @@ def _deterministic_tolerance_aware_joint_match(
                     "endpoint_bounds_by_arm": endpoint_bounds_by_arm,
                     "supervised_tokens_by_arm": {
                         arm: row["supervised_tokens"]
-                        for arm, row in zip(v5.CORE_ARMS, selected)
+                        for arm, row in zip(expected_arms, selected)
                     },
                     "nonpadding_tokens_by_arm": {
                         arm: row["nonpadding_tokens"]
-                        for arm, row in zip(v5.CORE_ARMS, selected)
+                        for arm, row in zip(expected_arms, selected)
                     },
                     "recovery_supervised_token_ratio_by_arm": {
                         arm: row["recovery_supervised_token_ratio"]
-                        for arm, row in zip(v5.CORE_ARMS, selected)
+                        for arm, row in zip(expected_arms, selected)
                     },
                     "recovery_row_ratio_by_arm": {
                         arm: row["recovery_row_ratio"]
-                        for arm, row in zip(v5.CORE_ARMS, selected)
+                        for arm, row in zip(expected_arms, selected)
                     },
                     "recovery_rows_by_arm": {
                         arm: row["recovery_rows"]
-                        for arm, row in zip(v5.CORE_ARMS, selected)
+                        for arm, row in zip(expected_arms, selected)
                     },
                     "recovery_mixture_basis": (
                         "row_mean_microbatch_equal_weight"

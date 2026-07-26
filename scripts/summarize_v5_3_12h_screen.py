@@ -255,7 +255,17 @@ def load_arm_raw(
     evaluation_manifest_sha256: str,
     split_manifest_sha256: str,
     dynamic_identity: dict[str, Any],
+    expected_registry_profile: str = protocol.REGISTRY_PROFILE,
+    expected_user_judge_model_id: str = protocol.USER_JUDGE_MODEL_ID,
+    expected_user_judge_revision: str = protocol.USER_JUDGE_REVISION,
+    expected_decoding: dict[str, Any] | None = None,
+    expected_trial_seed: int = protocol.TRIAL_SEEDS[0],
+    required_contract_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if expected_decoding is None:
+        expected_decoding = evaluation.V5_3_12H_FROZEN_DECODING
+    if required_contract_metadata is None:
+        required_contract_metadata = {}
     cases: dict[tuple[str, str, str, int], dict[str, Any]] = {}
     tasks_by_shard: dict[str, list[str]] = {}
     contract_hashes: dict[str, str] = {}
@@ -269,8 +279,8 @@ def load_arm_raw(
         if path.name != expected_name:
             raise SummaryError(f"{arm}: shard contract naming/order drift")
         expected_user_judge = {
-            "model": protocol.USER_JUDGE_MODEL_ID,
-            "revision": protocol.USER_JUDGE_REVISION,
+            "model": expected_user_judge_model_id,
+            "revision": expected_user_judge_revision,
             "api_base": contract.get("user", {}).get("api_base"),
         }
         judge = contract.get("judge")
@@ -281,7 +291,7 @@ def load_arm_raw(
             or contract.get("num_shards") != 3
             or contract.get("conditions") != ["clean", "error"]
             or contract.get("checkpoint_registry_provenance_profile")
-            != protocol.REGISTRY_PROFILE
+            != expected_registry_profile
             or contract.get("checkpoint_registry_sha256")
             != registry_sha256
             or contract.get("checkpoint_entry")
@@ -291,13 +301,12 @@ def load_arm_raw(
             or contract.get("split_manifest_sha256")
             != split_manifest_sha256
             or contract.get("dynamic_audit_identity") != dynamic_identity
-            or contract.get("decoding")
-            != evaluation.V5_3_12H_FROZEN_DECODING
+            or contract.get("decoding") != expected_decoding
             or contract.get("official_test_used") is not False
             or contract.get("user") != expected_user_judge
             or not isinstance(judge, dict)
-            or judge.get("model") != protocol.USER_JUDGE_MODEL_ID
-            or judge.get("revision") != protocol.USER_JUDGE_REVISION
+            or judge.get("model") != expected_user_judge_model_id
+            or judge.get("revision") != expected_user_judge_revision
             or judge.get("api_base") != expected_user_judge["api_base"]
             or judge.get("strict_backend")
             != {
@@ -307,6 +316,13 @@ def load_arm_raw(
             }
         ):
             raise SummaryError(f"{arm}: run contract metadata drift: {path}")
+        if any(
+            contract.get(field) != value
+            for field, value in required_contract_metadata.items()
+        ):
+            raise SummaryError(
+                f"{arm}: run contract diagnostic metadata drift: {path}"
+            )
         task_ids = contract.get("task_ids")
         if (
             not isinstance(task_ids, list)
@@ -347,7 +363,7 @@ def load_arm_raw(
                 pair_id = f"{domain}:{task_id}"
                 trial = simulation.get("trial")
                 derived_seed = simulation.get("seed")
-                if trial != 0 or derived_seed != protocol.TRIAL_SEEDS[0]:
+                if trial != 0 or derived_seed != expected_trial_seed:
                     raise SummaryError(
                         f"{arm}/{condition}/{pair_id}: "
                         "trial or derived seed drift"

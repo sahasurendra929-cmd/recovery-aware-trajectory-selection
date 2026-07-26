@@ -1,0 +1,91 @@
+experiment_name: v5_3_low_support_diagnostic
+protocol: v5_3_low_support_diagnostic_v1
+design_version: "5.3-low-support-diagnostic"
+seed: 20260731
+
+trigger:
+  source_run: v5_3_12h_exploratory_screen_v1
+  source_generation_must_be_complete: true
+  source_strict_data_gate_must_be: FAIL_CLOSED
+  allowed_source_failure_class: abundance_only
+  integrity_or_contract_failure_allows_fallback: false
+
+claim_boundary:
+  post_yield_exploratory_diagnostic: true
+  trigger_requires_strict_gate_fail_closed: true
+  low_support_is_explicit: true
+  formal_v5_3_result: false
+  paper_level_confirmation: false
+  diagnostic_outputs_may_enter_formal_v5_3: false
+  official_test_used: false
+  official_test_sealed: true
+  extensions_allowed: false
+  may_satisfy_formal_v5_3_gate: false
+  may_enter_formal_v5_3_training: false
+  may_be_pooled_with_formal_v5_3: false
+  may_select_hyperparameters_or_training_arms: false
+  positive_result_guaranteed: false
+  allowed_claim: >-
+    post-yield, one-seed, low-support directional diagnostic on the frozen
+    21-task derived-validation split under the exact registered model, data,
+    and evaluator scope
+
+isolation:
+  source_raw_bytes: read_only_hash_bound
+  source_runtime_root: artifacts/v5_3_12h_screen
+  source_pairing: same_attempt_slot
+  source_eligibility_relaxed: false
+  concurrent_with_source_controller: false
+  processed_root: data/processed/v5_3_low_support_diagnostic
+  results_root: results/v5_3_low_support_diagnostic
+  runtime_root: artifacts/v5_3_low_support_diagnostic
+
+data_gate:
+  minimum_distinct_tasks: 8
+  minimum_capped_pairs: 10
+  maximum_pairs_per_task: 2
+  source_strict_gate_must_fail: true
+  complete_generation_and_strict_judge_evidence_required: true
+
+training:
+  model: Qwen/Qwen2.5-7B-Instruct
+  revision: a09a35458c702b33eeacc393d103063234e8bc28
+  trained_arms: [perfect_success, repair_50]
+  base_model_is_untrained_control: true
+  optimizer_steps: 64
+  schedule_rows_per_arm: 512
+  batch_size: 1
+  gradient_accumulation_steps: 8
+  seed: 20260731
+  early_stopping: false
+  checkpoint_selection_by_validation: false
+  task_support: exact_across_trained_arms
+  recovery_row_ratios:
+    perfect_success: 0.0
+    repair_50: 0.5
+  failed_action_supervision:
+    perfect_success: false
+    repair_50: false
+
+evaluation:
+  arms: [base_model, perfect_success, repair_50]
+  source_split: derived_validation
+  tasks: 21
+  conditions: [clean, error]
+  trials: 1
+  shards: 3
+  rollouts: 126
+  seed: 20260731
+  temperature: 0
+  max_tokens: 512
+  max_steps: 60
+  task_timeout_seconds: 900
+  model_performance_adaptive_decisions: false
+
+reporting:
+  independent_unit: task_id
+  primary_descriptive_contrast: repair_50_minus_perfect_success
+  base_contrasts_are_secondary: true
+  confidence_intervals_are_descriptive: true
+  low_unique_task_and_pair_counts_must_be_reported: true
+  repeated_schedule_rows_are_not_independent_examples: true

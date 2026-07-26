@@ -26,6 +26,11 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable
 
+try:
+    import v5_3_low_support_protocol as low_support
+except ModuleNotFoundError:
+    from scripts import v5_3_low_support_protocol as low_support
+
 
 MODEL = "Qwen/Qwen2.5-7B-Instruct"
 SEED = 20260722
@@ -68,6 +73,22 @@ V5_3_12H_RECOVERY_ROW_RATIOS = {
     "repair_50": 0.5,
     "repair_100": 1.0,
 }
+V5_3_LOW_SUPPORT_DESIGN_VERSION = low_support.DESIGN_VERSION
+V5_3_LOW_SUPPORT_DESIGN_PROTOCOL = low_support.DATA_PROTOCOL
+V5_3_LOW_SUPPORT_PROTOCOL = low_support.PROTOCOL
+V5_3_LOW_SUPPORT_TRAINING_SEED = low_support.BASE_SEED
+V5_3_LOW_SUPPORT_TRAINED_ARMS = tuple(low_support.TRAINED_ARMS)
+V5_3_LOW_SUPPORT_RECOVERY_ROW_RATIOS = dict(
+    low_support.ARM_RECOVERY_ROW_RATIOS
+)
+V5_3_LOW_SUPPORT_GATE_THRESHOLDS = {
+    "minimum_distinct_tasks": low_support.MIN_DISTINCT_TASKS,
+    "minimum_capped_pairs": low_support.MIN_CAPPED_PAIRS,
+    "maximum_pairs_per_task": low_support.MAX_PAIRS_PER_TASK,
+}
+V5_3_LOW_SUPPORT_ARTIFACT_NAMESPACE = dict(
+    low_support.ARTIFACT_NAMESPACE
+)
 V5_3_12H_TASK_IDS = (
     "airline:1",
     "airline:11",
@@ -495,6 +516,214 @@ def validate_v5_3_12h_design_provenance(
     }
 
 
+def validate_v5_3_low_support_design_provenance(
+    *,
+    audit: dict[str, Any],
+    hashes: dict[str, Any],
+    data_root: Path,
+    dynamic_identities: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Bind training to the isolated post-yield low-support diagnostic."""
+
+    if (
+        audit.get("design_protocol")
+        != V5_3_LOW_SUPPORT_DESIGN_PROTOCOL
+        or audit.get("diagnostic_protocol")
+        != V5_3_LOW_SUPPORT_PROTOCOL
+        or audit.get("source_screen_protocol")
+        != V5_3_12H_SCREEN_PROTOCOL
+        or audit.get("screen_task_ids") != list(V5_3_12H_TASK_IDS)
+        or audit.get("attempts_per_task_per_condition") != 6
+        or audit.get("expected_rollouts") != 288
+        or audit.get("post_yield_exploratory_diagnostic") is not True
+        or audit.get("strict_source_gate_required_fail_closed") is not True
+        or audit.get("artifact_namespace")
+        != V5_3_LOW_SUPPORT_ARTIFACT_NAMESPACE
+        or audit.get("diagnostic_outputs_may_enter_formal_v5_3")
+        is not False
+        or audit.get("screen_outputs_may_enter_formal_v5_3") is not False
+        or audit.get("official_test_sealed") is not True
+    ):
+        raise RuntimeError("V5.3 low-support design identity drift")
+
+    claim = audit.get("claim_boundary")
+    if claim != low_support.CLAIM_BOUNDARY:
+        raise RuntimeError("V5.3 low-support claim boundary drift")
+    processing_source_commit = audit.get("processing_source_commit")
+    source_generation_commit = audit.get("source_generation_commit")
+    if (
+        not isinstance(processing_source_commit, str)
+        or COMMIT_RE.fullmatch(processing_source_commit) is None
+        or not isinstance(source_generation_commit, str)
+        or COMMIT_RE.fullmatch(source_generation_commit) is None
+        or processing_source_commit == source_generation_commit
+    ):
+        raise RuntimeError("V5.3 low-support source-commit provenance drift")
+
+    task_yield = audit.get("task_yield")
+    if not isinstance(task_yield, dict) or set(task_yield) != set(
+        low_support.PILOT_TASK_IDS
+    ):
+        raise RuntimeError("V5.3 low-support task-yield evidence drift")
+    pair_counts: dict[str, int] = {}
+    for task_id in low_support.PILOT_TASK_IDS:
+        row = task_yield.get(task_id)
+        count = row.get("selected_pairs") if isinstance(row, dict) else None
+        if (
+            isinstance(count, bool)
+            or not isinstance(count, int)
+            or not 0 <= count <= low_support.MAX_PAIRS_PER_TASK
+        ):
+            raise RuntimeError("V5.3 low-support task-yield evidence drift")
+        pair_counts[task_id] = count
+    recomputed_gate = low_support.data_gate(pair_counts)
+    gate = audit.get("data_gate")
+    if gate != recomputed_gate:
+        raise RuntimeError("V5.3 low-support data gate drift")
+    observed = gate.get("observed") if isinstance(gate, dict) else None
+    strict = gate.get("source_strict_gate") if isinstance(gate, dict) else None
+    strict_observed = (
+        strict.get("observed") if isinstance(strict, dict) else None
+    )
+    if (
+        not isinstance(gate, dict)
+        or gate.get("status") != "PASS_LOW_SUPPORT_DIAGNOSTIC"
+        or gate.get("training_authorized") is not True
+        or gate.get("thresholds") != V5_3_LOW_SUPPORT_GATE_THRESHOLDS
+        or gate.get("claim_boundary") != low_support.CLAIM_BOUNDARY
+        or not isinstance(observed, dict)
+        or observed.get("tasks") != 24
+        or observed.get("tasks_with_pair", 0) < 8
+        or observed.get("capped_pairs", 0) < 10
+        or observed.get("maximum_pairs_per_task") != 2
+        or not isinstance(strict, dict)
+        or strict.get("status") != "FAIL_CLOSED"
+        or strict.get("training_authorized") is not False
+        or not isinstance(strict_observed, dict)
+        or strict_observed.get("tasks") != 24
+        or strict_observed.get("tasks_with_pair")
+        != observed.get("tasks_with_pair")
+        or strict_observed.get("capped_pairs")
+        != observed.get("capped_pairs")
+    ):
+        raise RuntimeError("V5.3 low-support data gate drift")
+
+    arms = audit.get("arms")
+    mixture = audit.get("arm_mixture_contract")
+    if (
+        not isinstance(arms, dict)
+        or tuple(arms) != V5_3_LOW_SUPPORT_TRAINED_ARMS
+        or not isinstance(mixture, dict)
+        or mixture.get("weight_unit") != "training_row"
+        or mixture.get("target_recovery_row_ratios")
+        != V5_3_LOW_SUPPORT_RECOVERY_ROW_RATIOS
+        or mixture.get("target_miss_blocks_training") is not False
+        or audit.get("cross_arm_token_budgets_gate_training") is not False
+        or audit.get("train_schedule_rows_per_arm") != FORMAL_SCHEDULE_ROWS
+        or audit.get("core_task_id_multiset_equal") is not True
+        or audit.get("common_eligible_pair_support") is not True
+    ):
+        raise RuntimeError("V5.3 low-support arm/matching contract drift")
+    for arm, expected_ratio in V5_3_LOW_SUPPORT_RECOVERY_ROW_RATIOS.items():
+        arm_row = arms.get(arm)
+        expected_recovery_rows = int(FORMAL_SCHEDULE_ROWS * expected_ratio)
+        if (
+            not isinstance(arm_row, dict)
+            or arm_row.get("rows") != FORMAL_SCHEDULE_ROWS
+            or arm_row.get("recovery_rows") != expected_recovery_rows
+            or arm_row.get("recovery_row_ratio") != expected_ratio
+            or arm_row.get("expected_recovery_row_ratio") != expected_ratio
+            or arm_row.get("recovery_mixture_basis")
+            != "row_mean_microbatch_equal_weight"
+            or arm_row.get("controlled_failed_action_labels") != 0
+        ):
+            raise RuntimeError(
+                f"V5.3 low-support {arm} schedule contract drift"
+            )
+
+    generation_contracts = audit.get("generation_contracts")
+    if (
+        not isinstance(generation_contracts, dict)
+        or generation_contracts.get("protocol")
+        != f"{V5_3_12H_SCREEN_PROTOCOL}:generation_contract_audit_v1"
+        or generation_contracts.get("task_union") != 24
+        or generation_contracts.get("shards") != 3
+        or generation_contracts.get("official_test_used") is not False
+    ):
+        raise RuntimeError("V5.3 low-support generation provenance drift")
+    mapping_sha = generation_contracts.get(
+        "strict_judge_evidence_mapping_sha256"
+    )
+    if (
+        not isinstance(mapping_sha, str)
+        or SHA256_RE.fullmatch(mapping_sha) is None
+    ):
+        raise RuntimeError(
+            "V5.3 low-support strict-judge evidence is unbound"
+        )
+
+    validation_path = data_root / "validation_manifest.json"
+    validation_sha = hashes.get("validation_manifest.json")
+    if (
+        not isinstance(validation_sha, str)
+        or SHA256_RE.fullmatch(validation_sha) is None
+        or not validation_path.is_file()
+        or sha256_file(validation_path) != validation_sha
+        or audit.get("validation_manifest_sha256") != validation_sha
+        or dynamic_identities["validation"].get("manifest_sha256")
+        != validation_sha
+    ):
+        raise RuntimeError(
+            "V5.3 low-support validation manifest binding drift"
+        )
+    validation = read_json_object(
+        validation_path,
+        label="V5.3 low-support validation manifest",
+    )
+    rows = validation.get("rows")
+    if (
+        validation.get("protocol") != V5_3_VALIDATION_MANIFEST_PROTOCOL
+        or validation.get("paired_task_count") != 21
+        or not isinstance(rows, list)
+        or len(rows) != 21
+        or validation.get("official_test_used") is not False
+        or validation.get("official_test_sealed") is not True
+        or any(
+            not isinstance(row, dict)
+            or row.get("source_split") != "derived_validation"
+            for row in rows
+        )
+    ):
+        raise RuntimeError(
+            "V5.3 low-support derived-validation coverage drift"
+        )
+    return {
+        "design_version": V5_3_LOW_SUPPORT_DESIGN_VERSION,
+        "design_protocol": V5_3_LOW_SUPPORT_DESIGN_PROTOCOL,
+        "diagnostic_protocol": V5_3_LOW_SUPPORT_PROTOCOL,
+        "source_screen_protocol": V5_3_12H_SCREEN_PROTOCOL,
+        "screen_tasks": 24,
+        "screen_rollouts": 288,
+        "eligible_distinct_tasks": observed["tasks_with_pair"],
+        "eligible_capped_pairs": observed["capped_pairs"],
+        "maximum_pairs_per_task": low_support.MAX_PAIRS_PER_TASK,
+        "schedule_rows_per_arm": FORMAL_SCHEDULE_ROWS,
+        "repeated_schedule_rows_are_independent_examples": False,
+        "validation_tasks": 21,
+        "strict_judge_evidence_mapping_sha256": mapping_sha,
+        "trained_arms": list(V5_3_LOW_SUPPORT_TRAINED_ARMS),
+        "processing_source_commit": processing_source_commit,
+        "source_generation_commit": source_generation_commit,
+        "recovery_mixture_basis": "row_mean_microbatch_equal_weight",
+        "target_recovery_row_ratios": (
+            V5_3_LOW_SUPPORT_RECOVERY_ROW_RATIOS
+        ),
+        "formal_v5_3_result": False,
+        "official_test_used": False,
+        "official_test_sealed": True,
+    }
+
+
 def validate_training_data_provenance(
     *,
     arm: str,
@@ -557,6 +786,7 @@ def validate_training_data_provenance(
     if design_version in {
         V5_3_DESIGN_VERSION,
         V5_3_12H_DESIGN_VERSION,
+        V5_3_LOW_SUPPORT_DESIGN_VERSION,
     }:
         required_hash_keys.add("validation_manifest.json")
     for key in required_hash_keys:
@@ -586,7 +816,11 @@ def validate_training_data_provenance(
     validation_audit = audit.get("validation_loss")
     expected_validation_source = (
         "not_applicable_fixed_step_screen"
-        if design_version == V5_3_12H_DESIGN_VERSION
+        if design_version
+        in {
+            V5_3_12H_DESIGN_VERSION,
+            V5_3_LOW_SUPPORT_DESIGN_VERSION,
+        }
         else "inner_train"
     )
     if (
@@ -596,7 +830,10 @@ def validate_training_data_provenance(
         != expected_validation_source
     ):
         raise RuntimeError("validation-loss SHA/source is not bound into data audit")
-    if design_version == V5_3_12H_DESIGN_VERSION and (
+    if design_version in {
+        V5_3_12H_DESIGN_VERSION,
+        V5_3_LOW_SUPPORT_DESIGN_VERSION,
+    } and (
         validation_audit.get("rows") != 0
         or validation_audit.get("used_for_checkpoint_selection") is not False
         or validation_audit.get("validation_disabled_reason")
@@ -615,7 +852,11 @@ def validate_training_data_provenance(
     expected_dynamic_audits = (
         V5_3_EXPECTED_DYNAMIC_AUDITS
         if design_version
-        in {V5_3_DESIGN_VERSION, V5_3_12H_DESIGN_VERSION}
+        in {
+            V5_3_DESIGN_VERSION,
+            V5_3_12H_DESIGN_VERSION,
+            V5_3_LOW_SUPPORT_DESIGN_VERSION,
+        }
         else EXPECTED_DYNAMIC_AUDITS
     )
     for name, expected in expected_dynamic_audits.items():
@@ -652,6 +893,13 @@ def validate_training_data_provenance(
         )
     elif design_version == V5_3_12H_DESIGN_VERSION:
         design_provenance = validate_v5_3_12h_design_provenance(
+            audit=audit,
+            hashes=hashes,
+            data_root=data_root,
+            dynamic_identities=dynamic_identities,
+        )
+    elif design_version == V5_3_LOW_SUPPORT_DESIGN_VERSION:
+        design_provenance = validate_v5_3_low_support_design_provenance(
             audit=audit,
             hashes=hashes,
             data_root=data_root,
@@ -1420,8 +1668,44 @@ def main() -> None:
         expected_train_sha256=expected_train_sha,
         expected_validation_sha256=expected_validation_sha,
     )
+    if (
+        data_provenance.get("design_version")
+        == V5_3_LOW_SUPPORT_DESIGN_VERSION
+        and (data_provenance.get("design_provenance") or {}).get(
+            "processing_source_commit"
+        )
+        != source_commit
+    ):
+        raise RuntimeError(
+            "low-support data was processed by a different source commit"
+        )
+    if (
+        data_provenance.get("design_version")
+        == V5_3_LOW_SUPPORT_DESIGN_VERSION
+    ):
+        expected_data_root = low_support.artifact_root(
+            ROOT, "processed_root"
+        )
+        expected_output_dir = (
+            low_support.artifact_root(ROOT, "results_root")
+            / "training"
+            / args.arm
+            / args.mode
+        )
+        if args.data_audit.resolve().parent != expected_data_root:
+            raise RuntimeError(
+                "low-support data audit is outside its isolated root"
+            )
+        if args.output_dir.resolve() != expected_output_dir:
+            raise RuntimeError(
+                "low-support training output is outside its isolated root"
+            )
+        low_support.require_whole_run_source_lock(ROOT)
     effective_seed = (
-        V5_3_12H_TRAINING_SEED
+        V5_3_LOW_SUPPORT_TRAINING_SEED
+        if data_provenance.get("design_version")
+        == V5_3_LOW_SUPPORT_DESIGN_VERSION
+        else V5_3_12H_TRAINING_SEED
         if data_provenance.get("design_version")
         == V5_3_12H_DESIGN_VERSION
         else SEED
@@ -1486,7 +1770,10 @@ def main() -> None:
     train_rows = read_jsonl(args.train_file)
     screen_no_eval = (
         data_provenance.get("design_version")
-        == V5_3_12H_DESIGN_VERSION
+        in {
+            V5_3_12H_DESIGN_VERSION,
+            V5_3_LOW_SUPPORT_DESIGN_VERSION,
+        }
     )
     if screen_no_eval:
         if args.validation_file.read_bytes() != b"":

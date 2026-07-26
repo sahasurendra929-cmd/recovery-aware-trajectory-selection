@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Build the immutable V5 Stage-1 checkpoint registry.
+"""Build an immutable V5 Stage-1 checkpoint registry.
 
-Only complete formal runs from the four canonical SFT arms are accepted.  The
-registry binds each served model alias to both the adapter bytes and the
-training run manifest that produced them.
+The legacy, V5.3, and V5.3-12h profiles require the four canonical SFT arms.
+The isolated low-support diagnostic profile deliberately requires only
+``perfect_success`` and ``repair_50``.  Every profile remains fail-closed:
+subsets and supersets of its exact arm set are rejected.
 """
 
 from __future__ import annotations
@@ -17,6 +18,11 @@ import re
 import tempfile
 from pathlib import Path
 from typing import Any
+
+try:
+    import v5_3_low_support_protocol as low_support
+except ModuleNotFoundError:
+    from scripts import v5_3_low_support_protocol as low_support
 
 
 PROTOCOL = "v5_stage1_checkpoint_registry"
@@ -45,7 +51,27 @@ V5_3_12H_MODEL_IDS = {
     "repair_50": "openai/v5-3-12h-repair-50",
     "repair_100": "openai/v5-3-12h-repair-100",
 }
-PROVENANCE_PROFILES = ("legacy", "v5_3", "v5_3_12h_screen")
+V5_3_LOW_SUPPORT_MODEL_IDS = dict(low_support.MODEL_IDS)
+V5_3_LOW_SUPPORT_PROFILE = low_support.REGISTRY_PROFILE
+V5_3_LOW_SUPPORT_DESIGN_VERSION = low_support.DESIGN_VERSION
+V5_3_LOW_SUPPORT_DESIGN_PROTOCOL = low_support.DATA_PROTOCOL
+V5_3_LOW_SUPPORT_EXPERIMENT_PROTOCOL = low_support.PROTOCOL
+V5_3_LOW_SUPPORT_TRAINED_ARMS = tuple(low_support.TRAINED_ARMS)
+V5_3_LOW_SUPPORT_USER_JUDGE = {
+    "model": low_support.USER_JUDGE_MODEL,
+    "model_id": low_support.USER_JUDGE_MODEL_ID,
+    "revision": low_support.USER_JUDGE_REVISION,
+    "roles": ["user_simulator", "strict_nl_judge"],
+    "official_test_used": False,
+}
+V5_3_LOW_SUPPORT_CLAIM_BOUNDARY = dict(low_support.CLAIM_BOUNDARY)
+ROOT = Path(__file__).resolve().parents[1]
+PROVENANCE_PROFILES = (
+    "legacy",
+    "v5_3",
+    "v5_3_12h_screen",
+    V5_3_LOW_SUPPORT_PROFILE,
+)
 V5_3_DESIGN_VERSION = "5.3"
 V5_3_DESIGN_PROTOCOL = "v5_3_task_level_cross_seed_sft_screen"
 V5_3_12H_DESIGN_VERSION = "5.3-12h-screen"
@@ -71,11 +97,19 @@ PROFILE_GENERATION_INJECTIONS = {
     "legacy": 83,
     "v5_3": 78,
     "v5_3_12h_screen": 78,
+    V5_3_LOW_SUPPORT_PROFILE: 78,
 }
 PROFILE_MODEL_IDS = {
     "legacy": MODEL_IDS,
     "v5_3": V5_3_MODEL_IDS,
     "v5_3_12h_screen": V5_3_12H_MODEL_IDS,
+    V5_3_LOW_SUPPORT_PROFILE: V5_3_LOW_SUPPORT_MODEL_IDS,
+}
+PROFILE_TRAINED_ARMS = {
+    "legacy": ARMS,
+    "v5_3": ARMS,
+    "v5_3_12h_screen": ARMS,
+    V5_3_LOW_SUPPORT_PROFILE: V5_3_LOW_SUPPORT_TRAINED_ARMS,
 }
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -99,7 +133,20 @@ def load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def parse_arm_bindings(values: list[str]) -> dict[str, Path]:
+def trained_arms_for_profile(provenance_profile: str) -> tuple[str, ...]:
+    try:
+        return PROFILE_TRAINED_ARMS[provenance_profile]
+    except KeyError as error:
+        raise RuntimeError(
+            f"unsupported provenance profile {provenance_profile!r}"
+        ) from error
+
+
+def parse_arm_bindings(
+    values: list[str],
+    *,
+    provenance_profile: str | None = None,
+) -> dict[str, Path]:
     bindings: dict[str, Path] = {}
     resolved_paths: set[Path] = set()
     for value in values:
@@ -117,11 +164,28 @@ def parse_arm_bindings(values: list[str]) -> dict[str, Path]:
             raise RuntimeError(f"duplicate run directory: {path}")
         resolved_paths.add(path)
         bindings[arm] = path
-    if set(bindings) != set(ARMS):
-        missing = sorted(set(ARMS) - set(bindings))
-        extra = sorted(set(bindings) - set(ARMS))
+    observed = set(bindings)
+    if provenance_profile is None:
+        registered_sets = {
+            frozenset(ARMS),
+            frozenset(V5_3_LOW_SUPPORT_TRAINED_ARMS),
+        }
+        if frozenset(observed) in registered_sets:
+            return bindings
+        expected_text = (
+            f"{ARMS} or {V5_3_LOW_SUPPORT_TRAINED_ARMS}"
+        )
         raise RuntimeError(
-            f"arm bindings must be exactly {ARMS}; missing={missing}, extra={extra}"
+            "arm bindings must be exactly one registered trained-arm set; "
+            f"expected={expected_text}, observed={sorted(observed)}"
+        )
+    expected = set(trained_arms_for_profile(provenance_profile))
+    if observed != expected:
+        missing = sorted(expected - observed)
+        extra = sorted(observed - expected)
+        raise RuntimeError(
+            f"arm bindings for {provenance_profile} must be exactly "
+            f"{tuple(sorted(expected))}; missing={missing}, extra={extra}"
         )
     return bindings
 
@@ -137,10 +201,24 @@ def _manifest_design_version(run_dir: Path) -> Any:
 
 
 def infer_provenance_profile(arm_dirs: dict[str, Path]) -> str:
-    """Infer only the two registered profiles from immutable run provenance."""
+    """Infer a profile only from an exact registered arm set and provenance."""
 
-    if set(arm_dirs) != set(ARMS):
-        raise RuntimeError(f"arm directories must be exactly {ARMS}")
+    observed_arms = set(arm_dirs)
+    if observed_arms == set(V5_3_LOW_SUPPORT_TRAINED_ARMS):
+        versions = {
+            _manifest_design_version(Path(run_dir).expanduser().resolve())
+            for run_dir in arm_dirs.values()
+        }
+        if versions == {V5_3_LOW_SUPPORT_DESIGN_VERSION}:
+            return V5_3_LOW_SUPPORT_PROFILE
+        raise RuntimeError(
+            "two-arm registry inference requires only the frozen low-support "
+            f"design_version; found={sorted(repr(value) for value in versions)}"
+        )
+    if observed_arms != set(ARMS):
+        raise RuntimeError(
+            "arm directories must be exactly one registered trained-arm set"
+        )
     versions = {
         _manifest_design_version(Path(arm_dirs[arm]).expanduser().resolve())
         for arm in ARMS
@@ -196,6 +274,46 @@ def _validate_profile_provenance(
         ):
             raise RuntimeError(
                 "V5.3-12h provenance lacks the frozen isolated design identity"
+            )
+        return
+    if provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
+        if design_version != V5_3_LOW_SUPPORT_DESIGN_VERSION:
+            raise RuntimeError(
+                "low-support diagnostic provenance requires its frozen "
+                "design_version"
+            )
+        design = provenance.get("design_provenance")
+        expected = {
+            "design_version": V5_3_LOW_SUPPORT_DESIGN_VERSION,
+            "design_protocol": V5_3_LOW_SUPPORT_DESIGN_PROTOCOL,
+            "diagnostic_protocol": V5_3_LOW_SUPPORT_EXPERIMENT_PROTOCOL,
+            "validation_tasks": 21,
+            "trained_arms": list(V5_3_LOW_SUPPORT_TRAINED_ARMS),
+            "maximum_pairs_per_task": low_support.MAX_PAIRS_PER_TASK,
+            "schedule_rows_per_arm": low_support.SCHEDULE_ROWS,
+            "repeated_schedule_rows_are_independent_examples": False,
+            "formal_v5_3_result": False,
+            "official_test_used": False,
+            "official_test_sealed": True,
+        }
+        if not isinstance(design, dict) or any(
+            design.get(field) != value for field, value in expected.items()
+        ):
+            raise RuntimeError(
+                "low-support diagnostic provenance lacks its frozen "
+                "post-yield identity"
+            )
+        processing_commit = design.get("processing_source_commit")
+        generation_commit = design.get("source_generation_commit")
+        if (
+            not isinstance(processing_commit, str)
+            or COMMIT_RE.fullmatch(processing_commit) is None
+            or not isinstance(generation_commit, str)
+            or COMMIT_RE.fullmatch(generation_commit) is None
+            or processing_commit == generation_commit
+        ):
+            raise RuntimeError(
+                "low-support diagnostic source-commit provenance drift"
             )
         return
     if design_version != V5_3_DESIGN_VERSION:
@@ -396,7 +514,20 @@ def validate_run(
         provenance,
         provenance_profile=provenance_profile,
     )
-    if provenance_profile == "v5_3_12h_screen":
+    if (
+        provenance_profile == V5_3_LOW_SUPPORT_PROFILE
+        and provenance["design_provenance"].get(
+            "processing_source_commit"
+        )
+        != source_commit
+    ):
+        raise RuntimeError(
+            f"{arm}: low-support processing commit differs from run source"
+        )
+    if provenance_profile in {
+        "v5_3_12h_screen",
+        V5_3_LOW_SUPPORT_PROFILE,
+    }:
         _validate_screen_training_manifest(
             manifest=manifest,
             adapter_config=adapter_config,
@@ -496,13 +627,19 @@ def build_registry(
         raise RuntimeError("source commit must be a full lowercase commit")
     if COMMIT_RE.fullmatch(base_revision) is None:
         raise RuntimeError("base revision must be a full lowercase revision")
-    if set(arm_dirs) != set(ARMS):
-        raise RuntimeError(f"arm directories must be exactly {ARMS}")
     if provenance_profile is None:
         provenance_profile = infer_provenance_profile(arm_dirs)
     elif provenance_profile not in PROVENANCE_PROFILES:
         raise RuntimeError(
             f"unsupported provenance profile {provenance_profile!r}"
+        )
+    trained_arms = trained_arms_for_profile(provenance_profile)
+    if set(arm_dirs) != set(trained_arms):
+        missing = sorted(set(trained_arms) - set(arm_dirs))
+        extra = sorted(set(arm_dirs) - set(trained_arms))
+        raise RuntimeError(
+            f"arm directories for {provenance_profile} must be exactly "
+            f"{trained_arms}; missing={missing}, extra={extra}"
         )
     model_ids_for_profile = PROFILE_MODEL_IDS[provenance_profile]
     entries: dict[str, Any] = {
@@ -513,11 +650,13 @@ def build_registry(
             "training_run_manifest_sha256": None,
         }
     }
-    resolved = [Path(arm_dirs[arm]).expanduser().resolve() for arm in ARMS]
+    resolved = [
+        Path(arm_dirs[arm]).expanduser().resolve() for arm in trained_arms
+    ]
     if len(set(resolved)) != len(resolved):
         raise RuntimeError("trained arms contain duplicate run directories")
     provenance_by_arm: dict[str, dict[str, Any]] = {}
-    for arm, run_dir in zip(ARMS, resolved):
+    for arm, run_dir in zip(trained_arms, resolved):
         entries[arm], provenance_by_arm[arm] = validate_run(
             arm=arm,
             run_dir=run_dir,
@@ -533,13 +672,16 @@ def build_registry(
         raise RuntimeError(
             "trained arms do not share one data/dynamic-audit provenance"
         )
-    common_provenance = provenance_by_arm[ARMS[0]]
+    common_provenance = provenance_by_arm[trained_arms[0]]
     model_ids = [entry["model_id"] for entry in entries.values()]
-    if len(set(model_ids)) != 5:
-        raise RuntimeError("all five model_id aliases must be unique")
-    adapter_hashes = [entries[arm]["adapter_sha256"] for arm in ARMS]
+    if len(set(model_ids)) != len(entries):
+        raise RuntimeError("all registry model_id aliases must be unique")
+    adapter_hashes = [
+        entries[arm]["adapter_sha256"] for arm in trained_arms
+    ]
     manifest_hashes = [
-        entries[arm]["training_run_manifest_sha256"] for arm in ARMS
+        entries[arm]["training_run_manifest_sha256"]
+        for arm in trained_arms
     ]
     if len(set(adapter_hashes)) != len(adapter_hashes):
         raise RuntimeError("trained arms contain duplicate adapter bytes")
@@ -568,6 +710,13 @@ def build_registry(
             "roles": ["user_simulator", "strict_nl_judge"],
             "official_test_used": False,
         }
+    elif provenance_profile == V5_3_LOW_SUPPORT_PROFILE:
+        registry["diagnostic_claim_boundary"] = dict(
+            V5_3_LOW_SUPPORT_CLAIM_BOUNDARY
+        )
+        registry["diagnostic_evaluator"] = dict(
+            V5_3_LOW_SUPPORT_USER_JUDGE
+        )
     return registry
 
 
@@ -607,7 +756,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Explicitly require legacy (83 generation injections, openai/v5-*) "
             "or V5.3 (78 generation injections, openai/v5-3-*), or the "
-            "isolated V5.3-12h screen profile. If omitted, "
+            "isolated V5.3-12h or low-support diagnostic profile. If omitted, "
             "derive only from the registered data_provenance.design_version."
         ),
     )
@@ -615,7 +764,10 @@ def parse_args() -> argparse.Namespace:
         "--arm",
         action="append",
         required=True,
-        help="Canonical ARM=FORMAL_RUN_DIR binding; provide exactly four.",
+        help=(
+            "Canonical ARM=FORMAL_RUN_DIR binding; provide the profile's "
+            "exact registered trained-arm set."
+        ),
     )
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
@@ -623,7 +775,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    bindings = parse_arm_bindings(args.arm)
+    bindings = parse_arm_bindings(
+        args.arm,
+        provenance_profile=args.provenance_profile,
+    )
     registry = build_registry(
         source_commit=args.source_commit,
         base_revision=args.base_revision,
@@ -631,6 +786,17 @@ def main() -> None:
         provenance_profile=args.provenance_profile,
     )
     output = args.output.expanduser().resolve()
+    if (
+        registry["provenance_profile"] == V5_3_LOW_SUPPORT_PROFILE
+        and output
+        != low_support.artifact_root(ROOT, "results_root")
+        / "checkpoint_registry.json"
+    ):
+        raise RuntimeError(
+            "low-support registry output is outside its isolated root"
+        )
+    if registry["provenance_profile"] == V5_3_LOW_SUPPORT_PROFILE:
+        low_support.require_whole_run_source_lock(ROOT)
     atomic_write_registry(output, registry)
     print(
         json.dumps(
