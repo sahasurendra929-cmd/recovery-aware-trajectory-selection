@@ -1,4 +1,58 @@
-# V5 Stage-1 Preflight Result
+# V5 Stage-1 Full-Generation Pool-Gate Result
+
+Status: **FAIL-CLOSED — do not train the four SFT arms**
+
+The corrected generation pipeline completed all four registered shards on
+4×RTX 4090. The subsequent formal audit stopped before data construction or
+training because the frozen paired-pool requirement was not met.
+
+This full-run result supersedes the preliminary early-stop counts below. Its
+machine-readable record is
+`artifacts/v5_stage1_preflight/full_generation_gate_result.json`.
+
+## Corrected full-run evidence
+
+- Generation source: `65362cc8817a20146c86d721f7e329e09c073336`
+- Processing/audit source: `e3b940954aa7dcd2d70afdbf1b200942c1767173`
+- Benchmark: pinned tau2
+  `fc0055dc4e0a316c3f83133267fbd6faaa770992`
+- Inputs: 83 derived inner-train tasks × 3 trials × clean/error
+- Generation contracts: 4/4 `COMPLETE`
+- Official test used: **false**
+
+Across 249 simulations per condition, 42 clean rollouts and 28 error-condition
+rollouts passed their condition-specific eligibility checks. Only 18 rollout
+seeds were eligible in both conditions:
+
+| Paired slots on one task | Number of tasks |
+|---:|---:|
+| 0 | 70 |
+| 1 | 9 |
+| 2 | 3 |
+| 3 | 1 |
+
+The frozen gate requires 40 distinct task IDs with three paired slots each
+(120 slots total). The observed pool has only one such task. The formal
+preparation command therefore stopped with:
+
+```text
+RuntimeError: only 1 tasks have 3 eligible paired slots; need 40
+```
+
+One clean rollout with terminal reward 1 contained no structured,
+result-linked assistant tool action: its would-be calls were serialized into
+ordinary assistant text. Processing commit `e3b9409` now excludes this case as
+`clean:no_verified_successful_tool_action`; it does not invent a label.
+All repository tests pass after the correction: **148 passed, 12 skipped**.
+
+No four-arm dataset, QLoRA checkpoint, or validation metric was produced.
+Changing the minimum task/slot gate, resampling until success, or duplicating
+the 18 pairs would change the frozen protocol and is intentionally not done.
+
+## Earlier preliminary evidence
+
+The remainder of this document preserves the preliminary preflight record for
+historical traceability.
 
 Status: **FAIL-CLOSED — do not train the four SFT arms**
 

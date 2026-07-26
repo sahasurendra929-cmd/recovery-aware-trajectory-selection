@@ -1,0 +1,58 @@
+{
+  "protocol": "v5_stage1_full_generation_pool_gate",
+  "status": "FAIL_CLOSED",
+  "decision": "DO_NOT_TRAIN",
+  "recorded_at_utc": "2026-07-26T05:02:26Z",
+  "official_test_used": false,
+  "split_manifest_sha256": "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a",
+  "tau2_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "generation_source_commit": "65362cc8817a20146c86d721f7e329e09c073336",
+  "processing_source_commit": "e3b940954aa7dcd2d70afdbf1b200942c1767173",
+  "required_pool": {
+    "distinct_task_ids_with_three_paired_slots": 40,
+    "paired_slots": 120,
+    "eligible_paired_slots_per_task": 3
+  },
+  "observed_pool": {
+    "simulations_per_condition": 249,
+    "clean_eligible": 42,
+    "error_eligible": 28,
+    "paired_slots": 18,
+    "tasks_with_any_pair": 13,
+    "tasks_with_three_paired_slots": 1,
+    "tasks_by_paired_slot_count": {
+      "0": 70,
+      "1": 9,
+      "2": 3,
+      "3": 1
+    }
+  },
+  "reason_counts": {
+    "clean": {
+      "eligible": 42,
+      "clean_contains_failure_or_injection": 16,
+      "final_failure": 142,
+      "invalid_simulation_no_messages": 48,
+      "no_verified_successful_tool_action": 1
+    },
+    "error": {
+      "eligible": 28,
+      "final_failure": 155,
+      "invalid_simulation_no_messages": 49,
+      "no_verified_post_error_repair": 2,
+      "not_exactly_one_controlled_failure": 15
+    }
+  },
+  "complete_contract_sha256": {
+    "run_contract.shard-000-of-004.json": "48341f6ee4d6379c0da25557d0218e7851c28cf5eb0dd4eb7015d36df60d0290",
+    "run_contract.shard-001-of-004.json": "734463d766210924564d310e2060d1a1ef214beae2f7cb400714849db9c224e7",
+    "run_contract.shard-002-of-004.json": "5f25790f2df124f7b87196d3e1d8580452071ef66e75926d17c86402c1d03f25",
+    "run_contract.shard-003-of-004.json": "f4da0a2ffde51e0a5b6409114c0444bcba3e8d8e9d047f101ae664d39e129d15"
+  },
+  "lifecycle_log_sha256": "3432f68b2167036b356dfe3438f32b4fa5f4839328a401fcb8d005795e32c398",
+  "failed_gate": "only 1 tasks have 3 eligible paired slots; need 40",
+  "training_started": false,
+  "evaluation_started": false,
+  "reportable_four_arm_metrics": false,
+  "claim_boundary": "This is a data-feasibility result, not a comparison of the four SFT arms."
+}
