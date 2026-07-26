@@ -7,7 +7,10 @@ result="$repo/results/v5_sft_causal"
 coord="$result/coordinator"
 serve_python=/workspace/venvs/v5-stage1-serve/bin/python
 train_python=/workspace/venvs/v5-stage1-train/bin/python
-source_commit=65362cc8817a20146c86d721f7e329e09c073336
+# Freeze processing/training/evaluation provenance to the checked-out commit at
+# lifecycle launch. Generation provenance is audited separately below because
+# completed raw shards intentionally remain bound to the generation code.
+source_commit=$(git -C "$repo" rev-parse HEAD)
 generation_source_commit=65362cc8817a20146c86d721f7e329e09c073336
 tau2_commit=fc0055dc4e0a316c3f83133267fbd6faaa770992
 model_revision=a09a35458c702b33eeacc393d103063234e8bc28
