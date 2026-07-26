@@ -106,16 +106,22 @@ class ScreenControllerTests(unittest.TestCase):
     def test_screen_hardware_override_is_explicit_and_local(self) -> None:
         original_model = base_controller.EXPECTED_GPU_MODEL
         original_memory = base_controller.MIN_GPU_MEMORY_MIB
+        original_disk = base_controller.MIN_FREE_DISK_GIB
         try:
+            self.assertEqual(original_disk, 140)
             controller.configure_screen_hardware()
             self.assertEqual(
                 base_controller.EXPECTED_GPU_MODEL,
                 "NVIDIA GeForce RTX 5090",
             )
             self.assertEqual(base_controller.MIN_GPU_MEMORY_MIB, 30_000)
+            self.assertEqual(controller.SCREEN_MIN_FREE_DISK_GIB, 80)
+            self.assertEqual(base_controller.MIN_FREE_DISK_GIB, 80)
         finally:
             base_controller.EXPECTED_GPU_MODEL = original_model
             base_controller.MIN_GPU_MEMORY_MIB = original_memory
+            base_controller.MIN_FREE_DISK_GIB = original_disk
+        self.assertEqual(base_controller.MIN_FREE_DISK_GIB, 140)
 
     def test_evaluation_command_separates_agent_and_14b_roles(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -196,6 +202,10 @@ class ScreenControllerTests(unittest.TestCase):
             / "V5_3_12H_RUNPOD_4X5090_AGENT_PROMPT.md"
         ).read_text(encoding="utf-8")
         self.assertIn("exact_gpu_model: NVIDIA GeForce RTX 5090", config)
+        self.assertIn("minimum_free_disk_gib: 80", config)
+        self.assertIn("pinned_model_cache_completion: 44", config)
+        self.assertIn("experiment_artifacts_and_transients: 12", config)
+        self.assertIn("post_run_safety_reserve: 24", config)
         self.assertIn("arm_selection: request_model_alias", config)
         self.assertIn(
             "core_launch_set_exact: [base_model, perfect_success, repair_50]",
@@ -207,6 +217,8 @@ class ScreenControllerTests(unittest.TestCase):
         )
         self.assertIn("task-shard parallelism", handoff)
         self.assertIn("shard-parallel", prompt)
+        self.assertIn("80 GiB", handoff)
+        self.assertIn("80 GiB", prompt)
         self.assertIn("--stage all", handoff)
         self.assertIn("--stage all", prompt)
         self.assertNotIn("TODO_", handoff + prompt)

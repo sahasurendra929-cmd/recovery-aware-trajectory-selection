@@ -63,6 +63,7 @@ EVALUATION_SHARDS = 3
 TERM_GRACE_SECONDS = 30
 SCREEN_GPU_MODEL = "NVIDIA GeForce RTX 5090"
 SCREEN_MIN_GPU_MEMORY_MIB = 30_000
+SCREEN_MIN_FREE_DISK_GIB = protocol.MIN_FREE_DISK_GIB
 _ACTIVE_PROCESS_GROUPS: set[int] = set()
 _ACTIVE_LOCK = threading.Lock()
 _DEADLINE_MONOTONIC: float | None = None
@@ -175,10 +176,11 @@ def validate_isolation(args: argparse.Namespace) -> None:
 
 
 def configure_screen_hardware() -> None:
-    """Select the explicit screen hardware without changing V5.3 defaults."""
+    """Select isolated screen host limits without changing source defaults."""
 
     base.EXPECTED_GPU_MODEL = SCREEN_GPU_MODEL
     base.MIN_GPU_MEMORY_MIB = SCREEN_MIN_GPU_MEMORY_MIB
+    base.MIN_FREE_DISK_GIB = SCREEN_MIN_FREE_DISK_GIB
 
 
 def deadline_path(args: argparse.Namespace) -> Path:
@@ -747,6 +749,7 @@ def static_screen_audit(args: argparse.Namespace) -> None:
     required = {
         "protocol: v5_3_12h_exploratory_screen_v1",
         "seed: 20260731",
+        "minimum_free_disk_gib: 80",
         "expected_rollouts: 288",
         "minimum_tasks_with_pair: 14",
         "minimum_capped_pairs: 17",

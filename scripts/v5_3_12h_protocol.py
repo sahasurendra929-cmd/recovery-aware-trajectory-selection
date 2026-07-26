@@ -20,6 +20,26 @@ DATA_PROTOCOL = "v5_3_12h_screen_sft_data_v1"
 GENERATION_SUBPROTOCOL = "v5_3_12h_screen_generation_v1"
 REGISTRY_PROFILE = "v5_3_12h_screen"
 
+# This screen runs on a 150-GB RunPod volume after its two environments and
+# pinned model cache have been prepared.  The formal V5.3 controller's 140-GiB
+# floor is therefore impossible on that host even when the screen has ample
+# room.  The isolated screen budget remains conservative:
+#   44 GiB  all three pinned model repositories (41.52 GiB of published files,
+#           rounded up so preflight is safe even if the cache is incomplete)
+#   12 GiB  bounded trajectories, four LoRA adapters, evaluation output,
+#           logs, and transient runtime files
+#   24 GiB  free-space reserve after a worst-budget run
+# The screen controller applies the resulting 80-GiB floor only to its own
+# imported base-controller module.  Formal V5.3 keeps its 140-GiB default.
+MODEL_CACHE_COMPLETION_BUDGET_GIB = 44
+EXPERIMENT_ARTIFACT_BUDGET_GIB = 12
+POST_RUN_SAFETY_RESERVE_GIB = 24
+MIN_FREE_DISK_GIB = (
+    MODEL_CACHE_COMPLETION_BUDGET_GIB
+    + EXPERIMENT_ARTIFACT_BUDGET_GIB
+    + POST_RUN_SAFETY_RESERVE_GIB
+)
+
 BASE_SEED = 20260731
 TRIAL_SEEDS = (
     25987,
@@ -184,6 +204,13 @@ def canonical_sha256(value: Any) -> str:
 
 
 def validate_constants() -> None:
+    if (
+        MIN_FREE_DISK_GIB != 80
+        or MODEL_CACHE_COMPLETION_BUDGET_GIB != 44
+        or EXPERIMENT_ARTIFACT_BUDGET_GIB != 12
+        or POST_RUN_SAFETY_RESERVE_GIB != 24
+    ):
+        raise ScreenProtocolError("screen disk budget drift")
     derived = random.Random(BASE_SEED)
     observed = tuple(derived.randint(0, 1_000_000) for _ in range(6))
     if observed != TRIAL_SEEDS:

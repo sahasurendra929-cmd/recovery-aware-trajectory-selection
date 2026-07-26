@@ -83,9 +83,15 @@ df -h /workspace
 ```
 
 Require exactly four RTX 5090 GPUs with at least 30,000 MiB reported
-memory, writable persistent storage, clean source/tau2 checkouts, valid
-environments, exact model revisions, free required ports, and working GitHub
-push authorization.
+memory, at least **80 GiB free on `/workspace`**, clean source/tau2 checkouts,
+valid environments, exact model revisions, free required ports, and working
+GitHub push authorization.
+
+The 80-GiB screen-only floor budgets 44 GiB to complete an empty pinned-model
+cache (41.52 GiB of published files rounded up), 12 GiB for all bounded screen
+artifacts and transient files, and a 24-GiB post-run reserve. It does not
+change the formal V5.3 controller's 140-GiB default. A complete existing model
+cache therefore supplies extra headroom and must not be deleted.
 
 Create a separate result checkout/branch for bounded evidence. Never change
 the detached execution checkout to make result commits. After every terminal

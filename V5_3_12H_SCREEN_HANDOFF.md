@@ -69,6 +69,16 @@ a separately reviewed environment repair.
 revisions into the persistent Hugging Face cache. It must not reinstall the
 Python environment.
 
+The isolated screen requires at least **80 GiB free on `/workspace`** when
+preflight runs. This is intentionally different from, and does not modify,
+the formal V5.3 controller's 140-GiB default. The screen floor consists of
+44 GiB to complete all three pinned model repositories if their cache is
+empty (their published files total 41.52 GiB, rounded up), 12 GiB for the
+bounded 288 generation rollouts, up to 210 evaluation rollouts, four LoRA
+adapters, processed data, logs, and transient runtime files, plus a 24-GiB
+post-run safety reserve. If the exact model cache is already complete, its
+44-GiB allowance remains additional headroom; do not delete or redownload it.
+
 Keep the execution checkout detached and clean at the published commit.
 The tau2 checkout remains pinned at:
 
