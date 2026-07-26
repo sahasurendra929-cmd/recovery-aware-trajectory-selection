@@ -762,6 +762,25 @@ def system_message(context: dict[str, Any]) -> dict[str, Any]:
     return {"role": "system", "content": content}
 
 
+def _invalid_simulation_analysis(
+    *,
+    messages: list[dict[str, Any]] | list[Any],
+    reason: str,
+    first_user: int | None,
+) -> dict[str, Any]:
+    return {
+        "messages": messages,
+        "outcomes": [],
+        "first_user": first_user,
+        "eligible": False,
+        "reason": reason,
+        "final_success": False,
+        "failed": [],
+        "injected": [],
+        "repair_index": None,
+    }
+
+
 def analyze_simulation(
     simulation: dict[str, Any],
     *,
@@ -772,17 +791,11 @@ def analyze_simulation(
         # tau2 may persist an empty rollout when inference terminates before the
         # first message (for example, after a context-window rejection). Such a
         # rollout has no evidence that can safely become an SFT label.
-        return {
-            "messages": [],
-            "outcomes": [],
-            "first_user": None,
-            "eligible": False,
-            "reason": "invalid_simulation_no_messages",
-            "final_success": False,
-            "failed": [],
-            "injected": [],
-            "repair_index": None,
-        }
+        return _invalid_simulation_analysis(
+            messages=[],
+            reason="invalid_simulation_no_messages",
+            first_user=None,
+        )
     outcomes: list[dict[str, Any]] = []
     tool_result_indices: set[int] = set()
     first_user = next(
@@ -790,35 +803,45 @@ def analyze_simulation(
         None,
     )
     if first_user is None:
-        raise RuntimeError("simulation has no user message")
+        return _invalid_simulation_analysis(
+            messages=messages,
+            reason="invalid_simulation_no_user_message",
+            first_user=None,
+        )
     for index, message in enumerate(messages):
         if not isinstance(message, dict):
             raise RuntimeError("message must be an object")
         calls = message.get("tool_calls") or []
         if calls:
             if message.get("role") != "assistant" or len(calls) != 1:
-                return {
-                    "messages": messages,
-                    "outcomes": [],
-                    "first_user": first_user,
-                    "eligible": False,
-                    "reason": "invalid_simulation_non_single_tool_call",
-                    "final_success": False,
-                    "failed": [],
-                    "injected": [],
-                    "repair_index": None,
-                }
+                return _invalid_simulation_analysis(
+                    messages=messages,
+                    reason="invalid_simulation_non_single_tool_call",
+                    first_user=first_user,
+                )
             if message.get("content") not in (None, ""):
-                raise RuntimeError("assistant may not mix text and tool call")
+                return _invalid_simulation_analysis(
+                    messages=messages,
+                    reason="invalid_simulation_mixed_text_and_tool_call",
+                    first_user=first_user,
+                )
             name, arguments, call_id = _function_call(
                 calls[0], f"messages[{index}].tool_calls[0]"
             )
             result_index = index + 1
             if result_index >= len(messages):
-                raise RuntimeError("assistant tool call lacks adjacent result")
+                return _invalid_simulation_analysis(
+                    messages=messages,
+                    reason="invalid_simulation_missing_tool_result",
+                    first_user=first_user,
+                )
             result = messages[result_index]
             if result.get("role") != "tool":
-                raise RuntimeError("assistant tool result is not adjacent")
+                return _invalid_simulation_analysis(
+                    messages=messages,
+                    reason="invalid_simulation_nonadjacent_tool_result",
+                    first_user=first_user,
+                )
             if _tool_link_id(result) != call_id:
                 raise RuntimeError("tool call/result id mismatch")
             if result.get("name") not in (None, name):

@@ -611,6 +611,30 @@ class V5SFTCausalDataTests(unittest.TestCase):
                 )
             )
 
+    def test_mixed_text_and_tool_call_rollout_is_excluded(self):
+        target = self.raw / "retail_clean.shard-001-of-002.json"
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        malformed = next(
+            row
+            for row in payload["simulations"]
+            if row["task_id"] == "1" and row["trial"] == 3
+        )
+        assistant = next(
+            message
+            for message in malformed["messages"]
+            if message.get("role") == "assistant" and message.get("tool_calls")
+        )
+        assistant["content"] = "I will call the tool now."
+        target.write_text(json.dumps(payload), encoding="utf-8")
+
+        audit = self.run_prepare()
+
+        self.assertEqual(audit["status"], "PASS")
+        self.assertEqual(
+            audit["exclusions"]["clean:invalid_simulation_mixed_text_and_tool_call"],
+            1,
+        )
+
     def test_raw_and_masked_labels_have_strict_outcomes(self):
         self.run_prepare()
         raw_rows = self.read_jsonl(
