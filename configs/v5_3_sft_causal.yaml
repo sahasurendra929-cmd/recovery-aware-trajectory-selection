@@ -1,0 +1,314 @@
+experiment_name: v5_3_reliable_causal_sft_screen
+protocol: v5_3_train_only_pilot_then_formal_sft
+protocol_version: "5.3"
+protocol_status: implementation_tested_pending_runpod_pilot
+seed: 20260722
+
+claim_boundary:
+  pilot_is_scientific_result: false
+  pilot_is_training_data: false
+  pilot_outcomes_choose_hyperparameters_or_arms: false
+  pilot_authorizes_only: frozen_formal_generation
+  positive_result_guaranteed: false
+  paper_level_confirmation_allowed_after_one_seed: false
+  official_test_policy: >-
+    The official test remains sealed during pilot generation, formal data
+    construction, four-arm training, and loss-validation selection. It may be
+    opened once only after the final method, mixture, inference contract, and
+    confirmation seeds are frozen.
+
+research_question: >-
+  At matched task support, supervised-token mass, non-padding-token mass,
+  optimizer steps, student model, and evaluator budgets, does repair-only
+  supervision from successful post-fault trajectories improve held-out
+  end-to-end task success under a controlled read-only tool failure relative
+  to flawless-success SFT, and does a 50/50 clean/repair mixture preserve
+  clean success better than either endpoint?
+
+immutable_sources:
+  tau2_repository: https://github.com/sierra-research/tau2-bench.git
+  tau2_release: v1.0.1
+  tau2_commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  stage0_split_manifest: artifacts/v5_stage0/manifests/split_manifest.json
+  stage0_split_sha256: a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a
+  v5_3_generation_manifest: data/processed/v5_3_protocol/generation_manifest.json
+  generation_manifest_protocol: v5_3_multifault_data_construction
+  generation_universe_tasks: 78
+  inner_train_partition_sha256: c90255a2cf4100d8cf5b5fcf3e684144ed1a393fad1c214058146721c4ed6818
+  regenerate_stage0: false
+  official_test_content_exported: false
+
+ground_truth_compatibility_filter:
+  policy: exclude_before_sharding_and_before_any_v5_3_outcome
+  criterion: evaluation_criteria.actions is nonempty
+  source_inner_train_tasks: 83
+  included_generation_tasks: 78
+  excluded_tasks:
+    retail: ["24"]
+    airline: ["0", "10", "28", "34"]
+  uses_rollouts_rewards_validation_or_test: false
+  use_standard_teacher_for_excluded_tasks: false
+
+effective_task_partition:
+  generation_universe: {retail: 58, airline: 20, total: 78}
+  arm_train: {retail: 52, airline: 18, total: 70}
+  loss_validation: {retail: 6, airline: 2, total: 8}
+  loss_validation_ids:
+    retail: ["22", "23", "52", "63", "96", "103"]
+    airline: ["15", "47"]
+  independent_unit: task_id
+  partition_salt: v5.3-loss-validation
+  partition_sha256: c90255a2cf4100d8cf5b5fcf3e684144ed1a393fad1c214058146721c4ed6818
+  partition_uses_generation_outcomes: false
+
+models:
+  trajectory_teacher:
+    model: Qwen/Qwen2.5-32B-Instruct-AWQ
+    revision: 5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c
+    quantization: awq_4bit
+    dtype: float16
+    route: ground_truth_only
+  generation_user_and_strict_judge:
+    model: Qwen/Qwen2.5-14B-Instruct-AWQ
+    revision: 539535859b135b0244c91f3e59816150c8056698
+    quantization: awq_4bit
+    dtype: float16
+  screening_evaluation_user_and_strict_judge:
+    model: Qwen/Qwen2.5-7B-Instruct
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+    served_registry_alias: openai/v5-3-base
+    adapter: none
+    phase_scope: validation_screen_only
+    limitation: >-
+      This frozen unadapted simulator and strict judge are identical across
+      arms but are not a paper-level robustness check. Any selected method
+      must later be confirmed with a preregistered stronger simulator/judge
+      before the official-test claim.
+  student:
+    model: Qwen/Qwen2.5-7B-Instruct
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+
+single_host_topology:
+  hardware: 4x_NVIDIA_RTX_4090_24GB_same_host
+  gpu0:
+    service: qwen_14b_awq_user_and_strict_judge
+    port: 8001
+    tensor_parallel_size: 1
+    max_model_len: 32768
+    max_num_seqs: 3
+    gpu_memory_utilization: 0.90
+  gpu1_gpu2:
+    service: qwen_32b_awq_teacher
+    port: 8011
+    tensor_parallel_size: 2
+    max_model_len: 32768
+    max_num_seqs: 3
+    gpu_memory_utilization: 0.90
+    client_shards: [0, 1, 2]
+    aggregate_client_concurrency: 3
+  gpu3:
+    pilot_role: preflight_and_monitoring_reserve
+    later_role: training_or_evaluation
+  mandatory_preflight:
+    longest_prompt_each_role: true
+    three_concurrent_teacher_requests: true
+    three_concurrent_user_requests: true
+    exact_model_and_revision_receipts: true
+    on_oom_or_contract_failure: fail_closed
+
+serving_and_action_contract:
+  engine: vllm_openai_compatible
+  generation_config: vllm
+  enable_auto_tool_choice: true
+  tool_call_parser: hermes
+  max_model_len: 32768
+  parallel_tool_calls: false
+  multiple_calls: execute_first_ordered_call_then_replan
+  mixed_text_and_tool_call: drop_text_preserve_sha256_then_execute_call
+  deferred_calls_and_removed_text_sha256: required
+
+trajectory_sampling:
+  bounded_nonzero_sampling: true
+  teacher_and_user:
+    temperature: 0.2
+    top_p: 0.95
+    max_tokens: 512
+  strict_judge:
+    temperature: 0.0
+    top_p: 1.0
+    max_tokens: 512
+    maximum_content_attempts: 2
+  max_steps: 60
+  timeout_seconds: 900
+  attempts_per_task_per_condition: 12
+  extra_or_replacement_attempts: forbidden
+
+strict_judge_contract:
+  protocol: v5_strict_nl_judge_v1
+  accepted_forms:
+    - one_bare_json_object
+    - one_complete_markdown_json_fence
+  results_must_be_nonempty: true
+  exact_assertion_coverage_without_duplicates: true
+  result_rows_normalized_to_registered_order: true
+  required_fields: [expectedOutcome, reasoning, metExpectation]
+  reasoning_nonempty: true
+  met_expectation_json_boolean: true
+  malformed_or_exhausted: fail_closed
+  raw_audit_per_call:
+    - raw_content
+    - raw_content_sha256
+    - raw_provider_response
+    - schema_status
+    - schema_error
+    - attempt
+  evidence_mapping:
+    expected_call_source: nonempty_reward_info_nl_assertions_per_simulation
+    required_audits_per_expected_call: exactly_one
+    path_binding: result_file_task_id_simulation_id_llm_debug
+    missing_extra_duplicate_or_outcome_mismatch: fail_closed
+    pilot_zero_expected_calls: fail_closed
+    canonical_mapping_sha256_required: true
+
+user_loop_db0_strategy:
+  stronger_user_simulator: qwen_14b_awq
+  fixed_nonzero_sampling: true
+  bounded_attempts_and_fixed_seeds: true
+  diagnostic_categories:
+    - user_stop_with_db_reward_zero
+    - normalized_repeated_user_message
+    - max_steps
+  hidden_rescue_or_oracle: false
+  repair_or_relabel_failed_rollouts: false
+  inject_additional_task_facts: false
+
+trial_seed_schedules:
+  derivation: pinned_tau2_python_random_seed_then_twelve_randint_0_1000000
+  pilot:
+    base_seed: 20260730
+    actual_seeds:
+      [733980, 626956, 183324, 266579, 559726, 176907,
+       35514, 769350, 589887, 418549, 589641, 621567]
+  formal:
+    base_seed: 20260722
+    actual_seeds:
+      [574293, 816256, 420309, 70872, 419659, 596026,
+       55413, 256204, 120794, 83442, 692054, 873496]
+  disjoint: true
+  every_raw_simulation_records_actual_seed: true
+
+train_only_pilot:
+  task_count: 24
+  conditions: [clean, error]
+  attempts_per_task_per_condition: 12
+  expected_rollouts: 576
+  selection_uses_v5_3_outcomes: false
+  formal_data: false
+  official_test_used: false
+  stratification:
+    domain_counts: {retail: 18, airline: 6}
+    teacher_route_counts: {ground_truth: 24}
+    fault_family_counts:
+      retail_missing_product_id: 4
+      retail_missing_order_id: 5
+      retail_missing_user_email: 5
+      retail_missing_user_id: 4
+      airline_missing_flight_number: 2
+      airline_missing_reservation_id: 2
+      airline_missing_user_id: 2
+  selected_ids:
+    retail:
+      ["2", "8", "10", "15", "19", "25", "30", "35", "54",
+       "67", "69", "72", "85", "92", "93", "104", "106", "110"]
+    airline: ["1", "11", "14", "33", "38", "40"]
+  go_no_go:
+    complete_decision_rule:
+      minimum_tasks_with_at_least_one_pair: 15
+      minimum_tasks_with_at_least_two_pairs: 4
+      both_required: true
+    equivalent_rates:
+      one_pair: 0.625
+      second_pair: 0.16666666666666666
+    implied_70_task_projection:
+      tasks_with_pair: 43.75
+      capped_pairs: 55.416666666666664
+      diagnostic_not_extra_gate: true
+    no_go_action: stop_before_formal_generation_and_all_SFT_training
+    go_action: run_frozen_formal_generation_with_disjoint_formal_seeds
+
+formal_generation_if_and_only_if_pilot_go:
+  generation_source_tasks: 78
+  arm_train_population: 70
+  loss_validation_population: 8
+  conditions: [clean, error]
+  attempts_per_task_per_condition: 12
+  expected_rollouts: 1872
+  pilot_bytes_or_seeds_accepted: false
+  pairing: independently_eligible_clean_and_error_attempts_hash_ordered_then_zipped
+  maximum_pairs_per_task: 2
+
+formal_data_gate:
+  population: 70_arm_train_tasks_only
+  minimum_distinct_task_ids_with_pair: 40
+  minimum_constructible_pairs: 48
+  maximum_pairs_per_task: 2
+  both_minima_must_pass: true
+  post_hoc_relaxation: forbidden
+  on_failure: stop_before_all_arm_training
+
+formal_sft_arms_if_and_only_if_formal_gate_passes:
+  perfect_success:
+    clean_share: 1.0
+    post_fault_share: 0.0
+    failed_action_supervised: false
+  failure_raw:
+    clean_share: 0.0
+    post_fault_share: 1.0
+    failed_action_supervised: true
+    role: descriptive_negative_exposure_control
+    causal_label_masking_mechanism_claim_allowed: false
+    limitation: >-
+      Exact pair-occurrence schedules are not coupled to repair_100 because
+      the registered cross-arm token budgets are matched independently.
+  repair_50:
+    clean_share: 0.5
+    post_fault_share: 0.5
+    failed_action_supervised: false
+    role: preregistered_primary_candidate
+  repair_100:
+    clean_share: 0.0
+    post_fault_share: 1.0
+    failed_action_supervised: false
+  matching:
+    task_support: exact
+    supervised_token_relative_range_at_most: 0.01
+    nonpadding_token_relative_range_at_most: 0.02
+    matching_algorithm: deterministic_tolerance_aware_joint_beam_dp_v1
+    optimizer_steps: exact
+    model_and_evaluator: identical
+  primary_contrast: repair_50_minus_perfect_success
+  primary_metric: official_tau2_composite_end_to_end_success_under_error
+  clean_success: noninferiority_guard
+  diagnostics:
+    - clean_end_to_end_success
+    - exact_failed_call_replay
+    - post_error_valid_tool_result
+    - loss_validation_loss
+    - task_level_paired_delta
+
+training_contract:
+  training_sequence_tokens_at_most: 8192
+  truncation: false
+  objective: message_masked_causal_language_model_cross_entropy
+  optimizer_steps_matched_across_arms: true
+
+artifacts:
+  protocol_root: data/processed/v5_3_protocol
+  pilot_root: artifacts/v5_3_train_only_pilot
+  pilot_manifest: artifacts/v5_3_train_only_pilot/protocol/pilot_manifest.json
+  effective_task_universe: artifacts/v5_3_train_only_pilot/protocol/effective_task_universe.json
+  pilot_raw_root: artifacts/v5_3_train_only_pilot/raw
+  pilot_audit: artifacts/v5_3_train_only_pilot/pilot_go_no_go.json
+  formal_raw_root: data/raw/v5_3_sft_causal_generation
+  formal_processed_root: data/processed/v5_3_sft_causal
+  formal_results_root: results/v5_3_sft_causal

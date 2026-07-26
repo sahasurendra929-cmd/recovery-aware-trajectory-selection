@@ -35,6 +35,10 @@ try:
     from v5_dynamic_audit_contract import load_complete_dynamic_audit
 except ModuleNotFoundError:
     from scripts.v5_dynamic_audit_contract import load_complete_dynamic_audit
+try:
+    import v5_judge_audit_contract as judge_audit_contract
+except ModuleNotFoundError:
+    from scripts import v5_judge_audit_contract as judge_audit_contract
 
 
 SEED = 20260722
@@ -495,6 +499,13 @@ def validate_generation_contracts(
     expected_shards: int = 4,
     expected_teacher_api_base_by_shard: dict[int, str] | None = None,
     observed_source_commit: str | None = None,
+    expected_task_ids: set[str] | None = None,
+    expected_manifest_protocol: str = "v5_stage1_multifault_data_construction",
+    expected_teacher: dict[str, Any] | None = None,
+    expected_user: dict[str, Any] | None = None,
+    expected_judge: dict[str, Any] | None = None,
+    expected_decoding: dict[str, Any] | None = None,
+    expected_contract_fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if expected_teacher_api_base_by_shard is not None:
         if (
@@ -531,14 +542,18 @@ def validate_generation_contracts(
     rows = manifest.get("rows")
     if not isinstance(rows, list):
         raise RuntimeError("generation manifest lacks rows")
-    expected_tasks = {
-        f"{domain}:{task_id}"
-        for domain in ("retail", "airline")
-        for task_id in split["domains"][domain]["inner_train_ids"]
-    }
+    expected_tasks = (
+        set(expected_task_ids)
+        if expected_task_ids is not None
+        else {
+            f"{domain}:{task_id}"
+            for domain in ("retail", "airline")
+            for task_id in split["domains"][domain]["inner_train_ids"]
+        }
+    )
     validate_multifault_manifest(
         manifest,
-        expected_protocol="v5_stage1_multifault_data_construction",
+        expected_protocol=expected_manifest_protocol,
         expected_source_split="derived_inner_train",
         expected_task_ids=expected_tasks,
         split_manifest_sha256=sha256_file(split_manifest),
@@ -547,7 +562,9 @@ def validate_generation_contracts(
         f"{row.get('domain')}:{row.get('task_id')}" for row in rows
     }
     if observed_manifest_tasks != expected_tasks or len(rows) != len(expected_tasks):
-        raise RuntimeError("generation manifest is not exactly the 83 inner-train tasks")
+        raise RuntimeError(
+            "generation manifest is not exactly the frozen generation task universe"
+        )
     paths = sorted(raw_dir.glob("run_contract.shard-*-of-*.json"))
     if len(paths) != expected_shards:
         raise RuntimeError(
@@ -563,6 +580,7 @@ def validate_generation_contracts(
     common: dict[str, Any] | None = None
     source_commits: set[str] = set()
     declared_result_hashes: dict[str, str] = {}
+    strict_judge_evidence_hashes: dict[str, str] = {}
     for path in paths:
         contract = json.loads(path.read_text(encoding="utf-8"))
         if contract.get("protocol") != "v5_stage1_inner_train_generation_run":
@@ -574,6 +592,11 @@ def validate_generation_contracts(
             or contract.get("official_test_used") is not False
         ):
             raise RuntimeError(f"{path}: unsafe generation source split")
+        if expected_contract_fields is not None and any(
+            contract.get(key) != value
+            for key, value in expected_contract_fields.items()
+        ):
+            raise RuntimeError(f"{path}: frozen generation contract metadata drift")
         index = contract.get("shard_index")
         if (
             type(index) is not int
@@ -585,6 +608,7 @@ def validate_generation_contracts(
         result_hashes = contract.get("result_sha256")
         if not isinstance(result_hashes, dict) or not result_hashes:
             raise RuntimeError(f"{path}: COMPLETE contract lacks result_sha256")
+        contract_result_paths: list[Path] = []
         for filename, declared_sha in sorted(result_hashes.items()):
             match = (
                 GENERATION_RESULT_RE.fullmatch(filename)
@@ -623,6 +647,7 @@ def validate_generation_contracts(
                     f"{path}: generation result SHA drift for {filename}"
                 )
             declared_result_hashes[filename] = declared_sha
+            contract_result_paths.append(result_path)
         if contract.get("manifest_sha256") != sha256_file(generation_manifest):
             raise RuntimeError(f"{path}: generation manifest hash drift")
         if contract.get("split_manifest_sha256") != sha256_file(split_manifest):
@@ -688,20 +713,26 @@ def validate_generation_contracts(
         teacher = contract.get("teacher") or {}
         user = contract.get("user") or {}
         judge = contract.get("judge") or {}
-        if (
-            teacher.get("model") != TEACHER_MODEL
-            or teacher.get("revision") != TEACHER_REVISION
-            or teacher.get("mode") != "ground_truth"
-        ):
+        frozen_teacher = expected_teacher or {
+            "model": TEACHER_MODEL,
+            "revision": TEACHER_REVISION,
+            "mode": "ground_truth",
+        }
+        frozen_user = expected_user or {
+            "model": USER_JUDGE_MODEL,
+            "revision": USER_JUDGE_REVISION,
+        }
+        frozen_judge = expected_judge or {
+            "model": USER_JUDGE_MODEL,
+            "revision": USER_JUDGE_REVISION,
+        }
+        if any(teacher.get(key) != value for key, value in frozen_teacher.items()):
             raise RuntimeError(f"{path}: frozen teacher contract drift")
-        if (
-            user.get("model") != USER_JUDGE_MODEL
-            or user.get("revision") != USER_JUDGE_REVISION
-            or judge.get("model") != USER_JUDGE_MODEL
-            or judge.get("revision") != USER_JUDGE_REVISION
+        if any(user.get(key) != value for key, value in frozen_user.items()) or any(
+            judge.get(key) != value for key, value in frozen_judge.items()
         ):
             raise RuntimeError(f"{path}: frozen user/judge contract drift")
-        expected_decoding = {
+        frozen_decoding = expected_decoding or {
             "temperature": 0,
             "max_tokens": 512,
             "parallel_tool_calls": False,
@@ -711,10 +742,37 @@ def validate_generation_contracts(
             "task_timeout_seconds": 900,
             "seed": SEED,
         }
-        if contract.get("decoding") != expected_decoding:
+        if contract.get("decoding") != frozen_decoding:
             raise RuntimeError(f"{path}: frozen decoding contract drift")
+        if expected_manifest_protocol == "v5_3_multifault_data_construction":
+            try:
+                observed_evidence = (
+                    judge_audit_contract.validate_strict_judge_evidence(
+                        contract_result_paths,
+                        maximum_content_attempts=int(
+                            judge.get("content_attempts", 0)
+                        ),
+                    )
+                )
+            except (
+                ValueError,
+                TypeError,
+                judge_audit_contract.StrictJudgeEvidenceError,
+            ) as error:
+                raise RuntimeError(
+                    f"{path}: V5.3 strict-judge evidence is incomplete"
+                ) from error
+            if contract.get("strict_judge_audit_evidence") != observed_evidence:
+                raise RuntimeError(
+                    f"{path}: V5.3 strict-judge evidence contract drift"
+                )
+            strict_judge_evidence_hashes[path.name] = observed_evidence[
+                "canonical_mapping_sha256"
+            ]
     if indices != set(range(expected_shards)) or task_union != expected_tasks:
-        raise RuntimeError("generation contracts do not partition all inner-train tasks")
+        raise RuntimeError(
+            "generation contracts do not partition the frozen generation universe"
+        )
     if len(source_commits) != 1:
         raise RuntimeError("generation source commits differ")
     declared_names = set(declared_result_hashes)
@@ -737,6 +795,9 @@ def validate_generation_contracts(
         "task_union": len(task_union),
         "shards": expected_shards,
         "frozen_roles_and_decoding": common,
+        "strict_judge_evidence_mapping_sha256": dict(
+            sorted(strict_judge_evidence_hashes.items())
+        ),
     }
     if expected_teacher_api_base_by_shard is not None:
         audit["teacher_api_base_by_shard"] = {
@@ -905,10 +966,18 @@ def analyze_simulation(
     successful = [row for row in outcomes if not row["error"]]
     final_success = _reward_is_one(simulation)
     if condition == "clean":
-        eligible = final_success and not failed and not injected
-        reason = "eligible" if eligible else (
-            "final_failure" if not final_success else "clean_contains_failure_or_injection"
-        )
+        eligible = final_success and bool(successful) and not failed and not injected
+        if not final_success:
+            reason = "final_failure"
+        elif not successful:
+            # A terminally successful rollout can still contain no structured
+            # assistant tool call. Such a rollout has no locally verified SFT
+            # target and must be excluded rather than inventing a label.
+            reason = "no_verified_successful_tool_action"
+        elif failed or injected:
+            reason = "clean_contains_failure_or_injection"
+        else:
+            reason = "eligible"
         repair_index = None
     else:
         injected_failure = (

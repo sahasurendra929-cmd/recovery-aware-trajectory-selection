@@ -219,6 +219,132 @@ def write_data_provenance_bundle(root: Path, arm: str = "repair_100"):
     }
 
 
+def rewrite_bundle_audit(bundle):
+    bundle["audit_path"].write_text(
+        json.dumps(bundle["audit"]) + "\n",
+        encoding="utf-8",
+    )
+    bundle["hashes"]["audit.json"] = MODULE.sha256_file(
+        bundle["audit_path"]
+    )
+    bundle["hashes_path"].write_text(
+        json.dumps(bundle["hashes"]) + "\n",
+        encoding="utf-8",
+    )
+
+
+def write_v5_3_data_provenance_bundle(
+    root: Path,
+    arm: str = "repair_100",
+):
+    bundle = write_data_provenance_bundle(root, arm=arm)
+    split_sha = bundle["audit"]["split_manifest_sha256"]
+    generation_sha = "a" * 64
+    validation_rows = [
+        {
+            "domain": "retail" if index < 15 else "airline",
+            "task_id": str(2_000 + index),
+            "source_split": "derived_validation",
+        }
+        for index in range(21)
+    ]
+    validation_manifest = {
+        "protocol": MODULE.V5_3_VALIDATION_MANIFEST_PROTOCOL,
+        "paired_task_count": 21,
+        "rows": validation_rows,
+        "official_test_used": False,
+        "official_test_sealed": True,
+    }
+    validation_manifest_path = root / "validation_manifest.json"
+    validation_manifest_path.write_text(
+        json.dumps(validation_manifest) + "\n",
+        encoding="utf-8",
+    )
+    validation_manifest_sha = MODULE.sha256_file(validation_manifest_path)
+    dynamic = {
+        "generation": {
+            "protocol": MODULE.DYNAMIC_AUDIT_PROTOCOL,
+            "sha256": "2" * 64,
+            "manifest_sha256": generation_sha,
+            "split_manifest_sha256": split_sha,
+            "source_split": "derived_inner_train",
+            "verified_injections": 78,
+            "official_test_used": False,
+            "official_test_sealed": True,
+        },
+        "validation": {
+            "protocol": MODULE.DYNAMIC_AUDIT_PROTOCOL,
+            "sha256": "3" * 64,
+            "manifest_sha256": validation_manifest_sha,
+            "split_manifest_sha256": split_sha,
+            "source_split": "derived_validation",
+            "verified_injections": 21,
+            "official_test_used": False,
+            "official_test_sealed": True,
+        },
+    }
+    included_tasks = [f"retail:{1_000 + index}" for index in range(78)]
+    arm_train = included_tasks[:70]
+    loss_validation = included_tasks[70:]
+    contracts_root = root / "generation_contracts"
+    contracts_root.mkdir()
+    contract_files = {}
+    for shard in range(MODULE.V5_3_GENERATION_SHARDS):
+        contract_path = contracts_root / (
+            f"run_contract.shard-{shard:03d}-of-"
+            f"{MODULE.V5_3_GENERATION_SHARDS:03d}.json"
+        )
+        contract = {
+            "protocol": "v5_stage1_inner_train_generation_run",
+            "status": "COMPLETE",
+            "generation_manifest_protocol": (
+                MODULE.V5_3_GENERATION_MANIFEST_PROTOCOL
+            ),
+            "gt_compatibility_filter": MODULE.V5_3_GT_FILTER,
+            "manifest_sha256": generation_sha,
+            "dynamic_audit_identity": dynamic["generation"],
+            "source_split": "derived_inner_train",
+            "official_test_used": False,
+            "shard_index": shard,
+            "num_shards": MODULE.V5_3_GENERATION_SHARDS,
+            "num_trials": MODULE.V5_3_GENERATION_TRIALS,
+            "task_ids": included_tasks[shard::MODULE.V5_3_GENERATION_SHARDS],
+        }
+        contract_path.write_text(
+            json.dumps(contract) + "\n",
+            encoding="utf-8",
+        )
+        contract_files[str(contract_path)] = MODULE.sha256_file(contract_path)
+
+    bundle["audit"].update(
+        {
+            "design_version": MODULE.V5_3_DESIGN_VERSION,
+            "design_protocol": MODULE.V5_3_DESIGN_PROTOCOL,
+            "ground_truth_incompatible_task_ids": list(
+                MODULE.V5_3_GT_INCOMPATIBLE_TASK_IDS
+            ),
+            "arm_train_task_ids": arm_train,
+            "loss_validation_task_ids": loss_validation,
+            "generation_manifest_sha256": generation_sha,
+            "generation_contracts": {
+                "contract_files": contract_files,
+                "generation_manifest_sha256": generation_sha,
+                "dynamic_audit_identity": dynamic["generation"],
+                "task_union": 78,
+                "shards": MODULE.V5_3_GENERATION_SHARDS,
+            },
+            "dynamic_audits": dynamic,
+        }
+    )
+    bundle["hashes"]["validation_manifest.json"] = validation_manifest_sha
+    bundle["validation_manifest"] = validation_manifest_path
+    bundle["generation_contract_paths"] = [
+        Path(path) for path in contract_files
+    ]
+    rewrite_bundle_audit(bundle)
+    return bundle
+
+
 class MessageMaskedSFTContractTests(unittest.TestCase):
     def setUp(self):
         self.tokenizer = FakeChatTokenizer()
@@ -486,6 +612,161 @@ class MessageMaskedSFTContractTests(unittest.TestCase):
                 {"generation", "validation"},
             )
             self.assertTrue(result["official_test_sealed"])
+            self.assertIsNone(result["design_provenance"])
+
+    def test_legacy_v5_2_audit_keeps_legacy_dynamic_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = write_data_provenance_bundle(Path(directory))
+            bundle["audit"]["design_version"] = "5.2"
+            rewrite_bundle_audit(bundle)
+            result = MODULE.validate_training_data_provenance(
+                arm=bundle["arm"],
+                train_file=bundle["train"],
+                validation_file=bundle["validation"],
+                data_audit_path=bundle["audit_path"],
+                data_hashes_path=bundle["hashes_path"],
+                expected_train_sha256=bundle["train_sha"],
+                expected_validation_sha256=bundle["validation_sha"],
+            )
+        self.assertEqual(result["design_version"], "5.2")
+        self.assertIsNone(result["design_provenance"])
+
+    def test_v5_3_training_provenance_binds_78_21_filter_and_protocol(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = write_v5_3_data_provenance_bundle(Path(directory))
+            result = MODULE.validate_training_data_provenance(
+                arm=bundle["arm"],
+                train_file=bundle["train"],
+                validation_file=bundle["validation"],
+                data_audit_path=bundle["audit_path"],
+                data_hashes_path=bundle["hashes_path"],
+                expected_train_sha256=bundle["train_sha"],
+                expected_validation_sha256=bundle["validation_sha"],
+            )
+
+        design = result["design_provenance"]
+        self.assertEqual(design["design_version"], "5.3")
+        self.assertEqual(design["effective_generation_tasks"], 78)
+        self.assertEqual(design["validation_tasks"], 21)
+        self.assertEqual(
+            design["generation_manifest_protocol"],
+            MODULE.V5_3_GENERATION_MANIFEST_PROTOCOL,
+        )
+        self.assertEqual(
+            design["ground_truth_incompatible_task_ids"],
+            list(MODULE.V5_3_GT_INCOMPATIBLE_TASK_IDS),
+        )
+
+    def test_v5_3_training_rejects_dynamic_coverage_and_filter_drift(self):
+        cases = (
+            (
+                lambda bundle: bundle["audit"]["dynamic_audits"][
+                    "generation"
+                ].__setitem__("verified_injections", 77),
+                "generation dynamic audit coverage drift",
+            ),
+            (
+                lambda bundle: bundle["audit"]["dynamic_audits"][
+                    "generation"
+                ].__setitem__("source_split", "inner_train"),
+                "generation dynamic audit source split drift",
+            ),
+            (
+                lambda bundle: bundle["audit"]["dynamic_audits"][
+                    "validation"
+                ].__setitem__("verified_injections", 20),
+                "validation dynamic audit coverage drift",
+            ),
+            (
+                lambda bundle: bundle["audit"].__setitem__(
+                    "ground_truth_incompatible_task_ids",
+                    list(MODULE.V5_3_GT_INCOMPATIBLE_TASK_IDS[:-1]),
+                ),
+                "GT-incompatible task set drift",
+            ),
+        )
+        for mutate, expected in cases:
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as directory:
+                bundle = write_v5_3_data_provenance_bundle(Path(directory))
+                mutate(bundle)
+                rewrite_bundle_audit(bundle)
+                with self.assertRaisesRegex(RuntimeError, expected):
+                    MODULE.validate_training_data_provenance(
+                        arm=bundle["arm"],
+                        train_file=bundle["train"],
+                        validation_file=bundle["validation"],
+                        data_audit_path=bundle["audit_path"],
+                        data_hashes_path=bundle["hashes_path"],
+                        expected_train_sha256=bundle["train_sha"],
+                        expected_validation_sha256=bundle["validation_sha"],
+                    )
+
+    def test_v5_3_training_rejects_generation_manifest_protocol_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = write_v5_3_data_provenance_bundle(Path(directory))
+            contract_path = bundle["generation_contract_paths"][0]
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["generation_manifest_protocol"] = (
+                "v5_stage1_multifault_data_construction"
+            )
+            contract_path.write_text(
+                json.dumps(contract) + "\n",
+                encoding="utf-8",
+            )
+            bundle["audit"]["generation_contracts"]["contract_files"][
+                str(contract_path)
+            ] = MODULE.sha256_file(contract_path)
+            rewrite_bundle_audit(bundle)
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "manifest protocol/contract drift",
+            ):
+                MODULE.validate_training_data_provenance(
+                    arm=bundle["arm"],
+                    train_file=bundle["train"],
+                    validation_file=bundle["validation"],
+                    data_audit_path=bundle["audit_path"],
+                    data_hashes_path=bundle["hashes_path"],
+                    expected_train_sha256=bundle["train_sha"],
+                    expected_validation_sha256=bundle["validation_sha"],
+                )
+
+    def test_v5_3_training_rejects_validation_manifest_protocol_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = write_v5_3_data_provenance_bundle(Path(directory))
+            manifest = json.loads(
+                bundle["validation_manifest"].read_text(encoding="utf-8")
+            )
+            manifest["protocol"] = "wrong"
+            bundle["validation_manifest"].write_text(
+                json.dumps(manifest) + "\n",
+                encoding="utf-8",
+            )
+            validation_manifest_sha = MODULE.sha256_file(
+                bundle["validation_manifest"]
+            )
+            bundle["hashes"][
+                "validation_manifest.json"
+            ] = validation_manifest_sha
+            bundle["audit"]["dynamic_audits"]["validation"][
+                "manifest_sha256"
+            ] = validation_manifest_sha
+            rewrite_bundle_audit(bundle)
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "validation manifest protocol/coverage drift",
+            ):
+                MODULE.validate_training_data_provenance(
+                    arm=bundle["arm"],
+                    train_file=bundle["train"],
+                    validation_file=bundle["validation"],
+                    data_audit_path=bundle["audit_path"],
+                    data_hashes_path=bundle["hashes_path"],
+                    expected_train_sha256=bundle["train_sha"],
+                    expected_validation_sha256=bundle["validation_sha"],
+                )
 
     def test_training_data_provenance_rejects_audit_or_hash_drift(self):
         mutations = (

@@ -103,10 +103,11 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
         )
         self.evaluation_path.write_text(json.dumps(evaluation), encoding="utf-8")
 
-    def _registry(self):
+    def _registry(self, provenance_profile="legacy"):
+        model_ids = MODULE.PROFILE_MODEL_IDS[provenance_profile]
         entries = {
             "base_model": {
-                "model_id": "openai/served-base",
+                "model_id": model_ids["base_model"],
                 "adapter_sha256": None,
                 "adapter_config_sha256": None,
                 "training_run_manifest_sha256": None,
@@ -114,36 +115,54 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
         }
         for index, arm in enumerate(MODULE.TRAINED_ARMS, start=1):
             entries[arm] = {
-                "model_id": f"openai/served-{arm}",
+                "model_id": model_ids[arm],
                 "adapter_sha256": f"{index:x}" * 64,
                 "adapter_config_sha256": f"{index + 8:x}" * 64,
                 "training_run_manifest_sha256": f"{index + 4:x}" * 64,
             }
+        training_data_provenance = {
+            "data_audit_sha256": "7" * 64,
+            "data_hashes_sha256": "8" * 64,
+            "dynamic_audits": {
+                "generation": {
+                    "protocol": "v5_stage1_dynamic_injection_audit",
+                    "sha256": "9" * 64,
+                    "manifest_sha256": "a" * 64,
+                    "split_manifest_sha256": MODULE.sha256_file(
+                        self.split_path
+                    ),
+                    "source_split": "derived_inner_train",
+                    "verified_injections": (
+                        78 if provenance_profile == "v5_3" else 83
+                    ),
+                    "official_test_used": False,
+                    "official_test_sealed": True,
+                },
+                "validation": self.dynamic_audit_identity,
+            },
+            "official_test_used": False,
+            "official_test_sealed": True,
+        }
+        if provenance_profile == "v5_3":
+            training_data_provenance.update(
+                {
+                    "design_version": "5.3",
+                    "design_provenance": {
+                        "design_version": "5.3",
+                        "design_protocol": (
+                            "v5_3_task_level_cross_seed_sft_screen"
+                        ),
+                        "effective_generation_tasks": 78,
+                        "validation_tasks": 21,
+                    },
+                }
+            )
         return {
             "protocol": MODULE.CHECKPOINT_REGISTRY_PROTOCOL,
+            "provenance_profile": provenance_profile,
             "source_commit": self.source_commit,
             "base_model_revision": self.base_revision,
-            "training_data_provenance": {
-                "data_audit_sha256": "7" * 64,
-                "data_hashes_sha256": "8" * 64,
-                "dynamic_audits": {
-                    "generation": {
-                        "protocol": "v5_stage1_dynamic_injection_audit",
-                        "sha256": "9" * 64,
-                        "manifest_sha256": "a" * 64,
-                        "split_manifest_sha256": MODULE.sha256_file(
-                            self.split_path
-                        ),
-                        "source_split": "derived_inner_train",
-                        "verified_injections": 83,
-                        "official_test_used": False,
-                        "official_test_sealed": True,
-                    },
-                    "validation": self.dynamic_audit_identity,
-                },
-                "official_test_used": False,
-                "official_test_sealed": True,
-            },
+            "training_data_provenance": training_data_provenance,
             "entries": entries,
         }
 
@@ -191,6 +210,7 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
                 "created_at": "2026-07-25T00:00:00+00:00",
                 "completed_at": "2026-07-25T00:01:00+00:00",
                 "arm": arm,
+                "evaluation_manifest_protocol": MODULE.EVALUATION_MANIFEST_PROTOCOL,
                 "evaluation_manifest_sha256": MODULE.sha256_file(
                     self.evaluation_path
                 ),
@@ -203,7 +223,17 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
                     self.registry_path
                 ),
                 "checkpoint_registry_protocol": registry["protocol"],
+                "checkpoint_registry_provenance_profile": registry.get(
+                    "provenance_profile",
+                    "legacy",
+                ),
                 "checkpoint_entry": registry["entries"][arm],
+                "locally_verified_adapter_identity": (
+                    MODULE.expected_local_adapter_identity(registry)
+                ),
+                "served_registry_aliases": MODULE.expected_served_aliases(
+                    registry
+                ),
                 "source_commit": registry["source_commit"],
                 "base_model_revision": registry["base_model_revision"],
                 "task_ids": ordered[shard_index::shard_count],
@@ -211,15 +241,19 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
                 "num_shards": shard_count,
                 "agent": {
                     "model": registry["entries"][arm]["model_id"],
-                    "api_base": f"http://agent-{shard_index}",
+                    "revision": registry["base_model_revision"],
+                    "api_base": f"http://shared-{shard_index}",
                 },
                 "user": {
                     "model": base_alias,
+                    "revision": registry["base_model_revision"],
                     "api_base": f"http://shared-{shard_index}",
                 },
                 "judge": {
                     "model": base_alias,
+                    "revision": registry["base_model_revision"],
                     "api_base": f"http://shared-{shard_index}",
+                    "strict_backend": dict(MODULE.EXPECTED_STRICT_NL_JUDGE),
                 },
                 "decoding": {
                     "temperature": 0,
@@ -229,10 +263,63 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
                     "seed": 20260722,
                     "num_trials": 1,
                 },
+                "tool_action_interface": dict(MODULE.TOOL_ACTION_INTERFACE),
+                "runtime_preflight": dict(MODULE.EXPECTED_RUNTIME_PREFLIGHT),
                 "conditions": ["clean", "error"],
                 "official_test_used": False,
                 "result_sha256": result_sha256,
+                "completion_audit": {},
+                "strict_judge_audit_evidence": {},
             }
+            expected_results = MODULE.expected_contract_result_tasks(contract)
+            file_audits = {}
+            for filename, expected_tasks in sorted(expected_results.items()):
+                result_path = arm_dir / filename
+                simulations = MODULE.load_simulations(result_path)
+                observed_counts = MODULE.Counter(
+                    str(row["task_id"]) for row in simulations
+                )
+                inferred_trials = max(observed_counts.values())
+                file_audits[filename] = MODULE.audit_result_interface(
+                    result_path,
+                    expected_task_ids=expected_tasks,
+                    num_trials=inferred_trials,
+                    max_tokens=512,
+                )
+            contract["completion_audit"] = {
+                "protocol": (
+                    "v5_stage1_sft_causal_interface_completion_audit"
+                ),
+                "tool_action_interface": dict(MODULE.TOOL_ACTION_INTERFACE),
+                "result_files": file_audits,
+                "max_observed_prompt_tokens": max(
+                    item["max_observed_prompt_tokens"]
+                    for item in file_audits.values()
+                ),
+                "max_observed_total_request_tokens": max(
+                    item["max_observed_total_request_tokens"]
+                    for item in file_audits.values()
+                ),
+                "all_expected_tasks_observed_once_per_trial": True,
+                "request_token_overflow_detected": False,
+                "status": "PASS",
+            }
+            if (
+                contract["checkpoint_registry_provenance_profile"]
+                == "v5_3"
+            ):
+                contract["strict_judge_audit_evidence"] = (
+                    MODULE.judge_audit_contract.validate_strict_judge_evidence(
+                        [
+                            arm_dir / filename
+                            for filename in sorted(result_sha256)
+                        ],
+                        maximum_content_attempts=2,
+                    )
+                )
+            contract["contract_core_sha256"] = MODULE.contract_core_sha256(
+                contract
+            )
             path = (
                 arm_dir / "run_contract.json"
                 if shard_count == 1
@@ -296,7 +383,18 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
         if condition == "clean":
             return {
                 **common,
-                "messages": [{"role": "user", "content": "test"}],
+                "messages": [
+                    {"role": "user", "content": "test"},
+                    {
+                        "role": "assistant",
+                        "content": "done",
+                        "tool_calls": None,
+                        "usage": {
+                            "prompt_tokens": 128,
+                            "completion_tokens": 1,
+                        },
+                    },
+                ],
             }
         fault = fault_descriptor(
             domain,
@@ -308,6 +406,7 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
             {"role": "user", "content": "test"},
             {
                 "role": "assistant",
+                "content": None,
                 "tool_calls": [
                     {
                         "id": call_id,
@@ -315,6 +414,10 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
                         "arguments": fault["arguments"],
                     }
                 ],
+                "usage": {
+                    "prompt_tokens": 128,
+                    "completion_tokens": 16,
+                },
             },
             {
                 "role": "tool",
@@ -578,6 +681,97 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "registry SHA drift"):
             self._summarize(arms)
 
+    def test_legacy_contract_without_new_completion_evidence_is_rejected(self):
+        arms = self._four_arms()
+        path = arms["repair_50"] / "run_contract.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload.pop("contract_core_sha256")
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "core hash drift"):
+            self._summarize(arms)
+
+    def test_tool_interface_and_runtime_preflight_are_semantic_contracts(self):
+        arms = self._four_arms()
+        path = arms["repair_50"] / "run_contract.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        original = json.loads(json.dumps(payload))
+        payload["tool_action_interface"]["parallel_tool_calls"] = True
+        payload["contract_core_sha256"] = MODULE.contract_core_sha256(payload)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "tool-action interface drift"):
+            self._summarize(arms)
+
+        payload = original
+        payload["runtime_preflight"]["served_context_window_tokens"] = 16384
+        payload["contract_core_sha256"] = MODULE.contract_core_sha256(payload)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "runtime preflight drift"):
+            self._summarize(arms)
+
+    def test_completion_audit_status_and_exact_result_set_fail_closed(self):
+        arms = self._four_arms()
+        path = arms["failure_raw"] / "run_contract.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        original = json.loads(json.dumps(payload))
+        payload["completion_audit"]["status"] = "FAIL_CLOSED"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "completion audit drift"):
+            self._summarize(arms)
+
+        payload = original
+        payload["result_sha256"].pop("airline_error.json")
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "exact task/domain/condition"):
+            self._summarize(arms)
+
+    def test_summary_binds_all_contract_result_and_source_hashes(self):
+        summary = self._summarize(self._four_arms())
+        provenance = summary["provenance"]
+        self.assertEqual(
+            summary["summary_contract_protocol"],
+            MODULE.SUMMARY_CONTRACT_PROTOCOL,
+        )
+        self.assertEqual(
+            provenance["summary_contract_protocol"],
+            MODULE.SUMMARY_CONTRACT_PROTOCOL,
+        )
+        self.assertEqual(
+            set(provenance["evaluation_contract_sha256"]),
+            set(MODULE.EXPECTED_ARMS),
+        )
+        self.assertEqual(
+            set(provenance["evaluation_result_sha256"]),
+            set(MODULE.EXPECTED_ARMS),
+        )
+        self.assertTrue(
+            all(
+                contracts
+                for contracts in provenance[
+                    "evaluation_contract_sha256"
+                ].values()
+            )
+        )
+        self.assertEqual(
+            provenance["source"]["experiment_source_commit"],
+            self.source_commit,
+        )
+        self.assertEqual(
+            provenance["source"]["tau2_commit"],
+            TAU2_COMMIT,
+        )
+        self.assertEqual(
+            provenance["source"]["tau2_source_files"],
+            SOURCE_FILES,
+        )
+        binding = dict(provenance)
+        observed = binding.pop("input_binding_sha256")
+        self.assertEqual(
+            observed,
+            MODULE.hashlib.sha256(
+                MODULE.canonical_json(binding).encode("utf-8")
+            ).hexdigest(),
+        )
+
     def test_registry_validation_audit_must_match_evaluation_audit(self):
         registry = self._registry()
         registry["training_data_provenance"]["dynamic_audits"][
@@ -640,6 +834,44 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "registry base_model alias"):
             self._summarize(arms)
 
+    def test_v5_3_registry_profile_is_accepted_and_bound_into_summary(self):
+        self._write_registry(self._registry("v5_3"))
+        summary = self._summarize(self._four_arms())
+        self.assertEqual(
+            summary["checkpoint_registry"]["provenance_profile"],
+            "v5_3",
+        )
+        self.assertEqual(
+            summary["provenance"]["source"][
+                "checkpoint_registry_provenance_profile"
+            ],
+            "v5_3",
+        )
+        self.assertEqual(
+            {
+                arm: summary["arms"][arm]["checkpoint_identity"][
+                    "checkpoint_entry"
+                ]["model_id"]
+                for arm in MODULE.EXPECTED_ARMS
+            },
+            MODULE.PROFILE_MODEL_IDS["v5_3"],
+        )
+
+    def test_registry_profile_rejects_cross_profile_count_and_alias(self):
+        registry = self._registry("v5_3")
+        registry["training_data_provenance"]["dynamic_audits"][
+            "generation"
+        ]["verified_injections"] = 83
+        self._write_registry(registry)
+        with self.assertRaisesRegex(RuntimeError, "generation dynamic audit"):
+            MODULE.load_checkpoint_registry(self.registry_path)
+
+        registry = self._registry("v5_3")
+        registry["entries"]["base_model"]["model_id"] = "openai/v5-base"
+        self._write_registry(registry)
+        with self.assertRaisesRegex(RuntimeError, "model_id drift"):
+            MODULE.load_checkpoint_registry(self.registry_path)
+
     def test_contract_decoding_must_match_frozen_protocol(self):
         arms = self._four_arms()
         path = arms["base_model"] / "run_contract.json"
@@ -676,7 +908,10 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
         )
 
     def test_rollout_or_seed_duplicate_is_not_a_new_independent_task(self):
-        with self.assertRaisesRegex(RuntimeError, "Duplicate task_id"):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "incomplete or duplicate task coverage",
+        ):
             self._summarize(self._four_arms(repetitions=2))
 
     def test_complete_four_machine_shards_are_supported(self):
@@ -728,7 +963,10 @@ class V5SFTCausalEvaluationTests(unittest.TestCase):
         payload["simulations"] = payload["simulations"][1:]
         path.write_text(json.dumps(payload), encoding="utf-8")
         self._refresh_result_hashes(arms["repair_50"])
-        with self.assertRaisesRegex(RuntimeError, "task IDs do not match"):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "incomplete or duplicate task coverage",
+        ):
             self._summarize(arms)
 
     def test_cross_arm_replicate_schedule_must_match(self):

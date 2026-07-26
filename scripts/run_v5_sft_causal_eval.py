@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import re
 import subprocess
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -25,6 +27,10 @@ try:
     from v5_dynamic_audit_contract import load_complete_dynamic_audit
 except ModuleNotFoundError:
     from scripts.v5_dynamic_audit_contract import load_complete_dynamic_audit
+try:
+    import v5_judge_audit_contract as judge_audit_contract
+except ModuleNotFoundError:
+    from scripts import v5_judge_audit_contract as judge_audit_contract
 
 
 PROTOCOL = "v5_stage1_sft_causal_validation"
@@ -45,6 +51,29 @@ ARMS = {
     "repair_100",
 }
 TRAINED_ARMS = ARMS - {"base_model"}
+PROVENANCE_PROFILES = ("legacy", "v5_3")
+V5_3_DESIGN_VERSION = "5.3"
+V5_3_DESIGN_PROTOCOL = "v5_3_task_level_cross_seed_sft_screen"
+PROFILE_GENERATION_INJECTIONS = {
+    "legacy": 83,
+    "v5_3": 78,
+}
+PROFILE_MODEL_IDS = {
+    "legacy": {
+        "base_model": "openai/v5-base",
+        "perfect_success": "openai/v5-perfect-success",
+        "failure_raw": "openai/v5-failure-raw",
+        "repair_50": "openai/v5-repair-50",
+        "repair_100": "openai/v5-repair-100",
+    },
+    "v5_3": {
+        "base_model": "openai/v5-3-base",
+        "perfect_success": "openai/v5-3-perfect-success",
+        "failure_raw": "openai/v5-3-failure-raw",
+        "repair_50": "openai/v5-3-repair-50",
+        "repair_100": "openai/v5-3-repair-100",
+    },
+}
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 FROZEN_DECODING = {
@@ -56,6 +85,20 @@ FROZEN_DECODING = {
     "num_trials": 1,
 }
 FAULT_INJECTIONS: dict[str, dict[str, Any]] = {}
+MAX_MODEL_LEN = 32768
+STRICT_NL_JUDGE_MODULE = "v5_strict_nl_judge"
+STRICT_NL_JUDGE_ENTRYPOINT = "install_strict_nl_judge"
+TOOL_ACTION_INTERFACE = {
+    "parallel_tool_calls": False,
+    "parallel_tool_call_normalization": "execute_first_then_replan",
+    "mixed_tool_call_content_normalization": "drop_text_preserve_sha256",
+    "deferred_call_audit_field": "v5_stage1_parallel_calls_serialized",
+    "mixed_content_audit_field": "v5_stage1_mixed_content_normalized",
+    "audit_hash": "sha256",
+    "clean_agent_factory": "v5_stage1_single_tool_agent",
+    "error_agent_factory": "v5_stage1_single_tool_fault_agent",
+    "post_injection_policy": "execute_injected_call_then_replan",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,6 +108,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--dynamic-audit", type=Path, required=True)
     parser.add_argument("--checkpoint-registry", type=Path, required=True)
+    parser.add_argument(
+        "--provenance-profile",
+        choices=PROVENANCE_PROFILES,
+        help=(
+            "Optionally require the checkpoint registry's frozen legacy or "
+            "V5.3 provenance profile. The registry profile is otherwise "
+            "validated and used directly."
+        ),
+    )
     parser.add_argument(
         "--adapter-dir",
         action="append",
@@ -147,12 +199,74 @@ def _valid_sha256(value: Any) -> bool:
     return isinstance(value, str) and SHA256_RE.fullmatch(value) is not None
 
 
+def checkpoint_registry_provenance_profile(
+    registry: dict[str, Any],
+    *,
+    expected_profile: str | None = None,
+) -> str:
+    """Resolve a registered profile; missing means legacy for old registries."""
+
+    profile = registry.get("provenance_profile", "legacy")
+    if profile not in PROVENANCE_PROFILES:
+        raise RuntimeError(
+            f"Checkpoint registry has unsupported provenance_profile {profile!r}"
+        )
+    if expected_profile is not None and profile != expected_profile:
+        raise RuntimeError(
+            "Checkpoint registry provenance profile drift: "
+            f"expected {expected_profile!r}, got {profile!r}"
+        )
+    return profile
+
+
+def _validate_profile_design_provenance(
+    provenance: dict[str, Any],
+    *,
+    provenance_profile: str,
+) -> None:
+    design_version = provenance.get("design_version")
+    if provenance_profile == "legacy":
+        if design_version not in (None, "5.2"):
+            raise RuntimeError(
+                "Legacy checkpoint provenance requires absent or 5.2 "
+                f"design_version, got {design_version!r}"
+            )
+        return
+    if design_version != V5_3_DESIGN_VERSION:
+        raise RuntimeError(
+            "V5.3 checkpoint provenance requires design_version '5.3'"
+        )
+    design = provenance.get("design_provenance")
+    expected = {
+        "design_version": V5_3_DESIGN_VERSION,
+        "design_protocol": V5_3_DESIGN_PROTOCOL,
+        "effective_generation_tasks": 78,
+        "validation_tasks": 21,
+    }
+    if not isinstance(design, dict) or any(
+        design.get(field) != value for field, value in expected.items()
+    ):
+        raise RuntimeError(
+            "V5.3 checkpoint provenance lacks the frozen 78/21 design identity"
+        )
+
+
 def validate_registry_training_data_provenance(
     registry: dict[str, Any],
+    *,
+    expected_profile: str | None = None,
 ) -> dict[str, Any]:
+    provenance_profile = checkpoint_registry_provenance_profile(
+        registry,
+        expected_profile=expected_profile,
+    )
     provenance = registry.get("training_data_provenance")
     if not isinstance(provenance, dict):
         raise RuntimeError("Checkpoint registry lacks training_data_provenance")
+    _validate_profile_design_provenance(
+        provenance,
+        provenance_profile=provenance_profile,
+    )
     if (
         provenance.get("official_test_used") is not False
         or provenance.get("official_test_sealed") is not True
@@ -169,7 +283,13 @@ def validate_registry_training_data_provenance(
         "validation",
     }:
         raise RuntimeError("Checkpoint registry dynamic-audit provenance drift")
-    for name, expected_count in (("generation", 83), ("validation", 21)):
+    for name, expected_count in (
+        (
+            "generation",
+            PROFILE_GENERATION_INJECTIONS[provenance_profile],
+        ),
+        ("validation", 21),
+    ):
         identity = dynamic.get(name)
         if (
             not isinstance(identity, dict)
@@ -338,7 +458,11 @@ def verify_served_registry_aliases(
     return sorted(expected)
 
 
-def load_checkpoint_registry(path: Path) -> dict[str, Any]:
+def load_checkpoint_registry(
+    path: Path,
+    *,
+    expected_profile: str | None = None,
+) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if (
         not isinstance(payload, dict)
@@ -365,6 +489,11 @@ def load_checkpoint_registry(path: Path) -> dict[str, Any]:
             f"Checkpoint registry entries must be exactly {tuple(sorted(ARMS))}"
         )
 
+    provenance_profile = checkpoint_registry_provenance_profile(
+        payload,
+        expected_profile=expected_profile,
+    )
+    expected_model_ids = PROFILE_MODEL_IDS[provenance_profile]
     model_ids: list[str] = []
     for arm in sorted(ARMS):
         entry = entries[arm]
@@ -409,7 +538,18 @@ def load_checkpoint_registry(path: Path) -> dict[str, Any]:
                 )
     if len(set(model_ids)) != len(model_ids):
         raise RuntimeError("All five checkpoint registry model_id aliases must be unique")
-    validate_registry_training_data_provenance(payload)
+    for arm in sorted(ARMS):
+        model_id = entries[arm]["model_id"]
+        if model_id != expected_model_ids[arm]:
+            raise RuntimeError(
+                f"Checkpoint registry entry {arm} model_id drift for "
+                f"{provenance_profile}: expected {expected_model_ids[arm]!r}, "
+                f"got {model_id!r}"
+            )
+    validate_registry_training_data_provenance(
+        payload,
+        expected_profile=provenance_profile,
+    )
     return payload
 
 
@@ -754,12 +894,80 @@ def shard_rows(
     return ordered[shard_index::num_shards]
 
 
+def _tool_call_payload(call: Any) -> dict[str, Any]:
+    if hasattr(call, "model_dump"):
+        payload = call.model_dump()
+    elif isinstance(call, dict):
+        payload = dict(call)
+    else:
+        raise RuntimeError(
+            f"Cannot audit tool call of type {type(call).__name__}"
+        )
+    if not isinstance(payload, dict):
+        raise RuntimeError("Tool-call serialization must produce an object")
+    return payload
+
+
+def _sha256_canonical_payload(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def normalize_tool_only_message(message: Any) -> Any:
+    """Match the generation interface before any agent action is executed.
+
+    The OpenAI ``parallel_tool_calls=false`` request field is a hint that some
+    local model/tool parsers do not honor.  Consequently the evaluator also
+    enforces the contract on the response: execute the first ordered call,
+    preserve hashes of all deferred calls, discard pre-tool prose with an
+    audit hash, then let the model replan after the first tool result.
+    """
+
+    tool_calls = getattr(message, "tool_calls", None)
+    if not tool_calls:
+        return message
+    raw_data = dict(getattr(message, "raw_data", None) or {})
+    if len(tool_calls) > 1:
+        deferred = tool_calls[1:]
+        raw_data["v5_stage1_parallel_calls_serialized"] = {
+            "original_count": len(tool_calls),
+            "deferred_call_sha256": [
+                _sha256_canonical_payload(_tool_call_payload(call))
+                for call in deferred
+            ],
+        }
+        message.tool_calls = tool_calls[:1]
+    content = getattr(message, "content", None)
+    if content not in (None, ""):
+        if not isinstance(content, str):
+            raise RuntimeError("Mixed tool-call content must be text")
+        encoded = content.encode("utf-8")
+        raw_data["v5_stage1_mixed_content_normalized"] = {
+            "sha256": hashlib.sha256(encoded).hexdigest(),
+            "utf8_bytes": len(encoded),
+        }
+        message.content = None
+    message.raw_data = raw_data
+    return message
+
+
 def register_fault_agent() -> None:
     from tau2.agent.llm_agent import LLMAgent
     from tau2.data_model.message import AssistantMessage, ToolCall, UserMessage
     from tau2.registry import registry
 
-    class Stage1FaultAgent(LLMAgent):
+    class Stage1SingleToolAgent(LLMAgent):
+        def _generate_next_message(self, message, state):
+            return normalize_tool_only_message(
+                super()._generate_next_message(message, state)
+            )
+
+    class Stage1FaultAgent(Stage1SingleToolAgent):
         def __init__(self, tools, domain_policy, task, llm, llm_args):
             super().__init__(
                 tools=tools,
@@ -799,6 +1007,14 @@ def register_fault_agent() -> None:
                 )
             return super()._generate_next_message(message, state)
 
+    def create_single_tool_agent(tools, domain_policy, **kwargs):
+        return Stage1SingleToolAgent(
+            tools=tools,
+            domain_policy=domain_policy,
+            llm=kwargs.get("llm"),
+            llm_args=kwargs.get("llm_args"),
+        )
+
     def create_fault_agent(tools, domain_policy, **kwargs):
         return Stage1FaultAgent(
             tools=tools,
@@ -808,15 +1024,50 @@ def register_fault_agent() -> None:
             llm_args=kwargs.get("llm_args"),
         )
 
-    if registry.get_agent_factory("v5_stage1_fault_agent") is None:
-        registry.register_agent_factory(create_fault_agent, "v5_stage1_fault_agent")
+    if registry.get_agent_factory("v5_stage1_single_tool_agent") is None:
+        registry.register_agent_factory(
+            create_single_tool_agent,
+            "v5_stage1_single_tool_agent",
+        )
+    if registry.get_agent_factory("v5_stage1_single_tool_fault_agent") is None:
+        registry.register_agent_factory(
+            create_fault_agent,
+            "v5_stage1_single_tool_fault_agent",
+        )
 
 
-def patch_local_nl_judge(model: str, llm_args: dict[str, Any]) -> None:
-    import tau2.evaluator.evaluator_nl_assertions as nl_module
+def patch_local_nl_judge(model: str, llm_args: dict[str, Any]) -> dict[str, str]:
+    """Install the strict judge lazily, after the pinned tau2 path is active.
 
-    nl_module.DEFAULT_LLM_NL_ASSERTIONS = model
-    nl_module.DEFAULT_LLM_NL_ASSERTIONS_ARGS = dict(llm_args)
+    ``v5_strict_nl_judge`` is intentionally imported here rather than at module
+    import time so this evaluator and its unit tests can land before the strict
+    judge module.  A formal evaluation still fails closed if the entry point is
+    absent; silently falling back to tau2's bare ``json.loads`` path would make
+    Markdown-fenced, otherwise valid judge responses infrastructure failures.
+    """
+
+    try:
+        strict_module = importlib.import_module(STRICT_NL_JUDGE_MODULE)
+    except ModuleNotFoundError as exc:
+        if exc.name != STRICT_NL_JUDGE_MODULE:
+            raise
+        raise RuntimeError(
+            "Strict NL judge is not installed yet; evaluation is deferred "
+            f"until {STRICT_NL_JUDGE_MODULE}.{STRICT_NL_JUDGE_ENTRYPOINT} "
+            "is available"
+        ) from exc
+    installer = getattr(strict_module, STRICT_NL_JUDGE_ENTRYPOINT, None)
+    if not callable(installer):
+        raise RuntimeError(
+            "Strict NL judge module lacks callable "
+            f"{STRICT_NL_JUDGE_ENTRYPOINT}"
+        )
+    installer(model=model, llm_args=dict(llm_args))
+    return {
+        "module": STRICT_NL_JUDGE_MODULE,
+        "entrypoint": STRICT_NL_JUDGE_ENTRYPOINT,
+        "mode": "strict_json_schema_fail_closed",
+    }
 
 
 def select_tasks(domain: str, rows: list[dict[str, Any]]):
@@ -837,13 +1088,54 @@ def select_tasks(domain: str, rows: list[dict[str, Any]]):
 def endpoint_args(
     api_base: str, api_key: str, *, max_tokens: int, seed: int
 ) -> dict[str, Any]:
+    if (
+        isinstance(max_tokens, bool)
+        or not isinstance(max_tokens, int)
+        or max_tokens <= 0
+        or max_tokens > MAX_MODEL_LEN
+    ):
+        raise RuntimeError(
+            f"max_tokens must be in [1, {MAX_MODEL_LEN}], got {max_tokens!r}"
+        )
     return {
         "api_base": api_base,
         "api_key": api_key,
         "temperature": 0,
         "max_tokens": max_tokens,
         "seed": seed,
+        "parallel_tool_calls": False,
     }
+
+
+def validate_request_token_budget(
+    prompt_tokens: Any,
+    *,
+    max_tokens: int,
+    max_model_len: int = MAX_MODEL_LEN,
+) -> int:
+    """Fail closed if an observed request could exceed the served context."""
+
+    for value, label in (
+        (prompt_tokens, "prompt_tokens"),
+        (max_tokens, "max_tokens"),
+        (max_model_len, "max_model_len"),
+    ):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or value < 0
+        ):
+            raise RuntimeError(f"{label} must be a non-negative integer")
+    if max_tokens <= 0 or max_model_len <= 0:
+        raise RuntimeError("max_tokens and max_model_len must be positive")
+    total = prompt_tokens + max_tokens
+    if total > max_model_len:
+        raise RuntimeError(
+            "Observed request token budget exceeds the frozen context window: "
+            f"{prompt_tokens} prompt + {max_tokens} completion > "
+            f"{max_model_len}"
+        )
+    return total
 
 
 def output_filename(
@@ -877,7 +1169,11 @@ def run_condition(
                 for row in rows
             }
         )
-    agent_name = "llm_agent" if condition == "clean" else "v5_stage1_fault_agent"
+    agent_name = (
+        "v5_stage1_single_tool_agent"
+        if condition == "clean"
+        else "v5_stage1_single_tool_fault_agent"
+    )
     output_path = args.output_dir / output_filename(
         domain, condition, args.shard_index, args.num_shards
     )
@@ -920,6 +1216,292 @@ def run_condition(
     return output_path
 
 
+_MUTABLE_CONTRACT_FIELDS = {
+    "status",
+    "completed_at",
+    "result_sha256",
+    "completion_audit",
+    "strict_judge_audit_evidence",
+    "contract_core_sha256",
+}
+
+
+def contract_core_sha256(payload: dict[str, Any]) -> str:
+    """Hash every immutable run-contract field as one canonical object."""
+
+    core = {
+        key: value
+        for key, value in payload.items()
+        if key not in _MUTABLE_CONTRACT_FIELDS
+    }
+    return hashlib.sha256(canonical_json(core).encode("utf-8")).hexdigest()
+
+
+def validate_contract_core(payload: dict[str, Any]) -> None:
+    observed = payload.get("contract_core_sha256")
+    expected = contract_core_sha256(payload)
+    if not _valid_sha256(observed) or observed != expected:
+        raise RuntimeError(
+            "Run contract immutable core hash drift; refusing completion"
+        )
+    if payload.get("tool_action_interface") != TOOL_ACTION_INTERFACE:
+        raise RuntimeError(
+            "Run contract tool-action interface drift; refusing completion"
+        )
+    preflight = payload.get("runtime_preflight")
+    expected_preflight = {
+        "served_context_window_tokens": MAX_MODEL_LEN,
+        "request_max_tokens": FROZEN_DECODING["max_tokens"],
+        "maximum_nonoverflow_prompt_tokens": (
+            MAX_MODEL_LEN - FROZEN_DECODING["max_tokens"]
+        ),
+        "max_steps": FROZEN_DECODING["max_steps"],
+        "request_token_overflow_policy": "fail_closed",
+        "longest_prompt_observation": (
+            "completion_audit.max_observed_prompt_tokens"
+        ),
+    }
+    if preflight != expected_preflight:
+        raise RuntimeError(
+            "Run contract 32k/60-step preflight metadata drift"
+        )
+    decoding = payload.get("decoding")
+    if decoding != FROZEN_DECODING:
+        raise RuntimeError("Run contract frozen decoding drift")
+    judge = payload.get("judge")
+    expected_strict_judge = {
+        "module": STRICT_NL_JUDGE_MODULE,
+        "entrypoint": STRICT_NL_JUDGE_ENTRYPOINT,
+        "mode": "strict_json_schema_fail_closed",
+    }
+    if (
+        not isinstance(judge, dict)
+        or judge.get("strict_backend") != expected_strict_judge
+    ):
+        raise RuntimeError("Run contract strict NL judge entrypoint drift")
+
+
+def _expected_result_task_ids(
+    payload: dict[str, Any],
+) -> dict[str, list[str]]:
+    task_ids = payload.get("task_ids")
+    conditions = payload.get("conditions")
+    if (
+        not isinstance(task_ids, list)
+        or not task_ids
+        or len(set(task_ids)) != len(task_ids)
+    ):
+        raise RuntimeError("Run contract task_ids are missing or duplicated")
+    if conditions != ["clean", "error"]:
+        raise RuntimeError("Run contract must cover both clean and error")
+    by_domain: dict[str, list[str]] = {domain: [] for domain in DOMAINS}
+    for identity in task_ids:
+        if not isinstance(identity, str) or ":" not in identity:
+            raise RuntimeError(f"Malformed task identity in contract: {identity!r}")
+        domain, task_id = identity.split(":", 1)
+        if domain not in by_domain or not task_id:
+            raise RuntimeError(f"Malformed task identity in contract: {identity!r}")
+        by_domain[domain].append(task_id)
+    expected: dict[str, list[str]] = {}
+    for domain in DOMAINS:
+        if not by_domain[domain]:
+            continue
+        for condition in conditions:
+            name = output_filename(
+                domain,
+                condition,
+                int(payload["shard_index"]),
+                int(payload["num_shards"]),
+            )
+            expected[name] = sorted(by_domain[domain])
+    return expected
+
+
+def _validate_normalization_audit(
+    message: dict[str, Any],
+    *,
+    path: Path,
+    simulation_index: int,
+    message_index: int,
+) -> tuple[int, int]:
+    location = (
+        f"{path.name} simulation[{simulation_index}] message[{message_index}]"
+    )
+    tool_calls = message.get("tool_calls")
+    if tool_calls is None:
+        tool_calls = []
+    if not isinstance(tool_calls, list):
+        raise RuntimeError(f"{location}: tool_calls is not a list")
+    if len(tool_calls) > 1:
+        raise RuntimeError(
+            f"{location}: response retained multiple parallel tool calls"
+        )
+    if tool_calls and message.get("content") not in (None, ""):
+        raise RuntimeError(
+            f"{location}: response retained mixed text and tool call"
+        )
+    raw_data = message.get("raw_data")
+    if raw_data is None:
+        raw_data = {}
+    if not isinstance(raw_data, dict):
+        raise RuntimeError(f"{location}: raw_data is not an object")
+
+    parallel_count = 0
+    parallel = raw_data.get("v5_stage1_parallel_calls_serialized")
+    if parallel is not None:
+        if not tool_calls or not isinstance(parallel, dict):
+            raise RuntimeError(f"{location}: malformed parallel-call audit")
+        original_count = parallel.get("original_count")
+        hashes = parallel.get("deferred_call_sha256")
+        if (
+            isinstance(original_count, bool)
+            or not isinstance(original_count, int)
+            or original_count < 2
+            or not isinstance(hashes, list)
+            or len(hashes) != original_count - 1
+            or any(not _valid_sha256(value) for value in hashes)
+        ):
+            raise RuntimeError(f"{location}: malformed deferred-call hashes")
+        parallel_count = 1
+
+    mixed_count = 0
+    mixed = raw_data.get("v5_stage1_mixed_content_normalized")
+    if mixed is not None:
+        if (
+            not tool_calls
+            or message.get("content") is not None
+            or not isinstance(mixed, dict)
+            or not _valid_sha256(mixed.get("sha256"))
+            or isinstance(mixed.get("utf8_bytes"), bool)
+            or not isinstance(mixed.get("utf8_bytes"), int)
+            or mixed.get("utf8_bytes") <= 0
+        ):
+            raise RuntimeError(f"{location}: malformed mixed-content audit")
+        mixed_count = 1
+    return parallel_count, mixed_count
+
+
+def audit_result_interface(
+    path: Path,
+    *,
+    expected_task_ids: list[str],
+    num_trials: int,
+    max_tokens: int,
+) -> dict[str, Any]:
+    """Validate task coverage, single-action normalization, and token limits."""
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Cannot parse evaluation result {path}") from exc
+    simulations = payload.get("simulations") if isinstance(payload, dict) else None
+    if not isinstance(simulations, list) or not simulations:
+        raise RuntimeError(f"{path.name}: simulations must be a non-empty list")
+    if (
+        isinstance(num_trials, bool)
+        or not isinstance(num_trials, int)
+        or num_trials <= 0
+    ):
+        raise RuntimeError("Run contract num_trials must be positive")
+    observed_tasks = Counter()
+    assistant_messages = 0
+    tool_call_messages = 0
+    parallel_normalizations = 0
+    mixed_normalizations = 0
+    usage_records = 0
+    max_prompt_tokens = 0
+    max_total_request_tokens = 0
+    for simulation_index, simulation in enumerate(simulations):
+        if not isinstance(simulation, dict):
+            raise RuntimeError(
+                f"{path.name} simulation[{simulation_index}] is not an object"
+            )
+        task_id = simulation.get("task_id")
+        if not isinstance(task_id, (str, int)):
+            raise RuntimeError(
+                f"{path.name} simulation[{simulation_index}] lacks task_id"
+            )
+        observed_tasks[str(task_id)] += 1
+        if simulation.get("termination_reason") == "context_window_exceeded":
+            raise RuntimeError(
+                f"{path.name} simulation[{simulation_index}] exceeded context"
+            )
+        messages = simulation.get("messages")
+        if not isinstance(messages, list) or not messages:
+            raise RuntimeError(
+                f"{path.name} simulation[{simulation_index}] lacks messages"
+            )
+        for message_index, message in enumerate(messages):
+            if not isinstance(message, dict):
+                raise RuntimeError(
+                    f"{path.name} simulation[{simulation_index}] "
+                    f"message[{message_index}] is not an object"
+                )
+            usage = message.get("usage")
+            if usage is not None:
+                if not isinstance(usage, dict):
+                    raise RuntimeError(
+                        f"{path.name} simulation[{simulation_index}] "
+                        f"message[{message_index}] usage is not an object"
+                    )
+                if "prompt_tokens" in usage:
+                    total = validate_request_token_budget(
+                        usage["prompt_tokens"],
+                        max_tokens=max_tokens,
+                    )
+                    usage_records += 1
+                    max_prompt_tokens = max(
+                        max_prompt_tokens,
+                        usage["prompt_tokens"],
+                    )
+                    max_total_request_tokens = max(
+                        max_total_request_tokens,
+                        total,
+                    )
+            if message.get("role") != "assistant":
+                continue
+            assistant_messages += 1
+            if message.get("tool_calls"):
+                tool_call_messages += 1
+            parallel, mixed = _validate_normalization_audit(
+                message,
+                path=path,
+                simulation_index=simulation_index,
+                message_index=message_index,
+            )
+            parallel_normalizations += parallel
+            mixed_normalizations += mixed
+    expected_counts = Counter(
+        {
+            str(task_id): num_trials
+            for task_id in expected_task_ids
+        }
+    )
+    if observed_tasks != expected_counts:
+        raise RuntimeError(
+            f"{path.name}: incomplete or duplicate task coverage; "
+            f"expected={dict(expected_counts)}, observed={dict(observed_tasks)}"
+        )
+    if usage_records <= 0:
+        raise RuntimeError(
+            f"{path.name}: no prompt-token usage was available for overflow audit"
+        )
+    return {
+        "simulation_count": len(simulations),
+        "task_count": len(expected_counts),
+        "assistant_message_count": assistant_messages,
+        "tool_call_message_count": tool_call_messages,
+        "parallel_call_normalization_count": parallel_normalizations,
+        "mixed_content_normalization_count": mixed_normalizations,
+        "prompt_usage_records_checked": usage_records,
+        "max_observed_prompt_tokens": max_prompt_tokens,
+        "max_observed_total_request_tokens": max_total_request_tokens,
+        "context_window_tokens": MAX_MODEL_LEN,
+        "max_steps": FROZEN_DECODING["max_steps"],
+        "status": "PASS",
+    }
+
+
 def write_contract(
     args: argparse.Namespace,
     manifest_path: Path,
@@ -949,6 +1531,7 @@ def write_contract(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "arm": args.arm,
         "manifest": str(manifest_path),
+        "evaluation_manifest_protocol": manifest_payload.get("protocol"),
         "evaluation_manifest_sha256": sha256_file(manifest_path),
         "fault_protocol": manifest_payload.get("fault_protocol"),
         "tau2_commit": manifest_payload.get("tau2_commit"),
@@ -960,6 +1543,9 @@ def write_contract(
         "checkpoint_registry": str(checkpoint_registry_path),
         "checkpoint_registry_sha256": sha256_file(checkpoint_registry_path),
         "checkpoint_registry_protocol": checkpoint_registry["protocol"],
+        "checkpoint_registry_provenance_profile": (
+            checkpoint_registry_provenance_profile(checkpoint_registry)
+        ),
         "checkpoint_entry": checkpoint_entry,
         "locally_verified_adapter_identity": local_adapter_identity,
         "served_registry_aliases": served_registry_aliases,
@@ -970,15 +1556,23 @@ def write_contract(
         "num_shards": args.num_shards,
         "agent": {
             "model": args.agent_model,
+            "revision": checkpoint_registry["base_model_revision"],
             "api_base": args.agent_api_base,
         },
         "user": {
             "model": args.user_model,
+            "revision": checkpoint_registry["base_model_revision"],
             "api_base": args.user_api_base,
         },
         "judge": {
             "model": args.judge_model or args.user_model,
+            "revision": checkpoint_registry["base_model_revision"],
             "api_base": args.judge_api_base or args.user_api_base,
+            "strict_backend": {
+                "module": STRICT_NL_JUDGE_MODULE,
+                "entrypoint": STRICT_NL_JUDGE_ENTRYPOINT,
+                "mode": "strict_json_schema_fail_closed",
+            },
         },
         "decoding": {
             "temperature": 0,
@@ -988,12 +1582,28 @@ def write_contract(
             "seed": args.seed,
             "num_trials": args.num_trials,
         },
+        "tool_action_interface": dict(TOOL_ACTION_INTERFACE),
+        "runtime_preflight": {
+            "served_context_window_tokens": MAX_MODEL_LEN,
+            "request_max_tokens": args.max_tokens,
+            "maximum_nonoverflow_prompt_tokens": (
+                MAX_MODEL_LEN - args.max_tokens
+            ),
+            "max_steps": args.max_steps,
+            "request_token_overflow_policy": "fail_closed",
+            "longest_prompt_observation": (
+                "completion_audit.max_observed_prompt_tokens"
+            ),
+        },
         "conditions": (
             ["clean", "error"] if args.condition == "both" else [args.condition]
         ),
         "official_test_used": False,
         "result_sha256": {},
+        "completion_audit": {},
+        "strict_judge_audit_evidence": {},
     }
+    contract["contract_core_sha256"] = contract_core_sha256(contract)
     contract_path.parent.mkdir(parents=True, exist_ok=True)
     contract_path.write_text(
         json.dumps(contract, indent=2, ensure_ascii=False) + "\n",
@@ -1008,7 +1618,27 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
     payload = json.loads(contract_path.read_text(encoding="utf-8"))
     if payload.get("status") != "INCOMPLETE":
         raise RuntimeError(f"Run contract is not INCOMPLETE: {contract_path}")
+    if (
+        payload.get("result_sha256") != {}
+        or payload.get("completion_audit") != {}
+        or payload.get("strict_judge_audit_evidence", {}) != {}
+    ):
+        raise RuntimeError(
+            "INCOMPLETE run contract contains stale completion artifacts"
+        )
+    validate_contract_core(payload)
+    expected_results = _expected_result_task_ids(payload)
+    observed_names = [path.resolve().name for path in output_files]
+    if (
+        len(observed_names) != len(set(observed_names))
+        or set(observed_names) != set(expected_results)
+    ):
+        raise RuntimeError(
+            "Evaluation result set does not exactly cover the contract; "
+            f"expected={sorted(expected_results)}, observed={sorted(observed_names)}"
+        )
     result_hashes: dict[str, str] = {}
+    completion_files: dict[str, dict[str, Any]] = {}
     for path in output_files:
         resolved = path.resolve()
         if resolved.parent != contract_path.parent.resolve() or not resolved.is_file():
@@ -1017,10 +1647,44 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
             )
         if resolved.name in result_hashes:
             raise RuntimeError(f"Duplicate result filename: {resolved.name}")
+        completion_files[resolved.name] = audit_result_interface(
+            resolved,
+            expected_task_ids=expected_results[resolved.name],
+            num_trials=int(payload["decoding"]["num_trials"]),
+            max_tokens=int(payload["decoding"]["max_tokens"]),
+        )
         result_hashes[resolved.name] = sha256_file(resolved)
     if not result_hashes:
         raise RuntimeError("Cannot finalize a contract without result files")
     payload["result_sha256"] = dict(sorted(result_hashes.items()))
+    payload["completion_audit"] = {
+        "protocol": "v5_stage1_sft_causal_interface_completion_audit",
+        "tool_action_interface": dict(TOOL_ACTION_INTERFACE),
+        "result_files": dict(sorted(completion_files.items())),
+        "max_observed_prompt_tokens": max(
+            item["max_observed_prompt_tokens"]
+            for item in completion_files.values()
+        ),
+        "max_observed_total_request_tokens": max(
+            item["max_observed_total_request_tokens"]
+            for item in completion_files.values()
+        ),
+        "all_expected_tasks_observed_once_per_trial": True,
+        "request_token_overflow_detected": False,
+        "status": "PASS",
+    }
+    if payload.get("checkpoint_registry_provenance_profile") == "v5_3":
+        try:
+            payload["strict_judge_audit_evidence"] = (
+                judge_audit_contract.validate_strict_judge_evidence(
+                    output_files,
+                    maximum_content_attempts=2,
+                )
+            )
+        except judge_audit_contract.StrictJudgeEvidenceError as error:
+            raise RuntimeError(
+                "V5.3 evaluation strict-judge evidence is incomplete"
+            ) from error
     payload["status"] = "COMPLETE"
     payload["completed_at"] = datetime.now(timezone.utc).isoformat()
     temporary = contract_path.with_name(f".{contract_path.name}.tmp")
@@ -1074,7 +1738,10 @@ def main() -> None:
     args.agent_api_base = shared_api_base
     args.user_api_base = shared_api_base
     args.judge_api_base = shared_api_base
-    checkpoint_registry = load_checkpoint_registry(checkpoint_registry_path)
+    checkpoint_registry = load_checkpoint_registry(
+        checkpoint_registry_path,
+        expected_profile=args.provenance_profile,
+    )
     if (
         checkpoint_registry["training_data_provenance"]["dynamic_audits"][
             "validation"

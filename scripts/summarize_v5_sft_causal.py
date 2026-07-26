@@ -22,6 +22,7 @@ from collections import Counter
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import random
 import re
@@ -32,9 +33,44 @@ try:
     from v5_dynamic_audit_contract import load_complete_dynamic_audit
 except ModuleNotFoundError:
     from scripts.v5_dynamic_audit_contract import load_complete_dynamic_audit
+try:
+    import v5_judge_audit_contract as judge_audit_contract
+except ModuleNotFoundError:
+    from scripts import v5_judge_audit_contract as judge_audit_contract
+try:
+    from run_v5_sft_causal_eval import (
+        MAX_MODEL_LEN,
+        PROFILE_GENERATION_INJECTIONS,
+        PROFILE_MODEL_IDS,
+        PROVENANCE_PROFILES,
+        STRICT_NL_JUDGE_ENTRYPOINT,
+        STRICT_NL_JUDGE_MODULE,
+        TOOL_ACTION_INTERFACE,
+        V5_3_DESIGN_PROTOCOL,
+        V5_3_DESIGN_VERSION,
+        audit_result_interface,
+        checkpoint_registry_provenance_profile,
+        contract_core_sha256,
+    )
+except ModuleNotFoundError:
+    from scripts.run_v5_sft_causal_eval import (
+        MAX_MODEL_LEN,
+        PROFILE_GENERATION_INJECTIONS,
+        PROFILE_MODEL_IDS,
+        PROVENANCE_PROFILES,
+        STRICT_NL_JUDGE_ENTRYPOINT,
+        STRICT_NL_JUDGE_MODULE,
+        TOOL_ACTION_INTERFACE,
+        V5_3_DESIGN_PROTOCOL,
+        V5_3_DESIGN_VERSION,
+        audit_result_interface,
+        checkpoint_registry_provenance_profile,
+        contract_core_sha256,
+    )
 
 
 PROTOCOL = "v5_stage1_sft_causal_validation"
+SUMMARY_CONTRACT_PROTOCOL = "v5_stage1_sft_causal_validation_summary_v2"
 EVALUATION_MANIFEST_PROTOCOL = PROTOCOL
 FAULT_PROTOCOL = "v5_multifamily_readonly_faults_v1"
 PUBLISHED_STAGE0_SPLIT_SHA256 = (
@@ -80,6 +116,23 @@ FROZEN_DECODING = {
     "seed": 20260722,
     "num_trials": 1,
 }
+EXPECTED_RUNTIME_PREFLIGHT = {
+    "served_context_window_tokens": MAX_MODEL_LEN,
+    "request_max_tokens": FROZEN_DECODING["max_tokens"],
+    "maximum_nonoverflow_prompt_tokens": (
+        MAX_MODEL_LEN - FROZEN_DECODING["max_tokens"]
+    ),
+    "max_steps": FROZEN_DECODING["max_steps"],
+    "request_token_overflow_policy": "fail_closed",
+    "longest_prompt_observation": (
+        "completion_audit.max_observed_prompt_tokens"
+    ),
+}
+EXPECTED_STRICT_NL_JUDGE = {
+    "module": STRICT_NL_JUDGE_MODULE,
+    "entrypoint": STRICT_NL_JUDGE_ENTRYPOINT,
+    "mode": "strict_json_schema_fail_closed",
+}
 
 
 def canonical_json(value: Any) -> str:
@@ -106,10 +159,45 @@ def _valid_sha256(value: Any) -> bool:
     return isinstance(value, str) and SHA256_RE.fullmatch(value) is not None
 
 
-def validate_training_data_provenance(payload: dict[str, Any]) -> dict[str, Any]:
+def validate_training_data_provenance(
+    payload: dict[str, Any],
+    *,
+    expected_profile: str | None = None,
+) -> dict[str, Any]:
+    provenance_profile = checkpoint_registry_provenance_profile(
+        payload,
+        expected_profile=expected_profile,
+    )
     provenance = payload.get("training_data_provenance")
     if not isinstance(provenance, dict):
         raise RuntimeError("Checkpoint registry lacks training_data_provenance")
+    design_version = provenance.get("design_version")
+    if provenance_profile == "legacy":
+        if design_version not in (None, "5.2"):
+            raise RuntimeError(
+                "Legacy checkpoint provenance requires absent or 5.2 "
+                f"design_version, got {design_version!r}"
+            )
+    else:
+        design = provenance.get("design_provenance")
+        expected_design = {
+            "design_version": V5_3_DESIGN_VERSION,
+            "design_protocol": V5_3_DESIGN_PROTOCOL,
+            "effective_generation_tasks": 78,
+            "validation_tasks": 21,
+        }
+        if design_version != V5_3_DESIGN_VERSION:
+            raise RuntimeError(
+                "V5.3 checkpoint provenance requires design_version '5.3'"
+            )
+        if not isinstance(design, dict) or any(
+            design.get(field) != value
+            for field, value in expected_design.items()
+        ):
+            raise RuntimeError(
+                "V5.3 checkpoint provenance lacks the frozen 78/21 "
+                "design identity"
+            )
     if (
         provenance.get("official_test_used") is not False
         or provenance.get("official_test_sealed") is not True
@@ -126,7 +214,13 @@ def validate_training_data_provenance(payload: dict[str, Any]) -> dict[str, Any]
         "validation",
     }:
         raise RuntimeError("Checkpoint registry dynamic-audit provenance drift")
-    for name, expected_count in (("generation", 83), ("validation", 21)):
+    for name, expected_count in (
+        (
+            "generation",
+            PROFILE_GENERATION_INJECTIONS[provenance_profile],
+        ),
+        ("validation", 21),
+    ):
         identity = dynamic.get(name)
         if (
             not isinstance(identity, dict)
@@ -147,7 +241,11 @@ def validate_training_data_provenance(payload: dict[str, Any]) -> dict[str, Any]
     return provenance
 
 
-def load_checkpoint_registry(path: Path) -> dict[str, Any]:
+def load_checkpoint_registry(
+    path: Path,
+    *,
+    expected_profile: str | None = None,
+) -> dict[str, Any]:
     payload = load_json(path)
     if (
         not isinstance(payload, dict)
@@ -173,6 +271,11 @@ def load_checkpoint_registry(path: Path) -> dict[str, Any]:
         raise RuntimeError(
             f"Checkpoint registry entries must be exactly {EXPECTED_ARMS}"
         )
+    provenance_profile = checkpoint_registry_provenance_profile(
+        payload,
+        expected_profile=expected_profile,
+    )
+    expected_model_ids = PROFILE_MODEL_IDS[provenance_profile]
     model_ids: list[str] = []
     for arm in EXPECTED_ARMS:
         entry = entries[arm]
@@ -214,7 +317,18 @@ def load_checkpoint_registry(path: Path) -> dict[str, Any]:
                 )
     if len(set(model_ids)) != len(model_ids):
         raise RuntimeError("All five checkpoint registry model_id aliases must be unique")
-    validate_training_data_provenance(payload)
+    for arm in EXPECTED_ARMS:
+        model_id = entries[arm]["model_id"]
+        if model_id != expected_model_ids[arm]:
+            raise RuntimeError(
+                f"Checkpoint registry entry {arm} model_id drift for "
+                f"{provenance_profile}: expected {expected_model_ids[arm]!r}, "
+                f"got {model_id!r}"
+            )
+    validate_training_data_provenance(
+        payload,
+        expected_profile=provenance_profile,
+    )
     return payload
 
 
@@ -304,6 +418,107 @@ def contract_files(arm_dir: Path) -> list[Path]:
     return [path for _, _, path in sorted(parsed)]
 
 
+def expected_contract_result_tasks(
+    payload: dict[str, Any],
+) -> dict[str, list[str]]:
+    task_ids = payload.get("task_ids")
+    if (
+        not isinstance(task_ids, list)
+        or not task_ids
+        or any(not isinstance(task_id, str) for task_id in task_ids)
+        or len(task_ids) != len(set(task_ids))
+    ):
+        raise RuntimeError("Run contract task_ids are invalid")
+    if payload.get("conditions") != ["clean", "error"]:
+        raise RuntimeError("Run contract must cover clean and error")
+    try:
+        shard_index = int(payload["shard_index"])
+        num_shards = int(payload["num_shards"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError("Run contract shard metadata is invalid") from exc
+    by_domain: dict[str, list[str]] = {domain: [] for domain in DOMAINS}
+    for identity in task_ids:
+        if ":" not in identity:
+            raise RuntimeError(f"Malformed contract task identity {identity!r}")
+        domain, task_id = identity.split(":", 1)
+        if domain not in by_domain or not task_id:
+            raise RuntimeError(f"Malformed contract task identity {identity!r}")
+        by_domain[domain].append(task_id)
+    suffix = (
+        ""
+        if num_shards == 1
+        else f".shard-{shard_index:03d}-of-{num_shards:03d}"
+    )
+    return {
+        f"{domain}_{condition}{suffix}.json": sorted(by_domain[domain])
+        for domain in DOMAINS
+        if by_domain[domain]
+        for condition in CONDITIONS
+    }
+
+
+def expected_local_adapter_identity(
+    registry: dict[str, Any],
+) -> dict[str, dict[str, str]]:
+    return {
+        arm: {
+            "adapter_sha256": registry["entries"][arm]["adapter_sha256"],
+            "adapter_config_sha256": registry["entries"][arm][
+                "adapter_config_sha256"
+            ],
+        }
+        for arm in sorted(TRAINED_ARMS)
+    }
+
+
+def expected_served_aliases(registry: dict[str, Any]) -> list[str]:
+    return sorted(
+        registry["entries"][arm]["model_id"].removeprefix("openai/")
+        for arm in EXPECTED_ARMS
+    )
+
+
+def validate_completion_audit(
+    payload: dict[str, Any],
+    *,
+    path: Path,
+    arm_dir: Path,
+    expected_results: dict[str, list[str]],
+) -> dict[str, Any]:
+    """Recompute evaluator completion evidence from every bound result."""
+
+    file_audits = {
+        filename: audit_result_interface(
+            arm_dir / filename,
+            expected_task_ids=task_ids,
+            num_trials=int(payload["decoding"]["num_trials"]),
+            max_tokens=int(payload["decoding"]["max_tokens"]),
+        )
+        for filename, task_ids in sorted(expected_results.items())
+    }
+    expected = {
+        "protocol": "v5_stage1_sft_causal_interface_completion_audit",
+        "tool_action_interface": dict(TOOL_ACTION_INTERFACE),
+        "result_files": file_audits,
+        "max_observed_prompt_tokens": max(
+            item["max_observed_prompt_tokens"]
+            for item in file_audits.values()
+        ),
+        "max_observed_total_request_tokens": max(
+            item["max_observed_total_request_tokens"]
+            for item in file_audits.values()
+        ),
+        "all_expected_tasks_observed_once_per_trial": True,
+        "request_token_overflow_detected": False,
+        "status": "PASS",
+    }
+    if payload.get("completion_audit") != expected:
+        raise RuntimeError(
+            f"Run contract completion audit drift or stale evidence in {path}"
+        )
+    return expected
+
+
 def load_arm_contracts(
     *,
     arm: str,
@@ -318,6 +533,7 @@ def load_arm_contracts(
     expected_source_files: dict[str, Any],
     expected_dynamic_audit_identity: dict[str, Any],
 ) -> dict[str, Any]:
+    registry_profile = checkpoint_registry_provenance_profile(registry)
     expected_entry = registry["entries"][arm]
     frozen_base_alias = registry["entries"]["base_model"]["model_id"]
     seen_tasks: set[str] = set()
@@ -326,6 +542,7 @@ def load_arm_contracts(
     decoding_contract: str | None = None
     role_contract: str | None = None
     declared_result_hashes: dict[str, str] = {}
+    strict_judge_evidence_hashes: dict[str, str] = {}
 
     for path in contract_files(arm_dir):
         payload = load_json(path)
@@ -339,8 +556,23 @@ def load_arm_contracts(
             raise RuntimeError(f"Run contract source commit drift in {path}")
         if payload.get("base_model_revision") != registry["base_model_revision"]:
             raise RuntimeError(f"Run contract base revision drift in {path}")
+        if (
+            payload.get("evaluation_manifest_protocol")
+            != EVALUATION_MANIFEST_PROTOCOL
+        ):
+            raise RuntimeError(
+                f"Run contract evaluation manifest protocol drift in {path}"
+            )
         if payload.get("checkpoint_registry_protocol") != registry["protocol"]:
             raise RuntimeError(f"Run contract registry protocol drift in {path}")
+        contract_profile = payload.get(
+            "checkpoint_registry_provenance_profile",
+            "legacy",
+        )
+        if contract_profile != registry_profile:
+            raise RuntimeError(
+                f"Run contract registry provenance profile drift in {path}"
+            )
         if payload.get("checkpoint_registry_sha256") != registry_sha256:
             raise RuntimeError(f"Run contract registry SHA drift in {path}")
         if payload.get("evaluation_manifest_sha256") != evaluation_manifest_sha256:
@@ -357,6 +589,18 @@ def load_arm_contracts(
             raise RuntimeError(f"Run contract source-file provenance drift in {path}")
         if payload.get("checkpoint_entry") != expected_entry:
             raise RuntimeError(f"Run contract checkpoint entry drift in {path}")
+        if payload.get(
+            "locally_verified_adapter_identity"
+        ) != expected_local_adapter_identity(registry):
+            raise RuntimeError(
+                f"Run contract local adapter identity drift in {path}"
+            )
+        if payload.get("served_registry_aliases") != expected_served_aliases(
+            registry
+        ):
+            raise RuntimeError(
+                f"Run contract served model alias audit drift in {path}"
+            )
         agent = payload.get("agent")
         user = payload.get("user")
         judge = payload.get("judge")
@@ -364,6 +608,8 @@ def load_arm_contracts(
             raise RuntimeError(f"Run contract role metadata missing in {path}")
         if agent.get("model") != expected_entry["model_id"]:
             raise RuntimeError(f"Run contract agent model drift in {path}")
+        if agent.get("revision") != registry["base_model_revision"]:
+            raise RuntimeError(f"Run contract agent revision drift in {path}")
         if (
             user.get("model") != frozen_base_alias
             or judge.get("model") != frozen_base_alias
@@ -372,10 +618,38 @@ def load_arm_contracts(
                 f"Run contract user/judge must both equal the registry "
                 f"base_model alias in {path}"
             )
+        if (
+            user.get("revision") != registry["base_model_revision"]
+            or judge.get("revision") != registry["base_model_revision"]
+        ):
+            raise RuntimeError(
+                f"Run contract user/judge revision drift in {path}"
+            )
+        if judge.get("strict_backend") != EXPECTED_STRICT_NL_JUDGE:
+            raise RuntimeError(
+                f"Run contract strict NL judge drift in {path}"
+            )
+        api_bases = [role.get("api_base") for role in (agent, user, judge)]
+        if (
+            any(
+                not isinstance(value, str) or not value.strip()
+                for value in api_bases
+            )
+            or len(
+                {value.strip().rstrip("/") for value in api_bases}
+            )
+            != 1
+        ):
+            raise RuntimeError(
+                f"Run contract agent/user/judge API interface drift in {path}"
+            )
         roles = canonical_json(
             {
                 "user_model": user["model"],
                 "judge_model": judge["model"],
+                "user_revision": user["revision"],
+                "judge_revision": judge["revision"],
+                "strict_backend": judge["strict_backend"],
             }
         )
         if role_contract is None:
@@ -404,10 +678,26 @@ def load_arm_contracts(
             decoding_contract = serialized_decoding
         elif serialized_decoding != decoding_contract:
             raise RuntimeError(f"Run contract decoding drift in {path}")
+        if payload.get("tool_action_interface") != TOOL_ACTION_INTERFACE:
+            raise RuntimeError(
+                f"Run contract tool-action interface drift in {path}"
+            )
+        if payload.get("runtime_preflight") != EXPECTED_RUNTIME_PREFLIGHT:
+            raise RuntimeError(
+                f"Run contract 32k/60-step runtime preflight drift in {path}"
+            )
         if payload.get("conditions") != ["clean", "error"]:
             raise RuntimeError(f"Run contract conditions drift in {path}")
         if payload.get("official_test_used") is not False:
             raise RuntimeError(f"Run contract opened official test in {path}")
+        observed_core_hash = payload.get("contract_core_sha256")
+        if (
+            not _valid_sha256(observed_core_hash)
+            or observed_core_hash != contract_core_sha256(payload)
+        ):
+            raise RuntimeError(
+                f"Run contract immutable core hash drift in {path}"
+            )
 
         try:
             shard_index = int(payload["shard_index"])
@@ -437,10 +727,18 @@ def load_arm_contracts(
             )
         ):
             raise RuntimeError(f"Run contract lacks valid result_sha256 in {path}")
+        expected_contract_results = expected_contract_result_tasks(payload)
+        if set(result_hashes) != set(expected_contract_results):
+            raise RuntimeError(
+                f"Run contract result set is not the exact task/domain/condition "
+                f"coverage in {path}; expected={sorted(expected_contract_results)}, "
+                f"observed={sorted(result_hashes)}"
+            )
         result_pattern = re.compile(
             r"^(retail|airline)_(clean|error)"
             r"(?:\.shard-(\d+)-of-(\d+))?\.json$"
         )
+        contract_result_paths: list[Path] = []
         for filename, expected_hash in result_hashes.items():
             match = result_pattern.fullmatch(filename)
             if match is None:
@@ -477,6 +775,32 @@ def load_arm_contracts(
                     f"Run contract result SHA drift for {result_path}"
                 )
             declared_result_hashes[filename] = expected_hash
+            contract_result_paths.append(result_path)
+        validate_completion_audit(
+            payload,
+            path=path,
+            arm_dir=arm_dir,
+            expected_results=expected_contract_results,
+        )
+        if registry_profile == "v5_3":
+            try:
+                observed_evidence = (
+                    judge_audit_contract.validate_strict_judge_evidence(
+                        contract_result_paths,
+                        maximum_content_attempts=2,
+                    )
+                )
+            except judge_audit_contract.StrictJudgeEvidenceError as error:
+                raise RuntimeError(
+                    f"{path}: V5.3 strict-judge evidence is incomplete"
+                ) from error
+            if payload.get("strict_judge_audit_evidence") != observed_evidence:
+                raise RuntimeError(
+                    f"{path}: V5.3 strict-judge evidence contract drift"
+                )
+            strict_judge_evidence_hashes[path.name] = observed_evidence[
+                "canonical_mapping_sha256"
+            ]
 
         task_ids = payload.get("task_ids")
         if (
@@ -538,9 +862,23 @@ def load_arm_contracts(
         "dynamic_audit_identity": expected_dynamic_audit_identity,
         "contract_sha256": contract_hashes,
         "result_sha256": dict(sorted(declared_result_hashes.items())),
+        "contract_collection_sha256": hashlib.sha256(
+            canonical_json(dict(sorted(contract_hashes.items()))).encode("utf-8")
+        ).hexdigest(),
+        "result_collection_sha256": hashlib.sha256(
+            canonical_json(
+                dict(sorted(declared_result_hashes.items()))
+            ).encode("utf-8")
+        ).hexdigest(),
         "schedule": schedule,
         "decoding": json.loads(decoding_contract or "{}"),
         "roles": json.loads(role_contract or "{}"),
+        "tool_action_interface": dict(TOOL_ACTION_INTERFACE),
+        "runtime_preflight": dict(EXPECTED_RUNTIME_PREFLIGHT),
+        "completion_audit_required": True,
+        "strict_judge_evidence_mapping_sha256": dict(
+            sorted(strict_judge_evidence_hashes.items())
+        ),
     }
 
 
@@ -1343,6 +1681,7 @@ def summarize(
     control_arm: str = DEFAULT_CONTROL_ARM,
     bootstrap_draws: int = 10_000,
     bootstrap_seed: int = 20260722,
+    provenance_profile: str | None = None,
 ) -> dict[str, Any]:
     if set(arm_dirs) != set(EXPECTED_ARMS):
         raise RuntimeError(
@@ -1369,7 +1708,11 @@ def summarize(
         expected_source_split="derived_validation",
         expected_task_ids=set(validation_ids),
     )
-    registry = load_checkpoint_registry(checkpoint_registry_path)
+    registry = load_checkpoint_registry(
+        checkpoint_registry_path,
+        expected_profile=provenance_profile,
+    )
+    registry_profile = checkpoint_registry_provenance_profile(registry)
     if (
         registry["training_data_provenance"]["dynamic_audits"]["validation"]
         != dynamic_audit_identity
@@ -1445,8 +1788,47 @@ def summarize(
         }
         for arm in EXPECTED_ARMS
     }
+    all_contract_hashes = {
+        arm: dict(sorted(contract_audits[arm]["contract_sha256"].items()))
+        for arm in EXPECTED_ARMS
+    }
+    all_result_hashes = {
+        arm: dict(sorted(contract_audits[arm]["result_sha256"].items()))
+        for arm in EXPECTED_ARMS
+    }
+    provenance = {
+        "summary_contract_protocol": SUMMARY_CONTRACT_PROTOCOL,
+        "source": {
+            "experiment_source_commit": registry["source_commit"],
+            "base_model_revision": registry["base_model_revision"],
+            "checkpoint_registry_provenance_profile": registry_profile,
+            "tau2_commit": evaluation_payload["tau2_commit"],
+            "tau2_source_files": evaluation_payload["source_files"],
+        },
+        "manifests": {
+            "split_sha256": split_sha,
+            "evaluation_sha256": evaluation_sha,
+            "dynamic_audit_sha256": dynamic_audit_identity["sha256"],
+            "checkpoint_registry_sha256": registry_sha,
+        },
+        "evaluation_contract_sha256": all_contract_hashes,
+        "evaluation_result_sha256": all_result_hashes,
+        "all_evaluation_contracts_sha256": hashlib.sha256(
+            canonical_json(all_contract_hashes).encode("utf-8")
+        ).hexdigest(),
+        "all_evaluation_results_sha256": hashlib.sha256(
+            canonical_json(all_result_hashes).encode("utf-8")
+        ).hexdigest(),
+        "tool_action_interface": dict(TOOL_ACTION_INTERFACE),
+        "runtime_preflight": dict(EXPECTED_RUNTIME_PREFLIGHT),
+        "completion_audits_recomputed": True,
+    }
+    provenance["input_binding_sha256"] = hashlib.sha256(
+        canonical_json(provenance).encode("utf-8")
+    ).hexdigest()
     summary = {
         "protocol": PROTOCOL,
+        "summary_contract_protocol": SUMMARY_CONTRACT_PROTOCOL,
         "status": "PASS",
         "claim_boundary": "validation_directional_screen_only",
         "claim_scope": "multi_fault_family_post_fault_robustness_screen",
@@ -1472,8 +1854,10 @@ def summarize(
             "dynamic_audit": dynamic_audit_identity["sha256"],
             "checkpoint_registry": registry_sha,
         },
+        "provenance": provenance,
         "checkpoint_registry": {
             "protocol": registry["protocol"],
+            "provenance_profile": registry_profile,
             "source_commit": registry["source_commit"],
             "base_model_revision": registry["base_model_revision"],
             "sha256": registry_sha,
@@ -1504,10 +1888,12 @@ def summarize(
         },
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
+    temporary = output_path.with_name(f".{output_path.name}.tmp")
+    temporary.write_text(
         json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    os.replace(temporary, output_path)
     return summary
 
 
@@ -1523,6 +1909,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--evaluation-manifest", type=Path, required=True)
     parser.add_argument("--dynamic-audit", type=Path, required=True)
     parser.add_argument("--checkpoint-registry", type=Path, required=True)
+    parser.add_argument(
+        "--provenance-profile",
+        choices=PROVENANCE_PROFILES,
+        help=(
+            "Optionally require the checkpoint registry's frozen legacy or "
+            "V5.3 provenance profile."
+        ),
+    )
     parser.add_argument(
         "--arm",
         action="append",
@@ -1566,6 +1960,7 @@ def main() -> None:
             control_arm=args.control_arm,
             bootstrap_draws=args.bootstrap_draws,
             bootstrap_seed=args.bootstrap_seed,
+            provenance_profile=args.provenance_profile,
         )
     except RuntimeError as exc:
         raise SystemExit(f"V5 Stage-1 aggregation failed closed: {exc}") from exc

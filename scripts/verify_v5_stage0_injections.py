@@ -27,6 +27,7 @@ SPLIT_PROTOCOL = "v5_stage0_tau2_end_to_end"
 MULTIFAULT_PROTOCOLS = {
     "v5_stage1_multifault_data_construction",
     "v5_stage1_sft_causal_validation",
+    "v5_3_multifault_data_construction",
 }
 MULTIFAULT_SPLITS = {
     "v5_stage1_multifault_data_construction": (
@@ -39,6 +40,19 @@ MULTIFAULT_SPLITS = {
         "validation_ids",
         21,
     ),
+    "v5_3_multifault_data_construction": (
+        "derived_inner_train",
+        "inner_train_ids",
+        78,
+    ),
+}
+V5_3_GT_FILTER_PROTOCOL = "v5_3_gt_compatibility_filter_v1"
+V5_3_GT_INCOMPATIBLE_TASK_IDS = {
+    "airline:0",
+    "airline:10",
+    "airline:28",
+    "airline:34",
+    "retail:24",
 }
 PUBLISHED_STAGE0_SPLIT_SHA256 = (
     "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a"
@@ -199,6 +213,24 @@ def validate_multifault_manifest(
             raise RuntimeError(f"historical split {domain} task IDs drift")
         expected_ids.update(f"{domain}:{value}" for value in source_ids)
         sealed_ids.update(f"{domain}:{value}" for value in sealed)
+    if protocol == "v5_3_multifault_data_construction":
+        gt_filter = manifest.get("gt_compatibility_filter")
+        expected_filter = {
+            "protocol": V5_3_GT_FILTER_PROTOCOL,
+            "policy": "exclude_before_sharding",
+            "teacher_mode": "ground_truth",
+            "source_task_count": 83,
+            "included_task_count": 78,
+            "excluded_task_ids": sorted(V5_3_GT_INCOMPATIBLE_TASK_IDS),
+            "exclusion_reason": "no_expected_tool_actions",
+            "selection_uses_rollouts_rewards_validation_or_test": False,
+            "official_test_used": False,
+        }
+        if gt_filter != expected_filter:
+            raise RuntimeError("V5.3 GT compatibility filter contract drift")
+        if not V5_3_GT_INCOMPATIBLE_TASK_IDS <= expected_ids:
+            raise RuntimeError("V5.3 excluded tasks are outside inner train")
+        expected_ids -= V5_3_GT_INCOMPATIBLE_TASK_IDS
     if len(expected_ids) != expected_count:
         raise RuntimeError("historical split expected task count drift")
     fault_protocol = manifest.get("fault_protocol")

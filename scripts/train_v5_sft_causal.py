@@ -56,6 +56,41 @@ EXPECTED_DYNAMIC_AUDITS = {
         "verified_injections": 21,
     },
 }
+V5_3_DESIGN_VERSION = "5.3"
+V5_3_DESIGN_PROTOCOL = "v5_3_task_level_cross_seed_sft_screen"
+V5_3_GENERATION_MANIFEST_PROTOCOL = "v5_3_multifault_data_construction"
+V5_3_VALIDATION_MANIFEST_PROTOCOL = "v5_stage1_sft_causal_validation"
+V5_3_GENERATION_SHARDS = 3
+V5_3_GENERATION_TRIALS = 12
+V5_3_GT_FILTER_PROTOCOL = "v5_3_gt_compatibility_filter_v1"
+V5_3_GT_INCOMPATIBLE_TASK_IDS = (
+    "airline:0",
+    "airline:10",
+    "airline:28",
+    "airline:34",
+    "retail:24",
+)
+V5_3_EXPECTED_DYNAMIC_AUDITS = {
+    "generation": {
+        "source_split": "derived_inner_train",
+        "verified_injections": 78,
+    },
+    "validation": {
+        "source_split": "derived_validation",
+        "verified_injections": 21,
+    },
+}
+V5_3_GT_FILTER = {
+    "protocol": V5_3_GT_FILTER_PROTOCOL,
+    "policy": "exclude_before_sharding",
+    "teacher_mode": "ground_truth",
+    "source_task_count": 83,
+    "included_task_count": 78,
+    "excluded_task_ids": list(V5_3_GT_INCOMPATIBLE_TASK_IDS),
+    "exclusion_reason": "no_expected_tool_actions",
+    "selection_uses_rollouts_rewards_validation_or_test": False,
+    "official_test_used": False,
+}
 
 ARM_TARGET_RECOVERY_RATIOS = {
     "perfect_success": 0.0,
@@ -104,6 +139,186 @@ def read_json_object(path: Path, *, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise RuntimeError(f"{label} must be a JSON object: {path}")
     return value
+
+
+def validate_v5_3_design_provenance(
+    *,
+    audit: dict[str, Any],
+    hashes: dict[str, Any],
+    data_root: Path,
+    dynamic_identities: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Bind a V5.3 training run to its filtered manifests and raw contracts."""
+
+    if audit.get("design_protocol") != V5_3_DESIGN_PROTOCOL:
+        raise RuntimeError("V5.3 data audit design protocol drift")
+    incompatible = audit.get("ground_truth_incompatible_task_ids")
+    if incompatible != list(V5_3_GT_INCOMPATIBLE_TASK_IDS):
+        raise RuntimeError("V5.3 data audit GT-incompatible task set drift")
+
+    arm_train = audit.get("arm_train_task_ids")
+    loss_validation = audit.get("loss_validation_task_ids")
+    if (
+        not isinstance(arm_train, list)
+        or len(arm_train) != 70
+        or len(set(arm_train)) != 70
+        or any(not isinstance(value, str) for value in arm_train)
+        or not isinstance(loss_validation, list)
+        or len(loss_validation) != 8
+        or len(set(loss_validation)) != 8
+        or any(not isinstance(value, str) for value in loss_validation)
+    ):
+        raise RuntimeError("V5.3 70/8 train/loss-validation partition drift")
+    included_tasks = set(arm_train) | set(loss_validation)
+    if (
+        set(arm_train) & set(loss_validation)
+        or len(included_tasks) != 78
+        or included_tasks & set(V5_3_GT_INCOMPATIBLE_TASK_IDS)
+    ):
+        raise RuntimeError("V5.3 effective 78-task universe drift")
+
+    generation_sha = audit.get("generation_manifest_sha256")
+    if not isinstance(generation_sha, str) or SHA256_RE.fullmatch(
+        generation_sha
+    ) is None:
+        raise RuntimeError("V5.3 generation manifest SHA is invalid")
+    generation_dynamic = dynamic_identities["generation"]
+    if generation_dynamic.get("manifest_sha256") != generation_sha:
+        raise RuntimeError(
+            "V5.3 generation dynamic audit is not bound to generation manifest"
+        )
+
+    generation_contracts = audit.get("generation_contracts")
+    if not isinstance(generation_contracts, dict):
+        raise RuntimeError("V5.3 data audit lacks formal generation contracts")
+    if (
+        generation_contracts.get("generation_manifest_sha256") != generation_sha
+        or generation_contracts.get("dynamic_audit_identity")
+        != generation_dynamic
+        or generation_contracts.get("task_union") != 78
+        or generation_contracts.get("shards") != V5_3_GENERATION_SHARDS
+    ):
+        raise RuntimeError("V5.3 generation contract/manifest identity drift")
+    contract_files = generation_contracts.get("contract_files")
+    if (
+        not isinstance(contract_files, dict)
+        or len(contract_files) != V5_3_GENERATION_SHARDS
+    ):
+        raise RuntimeError("V5.3 requires exactly three generation contracts")
+
+    observed_indices: set[int] = set()
+    contract_tasks: set[str] = set()
+    contract_hashes: dict[str, str] = {}
+    for raw_path, declared_sha in sorted(contract_files.items()):
+        if (
+            not isinstance(raw_path, str)
+            or not isinstance(declared_sha, str)
+            or SHA256_RE.fullmatch(declared_sha) is None
+        ):
+            raise RuntimeError("V5.3 generation contract file identity is invalid")
+        path = Path(raw_path)
+        if not path.is_file() or sha256_file(path) != declared_sha:
+            raise RuntimeError(
+                f"V5.3 generation contract file SHA drift: {path}"
+            )
+        contract = read_json_object(path, label="V5.3 generation contract")
+        index = contract.get("shard_index")
+        if (
+            contract.get("protocol")
+            != "v5_stage1_inner_train_generation_run"
+            or contract.get("status") != "COMPLETE"
+            or contract.get("generation_manifest_protocol")
+            != V5_3_GENERATION_MANIFEST_PROTOCOL
+            or contract.get("gt_compatibility_filter") != V5_3_GT_FILTER
+            or contract.get("manifest_sha256") != generation_sha
+            or contract.get("dynamic_audit_identity") != generation_dynamic
+            or contract.get("source_split") != "derived_inner_train"
+            or contract.get("official_test_used") is not False
+            or contract.get("num_shards") != V5_3_GENERATION_SHARDS
+            or contract.get("num_trials") != V5_3_GENERATION_TRIALS
+            or type(index) is not int
+            or index in observed_indices
+        ):
+            raise RuntimeError(
+                f"V5.3 generation manifest protocol/contract drift: {path}"
+            )
+        observed_indices.add(index)
+        task_ids = contract.get("task_ids")
+        if (
+            not isinstance(task_ids, list)
+            or any(not isinstance(value, str) for value in task_ids)
+            or len(task_ids) != len(set(task_ids))
+            or contract_tasks & set(task_ids)
+        ):
+            raise RuntimeError(f"V5.3 generation shard task identity drift: {path}")
+        contract_tasks.update(task_ids)
+        contract_hashes[str(path)] = declared_sha
+    if (
+        observed_indices != set(range(V5_3_GENERATION_SHARDS))
+        or contract_tasks != included_tasks
+    ):
+        raise RuntimeError(
+            "V5.3 generation contracts do not partition the frozen 78 tasks"
+        )
+
+    validation_path = data_root / "validation_manifest.json"
+    declared_validation_sha = hashes.get("validation_manifest.json")
+    if (
+        not isinstance(declared_validation_sha, str)
+        or SHA256_RE.fullmatch(declared_validation_sha) is None
+        or not validation_path.is_file()
+        or sha256_file(validation_path) != declared_validation_sha
+    ):
+        raise RuntimeError("V5.3 validation manifest/hash binding drift")
+    validation_dynamic = dynamic_identities["validation"]
+    if validation_dynamic.get("manifest_sha256") != declared_validation_sha:
+        raise RuntimeError(
+            "V5.3 validation dynamic audit is not bound to validation manifest"
+        )
+    validation_manifest = read_json_object(
+        validation_path,
+        label="V5.3 validation manifest",
+    )
+    validation_rows = validation_manifest.get("rows")
+    if (
+        validation_manifest.get("protocol")
+        != V5_3_VALIDATION_MANIFEST_PROTOCOL
+        or validation_manifest.get("paired_task_count") != 21
+        or not isinstance(validation_rows, list)
+        or len(validation_rows) != 21
+        or validation_manifest.get("official_test_used") is not False
+        or validation_manifest.get("official_test_sealed") is not True
+    ):
+        raise RuntimeError("V5.3 validation manifest protocol/coverage drift")
+    validation_ids: set[str] = set()
+    for row in validation_rows:
+        if (
+            not isinstance(row, dict)
+            or row.get("source_split") != "derived_validation"
+            or row.get("domain") not in {"retail", "airline"}
+        ):
+            raise RuntimeError("V5.3 validation manifest source split drift")
+        identity = f"{row['domain']}:{row.get('task_id')}"
+        if identity in validation_ids:
+            raise RuntimeError("V5.3 validation manifest has duplicate tasks")
+        validation_ids.add(identity)
+    if len(validation_ids) != 21:
+        raise RuntimeError("V5.3 validation manifest task coverage drift")
+
+    return {
+        "design_version": V5_3_DESIGN_VERSION,
+        "design_protocol": V5_3_DESIGN_PROTOCOL,
+        "generation_manifest_protocol": V5_3_GENERATION_MANIFEST_PROTOCOL,
+        "generation_manifest_sha256": generation_sha,
+        "generation_contract_sha256": contract_hashes,
+        "ground_truth_incompatible_task_ids": list(
+            V5_3_GT_INCOMPATIBLE_TASK_IDS
+        ),
+        "effective_generation_tasks": 78,
+        "validation_manifest_protocol": V5_3_VALIDATION_MANIFEST_PROTOCOL,
+        "validation_manifest_sha256": declared_validation_sha,
+        "validation_tasks": 21,
+    }
 
 
 def validate_training_data_provenance(
@@ -164,6 +379,9 @@ def validate_training_data_provenance(
         f"arms/{arm}/train.jsonl",
         "validation_loss.jsonl",
     }
+    design_version = audit.get("design_version")
+    if design_version == V5_3_DESIGN_VERSION:
+        required_hash_keys.add("validation_manifest.json")
     for key in required_hash_keys:
         value = hashes.get(key)
         if not isinstance(value, str) or SHA256_RE.fullmatch(value) is None:
@@ -203,7 +421,12 @@ def validate_training_data_provenance(
     split_sha = audit.get("split_manifest_sha256")
     if not isinstance(split_sha, str) or SHA256_RE.fullmatch(split_sha) is None:
         raise RuntimeError("data audit split-manifest SHA is invalid")
-    for name, expected in EXPECTED_DYNAMIC_AUDITS.items():
+    expected_dynamic_audits = (
+        V5_3_EXPECTED_DYNAMIC_AUDITS
+        if design_version == V5_3_DESIGN_VERSION
+        else EXPECTED_DYNAMIC_AUDITS
+    )
+    for name, expected in expected_dynamic_audits.items():
         identity = dynamic.get(name)
         if not isinstance(identity, dict):
             raise RuntimeError(f"data audit lacks {name} dynamic audit identity")
@@ -227,6 +450,15 @@ def validate_training_data_provenance(
                 )
         dynamic_identities[name] = dict(identity)
 
+    design_provenance = None
+    if design_version == V5_3_DESIGN_VERSION:
+        design_provenance = validate_v5_3_design_provenance(
+            audit=audit,
+            hashes=hashes,
+            data_root=data_root,
+            dynamic_identities=dynamic_identities,
+        )
+
     return {
         "data_audit_path": str(data_audit_path),
         "data_audit_sha256": audit_sha,
@@ -235,6 +467,8 @@ def validate_training_data_provenance(
         "train_file_sha256": train_sha,
         "validation_file_sha256": validation_sha,
         "dynamic_audits": dynamic_identities,
+        "design_version": design_version,
+        "design_provenance": design_provenance,
         "official_test_used": False,
         "official_test_sealed": True,
     }

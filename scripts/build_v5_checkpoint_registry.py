@@ -30,6 +30,24 @@ MODEL_IDS = {
     "repair_50": "openai/v5-repair-50",
     "repair_100": "openai/v5-repair-100",
 }
+V5_3_MODEL_IDS = {
+    "base_model": "openai/v5-3-base",
+    "perfect_success": "openai/v5-3-perfect-success",
+    "failure_raw": "openai/v5-3-failure-raw",
+    "repair_50": "openai/v5-3-repair-50",
+    "repair_100": "openai/v5-3-repair-100",
+}
+PROVENANCE_PROFILES = ("legacy", "v5_3")
+V5_3_DESIGN_VERSION = "5.3"
+V5_3_DESIGN_PROTOCOL = "v5_3_task_level_cross_seed_sft_screen"
+PROFILE_GENERATION_INJECTIONS = {
+    "legacy": 83,
+    "v5_3": 78,
+}
+PROFILE_MODEL_IDS = {
+    "legacy": MODEL_IDS,
+    "v5_3": V5_3_MODEL_IDS,
+}
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -79,12 +97,78 @@ def parse_arm_bindings(values: list[str]) -> dict[str, Path]:
     return bindings
 
 
+def _manifest_design_version(run_dir: Path) -> Any:
+    manifest = load_json(run_dir / "run_manifest.json")
+    provenance = manifest.get("data_provenance")
+    if not isinstance(provenance, dict):
+        raise RuntimeError(
+            f"{run_dir}: run manifest lacks data provenance"
+        )
+    return provenance.get("design_version")
+
+
+def infer_provenance_profile(arm_dirs: dict[str, Path]) -> str:
+    """Infer only the two registered profiles from immutable run provenance."""
+
+    if set(arm_dirs) != set(ARMS):
+        raise RuntimeError(f"arm directories must be exactly {ARMS}")
+    versions = {
+        _manifest_design_version(Path(arm_dirs[arm]).expanduser().resolve())
+        for arm in ARMS
+    }
+    if versions == {V5_3_DESIGN_VERSION}:
+        return "v5_3"
+    if versions <= {None, "5.2"}:
+        return "legacy"
+    raise RuntimeError(
+        "cannot infer a registered provenance profile from design versions "
+        f"{sorted(repr(value) for value in versions)}"
+    )
+
+
+def _validate_profile_provenance(
+    provenance: dict[str, Any],
+    *,
+    provenance_profile: str,
+) -> None:
+    if provenance_profile not in PROVENANCE_PROFILES:
+        raise RuntimeError(
+            f"unsupported provenance profile {provenance_profile!r}"
+        )
+    design_version = provenance.get("design_version")
+    if provenance_profile == "legacy":
+        if design_version not in (None, "5.2"):
+            raise RuntimeError(
+                "legacy provenance profile requires absent or 5.2 "
+                f"design_version, got {design_version!r}"
+            )
+        return
+    if design_version != V5_3_DESIGN_VERSION:
+        raise RuntimeError(
+            "V5.3 provenance profile requires design_version '5.3'"
+        )
+    design = provenance.get("design_provenance")
+    expected = {
+        "design_version": V5_3_DESIGN_VERSION,
+        "design_protocol": V5_3_DESIGN_PROTOCOL,
+        "effective_generation_tasks": 78,
+        "validation_tasks": 21,
+    }
+    if not isinstance(design, dict) or any(
+        design.get(field) != value for field, value in expected.items()
+    ):
+        raise RuntimeError(
+            "V5.3 provenance profile lacks the frozen 78/21 design identity"
+        )
+
+
 def validate_run(
     *,
     arm: str,
     run_dir: Path,
     source_commit: str,
     base_revision: str,
+    provenance_profile: str = "legacy",
 ) -> tuple[dict[str, str], dict[str, Any]]:
     if not run_dir.is_dir():
         raise RuntimeError(f"{arm}: formal run directory missing: {run_dir}")
@@ -126,6 +210,10 @@ def validate_run(
     provenance = manifest.get("data_provenance")
     if not isinstance(provenance, dict):
         raise RuntimeError(f"{arm}: run manifest lacks data provenance")
+    _validate_profile_provenance(
+        provenance,
+        provenance_profile=provenance_profile,
+    )
     if (
         provenance.get("official_test_used") is not False
         or provenance.get("official_test_sealed") is not True
@@ -138,6 +226,12 @@ def validate_run(
         "official_test_used": False,
         "official_test_sealed": True,
     }
+    if "design_version" in provenance:
+        common_provenance["design_version"] = provenance["design_version"]
+    if "design_provenance" in provenance:
+        common_provenance["design_provenance"] = provenance[
+            "design_provenance"
+        ]
     if any(
         not isinstance(common_provenance[field], str)
         or SHA256_RE.fullmatch(common_provenance[field]) is None
@@ -150,7 +244,13 @@ def validate_run(
         "validation",
     }:
         raise RuntimeError(f"{arm}: data provenance dynamic audits drift")
-    for name, expected_count in (("generation", 83), ("validation", 21)):
+    for name, expected_count in (
+        (
+            "generation",
+            PROFILE_GENERATION_INJECTIONS[provenance_profile],
+        ),
+        ("validation", 21),
+    ):
         identity = dynamic.get(name)
         if (
             not isinstance(identity, dict)
@@ -188,7 +288,7 @@ def validate_run(
         raise RuntimeError(f"{arm}: invalid computed SHA-256")
     return (
         {
-            "model_id": MODEL_IDS[arm],
+            "model_id": PROFILE_MODEL_IDS[provenance_profile][arm],
             "adapter_sha256": adapter_sha,
             "adapter_config_sha256": adapter_config_sha,
             "training_run_manifest_sha256": manifest_sha,
@@ -202,6 +302,7 @@ def build_registry(
     source_commit: str,
     base_revision: str,
     arm_dirs: dict[str, Path],
+    provenance_profile: str | None = None,
 ) -> dict[str, Any]:
     if COMMIT_RE.fullmatch(source_commit) is None:
         raise RuntimeError("source commit must be a full lowercase commit")
@@ -209,9 +310,16 @@ def build_registry(
         raise RuntimeError("base revision must be a full lowercase revision")
     if set(arm_dirs) != set(ARMS):
         raise RuntimeError(f"arm directories must be exactly {ARMS}")
+    if provenance_profile is None:
+        provenance_profile = infer_provenance_profile(arm_dirs)
+    elif provenance_profile not in PROVENANCE_PROFILES:
+        raise RuntimeError(
+            f"unsupported provenance profile {provenance_profile!r}"
+        )
+    model_ids_for_profile = PROFILE_MODEL_IDS[provenance_profile]
     entries: dict[str, Any] = {
         "base_model": {
-            "model_id": MODEL_IDS["base_model"],
+            "model_id": model_ids_for_profile["base_model"],
             "adapter_sha256": None,
             "adapter_config_sha256": None,
             "training_run_manifest_sha256": None,
@@ -227,6 +335,7 @@ def build_registry(
             run_dir=run_dir,
             source_commit=source_commit,
             base_revision=base_revision,
+            provenance_profile=provenance_profile,
         )
     serialized_provenance = {
         json.dumps(value, sort_keys=True, separators=(",", ":"))
@@ -252,6 +361,7 @@ def build_registry(
         "protocol": PROTOCOL,
         "source_commit": source_commit,
         "base_model_revision": base_revision,
+        "provenance_profile": provenance_profile,
         "training_data_provenance": common_provenance,
         "entries": entries,
     }
@@ -288,6 +398,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--base-revision", required=True)
     parser.add_argument(
+        "--provenance-profile",
+        choices=PROVENANCE_PROFILES,
+        help=(
+            "Explicitly require legacy (83 generation injections, openai/v5-*) "
+            "or V5.3 (78 generation injections, openai/v5-3-*). If omitted, "
+            "derive only from the registered data_provenance.design_version."
+        ),
+    )
+    parser.add_argument(
         "--arm",
         action="append",
         required=True,
@@ -304,6 +423,7 @@ def main() -> None:
         source_commit=args.source_commit,
         base_revision=args.base_revision,
         arm_dirs=bindings,
+        provenance_profile=args.provenance_profile,
     )
     output = args.output.expanduser().resolve()
     atomic_write_registry(output, registry)

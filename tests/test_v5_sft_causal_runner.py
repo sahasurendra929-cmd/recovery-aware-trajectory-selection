@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 from unittest.mock import patch
 
 from tests.v5_multifault_fixtures import (
@@ -67,9 +68,10 @@ BASE_REVISION = "b" * 40
 
 
 def checkpoint_registry():
+    model_ids = MODULE.PROFILE_MODEL_IDS["legacy"]
     entries = {
         "base_model": {
-            "model_id": "openai/v5-base",
+            "model_id": model_ids["base_model"],
             "adapter_sha256": None,
             "adapter_config_sha256": None,
             "training_run_manifest_sha256": None,
@@ -77,7 +79,7 @@ def checkpoint_registry():
     }
     for index, arm in enumerate(sorted(MODULE.TRAINED_ARMS), start=1):
         entries[arm] = {
-            "model_id": f"openai/v5-{arm}",
+            "model_id": model_ids[arm],
             "adapter_sha256": f"{index:x}" * 64,
             "adapter_config_sha256": f"{index + 8:x}" * 64,
             "training_run_manifest_sha256": f"{index + 4:x}" * 64,
@@ -422,6 +424,206 @@ class V5SFTCausalRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "both conditions"):
             MODULE.validate_evaluation_protocol(invalid)
 
+    def test_endpoint_and_response_normalization_match_generation(self):
+        endpoint = MODULE.endpoint_args(
+            "http://127.0.0.1:8100/v1",
+            "local",
+            max_tokens=512,
+            seed=20260722,
+        )
+        self.assertIs(endpoint["parallel_tool_calls"], False)
+        first = {"id": "first", "name": "lookup", "arguments": {"id": 1}}
+        deferred = {
+            "id": "second",
+            "name": "update",
+            "arguments": {"id": 1},
+        }
+        message = SimpleNamespace(
+            tool_calls=[first, deferred],
+            content="I will call both tools.",
+            raw_data={"provider": "vllm"},
+        )
+        normalized = MODULE.normalize_tool_only_message(message)
+        self.assertEqual(normalized.tool_calls, [first])
+        self.assertIsNone(normalized.content)
+        parallel = normalized.raw_data[
+            "v5_stage1_parallel_calls_serialized"
+        ]
+        self.assertEqual(parallel["original_count"], 2)
+        self.assertEqual(
+            parallel["deferred_call_sha256"],
+            [MODULE._sha256_canonical_payload(deferred)],
+        )
+        mixed = normalized.raw_data["v5_stage1_mixed_content_normalized"]
+        self.assertEqual(
+            mixed["utf8_bytes"],
+            len("I will call both tools.".encode("utf-8")),
+        )
+        self.assertRegex(mixed["sha256"], r"^[0-9a-f]{64}$")
+
+    def test_32k_request_budget_fails_closed_on_one_token_overflow(self):
+        self.assertEqual(
+            MODULE.validate_request_token_budget(
+                32256,
+                max_tokens=512,
+            ),
+            32768,
+        )
+        with self.assertRaisesRegex(RuntimeError, "exceeds"):
+            MODULE.validate_request_token_budget(
+                32257,
+                max_tokens=512,
+            )
+        with self.assertRaisesRegex(RuntimeError, "max_tokens"):
+            MODULE.endpoint_args(
+                "http://127.0.0.1:8100/v1",
+                "local",
+                max_tokens=32769,
+                seed=20260722,
+            )
+        with tempfile.TemporaryDirectory() as directory:
+            result = Path(directory) / "retail_clean.json"
+            result.write_text(
+                json.dumps(
+                    {
+                        "simulations": [
+                            {
+                                "task_id": "100",
+                                "termination_reason": "agent_stop",
+                                "messages": [
+                                    {
+                                        "role": "assistant",
+                                        "content": "done",
+                                        "usage": {"prompt_tokens": 32257},
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RuntimeError, "exceeds"):
+                MODULE.audit_result_interface(
+                    result,
+                    expected_task_ids=["100"],
+                    num_trials=1,
+                    max_tokens=512,
+                )
+
+    def test_result_interface_rejects_unserialized_or_mixed_tool_actions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "retail_clean.json"
+            base = {
+                "task_id": "100",
+                "termination_reason": "agent_stop",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {"id": "one", "name": "lookup", "arguments": {}},
+                            {"id": "two", "name": "lookup", "arguments": {}},
+                        ],
+                        "usage": {"prompt_tokens": 100},
+                    }
+                ],
+            }
+            path.write_text(
+                json.dumps({"simulations": [base]}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RuntimeError, "multiple parallel"):
+                MODULE.audit_result_interface(
+                    path,
+                    expected_task_ids=["100"],
+                    num_trials=1,
+                    max_tokens=512,
+                )
+            base["messages"][0]["tool_calls"] = [
+                {"id": "one", "name": "lookup", "arguments": {}}
+            ]
+            base["messages"][0]["content"] = "hidden prose"
+            path.write_text(
+                json.dumps({"simulations": [base]}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RuntimeError, "mixed text"):
+                MODULE.audit_result_interface(
+                    path,
+                    expected_task_ids=["100"],
+                    num_trials=1,
+                    max_tokens=512,
+                )
+
+    def test_contract_core_binds_interface_preflight_and_strict_judge(self):
+        payload = {
+            "tool_action_interface": dict(MODULE.TOOL_ACTION_INTERFACE),
+            "runtime_preflight": {
+                "served_context_window_tokens": 32768,
+                "request_max_tokens": 512,
+                "maximum_nonoverflow_prompt_tokens": 32256,
+                "max_steps": 60,
+                "request_token_overflow_policy": "fail_closed",
+                "longest_prompt_observation": (
+                    "completion_audit.max_observed_prompt_tokens"
+                ),
+            },
+            "decoding": dict(MODULE.FROZEN_DECODING),
+            "judge": {
+                "strict_backend": {
+                    "module": "v5_strict_nl_judge",
+                    "entrypoint": "install_strict_nl_judge",
+                    "mode": "strict_json_schema_fail_closed",
+                }
+            },
+            "status": "INCOMPLETE",
+            "result_sha256": {},
+            "completion_audit": {},
+            "strict_judge_audit_evidence": {},
+        }
+        payload["contract_core_sha256"] = MODULE.contract_core_sha256(payload)
+        MODULE.validate_contract_core(payload)
+        core_hash = payload["contract_core_sha256"]
+        payload["strict_judge_audit_evidence"] = {
+            "protocol": "v5_strict_nl_judge_evidence_v1",
+            "status": "PASS",
+        }
+        self.assertEqual(MODULE.contract_core_sha256(payload), core_hash)
+        MODULE.validate_contract_core(payload)
+        payload["tool_action_interface"]["parallel_tool_calls"] = True
+        with self.assertRaisesRegex(RuntimeError, "core hash drift"):
+            MODULE.validate_contract_core(payload)
+
+    def test_strict_nl_judge_is_lazily_installed_and_missing_is_fatal(self):
+        installer = mock.Mock()
+        strict_module = SimpleNamespace(install_strict_nl_judge=installer)
+        with patch.object(
+            MODULE.importlib,
+            "import_module",
+            return_value=strict_module,
+        ):
+            identity = MODULE.patch_local_nl_judge(
+                "openai/v5-base",
+                {"api_base": "http://localhost/v1"},
+            )
+        installer.assert_called_once_with(
+            model="openai/v5-base",
+            llm_args={"api_base": "http://localhost/v1"},
+        )
+        self.assertEqual(identity["mode"], "strict_json_schema_fail_closed")
+        missing = ModuleNotFoundError(
+            "No module named 'v5_strict_nl_judge'",
+            name="v5_strict_nl_judge",
+        )
+        with patch.object(
+            MODULE.importlib,
+            "import_module",
+            side_effect=missing,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "evaluation is deferred"):
+                MODULE.patch_local_nl_judge("openai/v5-base", {})
+
     def test_run_contract_records_complete_checkpoint_identity_chain(self):
         directory, manifest_path, split_path, _ = self.write_manifest(
             validation_rows()
@@ -520,13 +722,55 @@ class V5SFTCausalRunnerTests(unittest.TestCase):
             contract["served_registry_aliases"],
             MODULE.registry_served_aliases(registry),
         )
-        result_path = output_dir / "retail_clean.json"
-        result_path.write_text('{"simulations":[]}', encoding="utf-8")
-        hashes = MODULE.finalize_contract(contract_path, [result_path])
+        result_paths = []
+        for domain, task_ids in (
+            ("retail", [str(index) for index in range(100, 115)]),
+            ("airline", [str(index) for index in range(100, 106)]),
+        ):
+            for condition in ("clean", "error"):
+                result_path = output_dir / f"{domain}_{condition}.json"
+                simulations = [
+                    {
+                        "task_id": task_id,
+                        "termination_reason": "agent_stop",
+                        "messages": [
+                            {
+                                "role": "assistant",
+                                "content": "done",
+                                "tool_calls": None,
+                                "usage": {
+                                    "prompt_tokens": 128,
+                                    "completion_tokens": 1,
+                                },
+                            }
+                        ],
+                    }
+                    for task_id in task_ids
+                ]
+                result_path.write_text(
+                    json.dumps({"simulations": simulations}),
+                    encoding="utf-8",
+                )
+                result_paths.append(result_path)
+        hashes = MODULE.finalize_contract(contract_path, result_paths)
         finalized = json.loads(contract_path.read_text(encoding="utf-8"))
         self.assertEqual(finalized["status"], "COMPLETE")
         self.assertEqual(finalized["result_sha256"], hashes)
-        self.assertEqual(hashes[result_path.name], MODULE.sha256_file(result_path))
+        self.assertEqual(
+            set(hashes),
+            {
+                "retail_clean.json",
+                "retail_error.json",
+                "airline_clean.json",
+                "airline_error.json",
+            },
+        )
+        self.assertEqual(finalized["completion_audit"]["status"], "PASS")
+        self.assertTrue(
+            finalized["completion_audit"][
+                "all_expected_tasks_observed_once_per_trial"
+            ]
+        )
 
 
 if __name__ == "__main__":

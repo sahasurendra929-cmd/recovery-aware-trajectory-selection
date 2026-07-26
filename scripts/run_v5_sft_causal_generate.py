@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -23,11 +24,35 @@ try:
     from v5_dynamic_audit_contract import load_complete_dynamic_audit
 except ModuleNotFoundError:
     from scripts.v5_dynamic_audit_contract import load_complete_dynamic_audit
+try:
+    import v5_judge_audit_contract as judge_audit_contract
+except ModuleNotFoundError:
+    from scripts import v5_judge_audit_contract as judge_audit_contract
+
+try:
+    from v5_strict_nl_judge import (
+        DEFAULT_CONTENT_ATTEMPTS,
+        STRICT_NL_JUDGE_PROTOCOL,
+        install_strict_nl_judge,
+    )
+except ModuleNotFoundError:
+    from scripts.v5_strict_nl_judge import (
+        DEFAULT_CONTENT_ATTEMPTS,
+        STRICT_NL_JUDGE_PROTOCOL,
+        install_strict_nl_judge,
+    )
 
 
 GENERATION_PROTOCOL = "v5_stage1_multifault_data_construction"
+V5_3_GENERATION_PROTOCOL = "v5_3_multifault_data_construction"
 FAULT_PROTOCOL = "v5_multifamily_readonly_faults_v1"
-ALLOWED_PROTOCOLS = {GENERATION_PROTOCOL}
+GT_COMPATIBILITY_PROTOCOL = "v5_gt_compatibility_preflight_v1"
+GT_FILTER_PROTOCOL = "v5_3_gt_compatibility_filter_v1"
+V5_3_TEMPERATURE = 0.2
+V5_3_TOP_P = 0.95
+V5_3_NUM_TRIALS = 12
+V5_3_SEED = 20260722
+ALLOWED_PROTOCOLS = {GENERATION_PROTOCOL, V5_3_GENERATION_PROTOCOL}
 SPLIT_PROTOCOL = "v5_stage0_tau2_end_to_end"
 DOMAINS = ("retail", "airline")
 EXPECTED_SPLIT_COUNTS = {
@@ -37,6 +62,23 @@ EXPECTED_SPLIT_COUNTS = {
 ROOT = Path(__file__).resolve().parents[1]
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 FAULT_INJECTIONS: dict[str, dict[str, Any]] = {}
+
+
+class GTCompatibilityError(RuntimeError):
+    """The frozen generation universe contains tasks a GT teacher cannot run."""
+
+    def __init__(self, report: dict[str, Any]):
+        incompatible = report["incompatible_task_ids"]
+        declared = report.get("declared_incompatible_task_ids", [])
+        super().__init__(
+            "GT compatibility preflight failed before generation: "
+            f"{len(incompatible)} task(s) require no expected tool action: "
+            f"{', '.join(incompatible)}; frozen exclusions: "
+            f"{', '.join(declared) if declared else '<none>'}. "
+            "Revise and re-freeze the protocol task universe; do not convert "
+            "these tasks into empty simulations."
+        )
+        self.report = report
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,6 +110,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-shards", type=int, default=1)
     parser.add_argument("--num-trials", type=int, default=3)
     parser.add_argument("--seed", type=int, default=20260722)
+    parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--max-steps", type=int, default=60)
     parser.add_argument("--timeout", type=float, default=900.0)
     parser.add_argument("--max-tokens", type=int, default=512)
@@ -337,12 +381,84 @@ def load_inner_train_manifest(
             "Generation manifest leaks validation/test task IDs: "
             f"{sorted(leaked)[:5]}"
         )
-    if observed != expected_inner:
-        raise RuntimeError(
-            "Generation manifest must cover exactly the frozen inner-train IDs; "
-            f"missing={sorted(expected_inner - observed)[:5]}, "
-            f"extra={sorted(observed - expected_inner)[:5]}"
-        )
+    protocol = payload.get("protocol")
+    if protocol == GENERATION_PROTOCOL:
+        if observed != expected_inner:
+            raise RuntimeError(
+                "Legacy generation manifest must cover exactly the frozen "
+                "inner-train IDs; "
+                f"missing={sorted(expected_inner - observed)[:5]}, "
+                f"extra={sorted(observed - expected_inner)[:5]}"
+            )
+        if payload.get("gt_compatibility_filter") is not None:
+            raise RuntimeError(
+                "Legacy generation manifest cannot declare a V5.3 GT filter"
+            )
+        payload["_validated_gt_compatibility_filter"] = None
+    elif protocol == V5_3_GENERATION_PROTOCOL:
+        gt_filter = payload.get("gt_compatibility_filter")
+        if not isinstance(gt_filter, dict):
+            raise RuntimeError(
+                "V5.3 generation manifest lacks frozen gt_compatibility_filter"
+            )
+        excluded_values = gt_filter.get("excluded_task_ids")
+        if not isinstance(excluded_values, list) or any(
+            not isinstance(value, str) or ":" not in value
+            for value in excluded_values
+        ):
+            raise RuntimeError(
+                "V5.3 gt_compatibility_filter.excluded_task_ids is malformed"
+            )
+        if len(set(excluded_values)) != len(excluded_values):
+            raise RuntimeError(
+                "V5.3 gt_compatibility_filter contains duplicate exclusions"
+            )
+        excluded: set[tuple[str, str]] = set()
+        for value in excluded_values:
+            domain, task_id = value.split(":", 1)
+            if domain not in DOMAINS or not task_id:
+                raise RuntimeError(
+                    f"V5.3 GT compatibility exclusion is invalid: {value!r}"
+                )
+            excluded.add((domain, task_id))
+        required_metadata = {
+            "protocol": GT_FILTER_PROTOCOL,
+            "policy": "exclude_before_sharding",
+            "teacher_mode": "ground_truth",
+            "source_task_count": len(expected_inner),
+            "included_task_count": len(observed),
+            "exclusion_reason": "no_expected_tool_actions",
+            "selection_uses_rollouts_rewards_validation_or_test": False,
+            "official_test_used": False,
+        }
+        for field, expected_value in required_metadata.items():
+            if gt_filter.get(field) != expected_value:
+                raise RuntimeError(
+                    "V5.3 gt_compatibility_filter metadata drift for "
+                    f"{field}: expected {expected_value!r}, "
+                    f"observed {gt_filter.get(field)!r}"
+                )
+        if observed & excluded:
+            raise RuntimeError(
+                "V5.3 included rows overlap frozen GT-incompatible task IDs"
+            )
+        if observed | excluded != expected_inner:
+            raise RuntimeError(
+                "V5.3 included and excluded tasks must partition the complete "
+                "frozen inner-train universe; "
+                f"missing={sorted(expected_inner - (observed | excluded))[:5]}, "
+                f"extra={sorted((observed | excluded) - expected_inner)[:5]}"
+            )
+        if not excluded:
+            raise RuntimeError(
+                "V5.3 gt_compatibility_filter must freeze a nonempty exclusion set"
+            )
+        payload["_validated_gt_compatibility_filter"] = {
+            **gt_filter,
+            "excluded_task_ids": sorted(excluded_values),
+        }
+    else:  # guarded above; keeps static analyzers and future edits fail-closed.
+        raise RuntimeError("Unexpected generation manifest protocol")
     declared_split_sha = payload.get("split_manifest_sha256")
     if declared_split_sha != split_manifest_sha256:
         raise RuntimeError("Generation manifest split_manifest_sha256 drift")
@@ -587,10 +703,11 @@ def register_fault_agents() -> None:
 
 
 def patch_local_nl_judge(model: str, llm_args: dict[str, Any]) -> None:
-    import tau2.evaluator.evaluator_nl_assertions as nl_module
-
-    nl_module.DEFAULT_LLM_NL_ASSERTIONS = model
-    nl_module.DEFAULT_LLM_NL_ASSERTIONS_ARGS = dict(llm_args)
+    install_strict_nl_judge(
+        model=model,
+        llm_args=llm_args,
+        max_content_attempts=DEFAULT_CONTENT_ATTEMPTS,
+    )
 
 
 def select_tasks(domain: str, rows: list[dict[str, Any]]):
@@ -608,13 +725,194 @@ def select_tasks(domain: str, rows: list[dict[str, Any]]):
     return tasks
 
 
+def preflight_gt_compatibility(
+    rows: list[dict[str, Any]],
+    *,
+    teacher_mode: str,
+    gt_compatibility_filter: dict[str, Any] | None = None,
+    task_selector: Any | None = None,
+    compatibility_check: Any | None = None,
+) -> dict[str, Any]:
+    """Fail before any rollout if a GT teacher cannot run the frozen universe.
+
+    This validates the complete manifest, not just the current shard, so all
+    workers make the same decision and no subset starts expensive generation
+    while another subset discovers an actionless task.
+    """
+
+    if teacher_mode not in {"standard", "ground_truth"}:
+        raise ValueError(f"Unknown teacher mode {teacher_mode!r}")
+    if gt_compatibility_filter is not None and teacher_mode != "ground_truth":
+        raise RuntimeError(
+            "A V5.3 ground-truth compatibility filter cannot be used with "
+            f"teacher_mode={teacher_mode!r}"
+        )
+    declared_incompatible = sorted(
+        (gt_compatibility_filter or {}).get("excluded_task_ids", [])
+    )
+    report: dict[str, Any] = {
+        "protocol": GT_COMPATIBILITY_PROTOCOL,
+        "teacher_mode": teacher_mode,
+        "checked_scope": "complete_generation_manifest",
+        "included_manifest_task_count": len(rows),
+        "checked_task_count": len(rows) + len(declared_incompatible),
+        "compatible_task_count": len(rows),
+        "incompatible_task_ids": [],
+        "declared_incompatible_task_ids": declared_incompatible,
+        "filter_protocol": (gt_compatibility_filter or {}).get("protocol"),
+        "filter_verified": False,
+        "policy": "fail_fast_and_require_preregistered_manifest_revision",
+        "status": "NOT_APPLICABLE" if teacher_mode == "standard" else "PASS",
+    }
+    if teacher_mode == "standard":
+        return report
+
+    if task_selector is None:
+        task_selector = select_tasks
+    if compatibility_check is None:
+        from tau2.agent.llm_agent import LLMGTAgent
+
+        compatibility_check = LLMGTAgent.check_valid_task
+
+    complete_rows = list(rows)
+    for value in declared_incompatible:
+        domain, task_id = value.split(":", 1)
+        complete_rows.append({"domain": domain, "task_id": task_id})
+    identities = [
+        f"{row.get('domain')}:{row.get('task_id')}" for row in complete_rows
+    ]
+    if len(set(identities)) != len(identities):
+        raise RuntimeError(
+            "GT compatibility preflight received overlapping included/excluded tasks"
+        )
+
+    incompatible: list[str] = []
+    checked = 0
+    for domain in DOMAINS:
+        domain_rows = [
+            row for row in complete_rows if row.get("domain") == domain
+        ]
+        if not domain_rows:
+            continue
+        tasks = list(task_selector(domain, domain_rows))
+        if len(tasks) != len(domain_rows):
+            raise RuntimeError(
+                f"GT compatibility selector count drift for {domain}: "
+                f"expected {len(domain_rows)}, observed {len(tasks)}"
+            )
+        for row, task in zip(domain_rows, tasks, strict=True):
+            row_task_id = str(row.get("task_id"))
+            if str(task.id) != row_task_id:
+                raise RuntimeError(
+                    f"GT compatibility selector order drift for {domain}: "
+                    f"expected task {row_task_id}, observed {task.id}"
+                )
+            checked += 1
+            if compatibility_check(task) is not True:
+                incompatible.append(f"{domain}:{row_task_id}")
+
+    report["checked_task_count"] = checked
+    report["compatible_task_count"] = checked - len(incompatible)
+    report["incompatible_task_ids"] = sorted(incompatible)
+    if sorted(incompatible) != declared_incompatible:
+        report["status"] = "FAIL"
+        raise GTCompatibilityError(report)
+    report["filter_verified"] = bool(gt_compatibility_filter)
+    return report
+
+
+def derived_trial_seeds(seed: int, num_trials: int) -> list[int]:
+    """Mirror tau2.run_tasks' deterministic per-trial seed schedule."""
+
+    if type(seed) is not int or type(num_trials) is not int or num_trials < 1:
+        raise ValueError("seed and positive integer num_trials are required")
+    generator = random.Random(seed)
+    seeds = [generator.randint(0, 1_000_000) for _ in range(num_trials)]
+    if len(set(seeds)) != len(seeds):
+        raise RuntimeError("derived per-trial seeds are not distinct")
+    return seeds
+
+
+def validate_sampling_contract(
+    *,
+    manifest_protocol: str,
+    temperature: float,
+    top_p: float,
+    num_trials: int,
+    seed: int,
+) -> dict[str, Any]:
+    """Freeze stochastic V5.3 attempts while preserving legacy V5 defaults."""
+
+    if not isinstance(temperature, (int, float)) or isinstance(temperature, bool):
+        raise ValueError("temperature must be numeric")
+    if not isinstance(top_p, (int, float)) or isinstance(top_p, bool):
+        raise ValueError("top_p must be numeric")
+    temperature = float(temperature)
+    top_p = float(top_p)
+    if not 0.0 <= temperature <= 2.0:
+        raise ValueError("temperature must be in [0, 2]")
+    if not 0.0 < top_p <= 1.0:
+        raise ValueError("top_p must be in (0, 1]")
+    seeds = derived_trial_seeds(seed, num_trials)
+
+    if manifest_protocol == V5_3_GENERATION_PROTOCOL:
+        expected = {
+            "temperature": V5_3_TEMPERATURE,
+            "top_p": V5_3_TOP_P,
+            "num_trials": V5_3_NUM_TRIALS,
+            "seed": V5_3_SEED,
+        }
+        observed = {
+            "temperature": temperature,
+            "top_p": top_p,
+            "num_trials": num_trials,
+            "seed": seed,
+        }
+        if observed != expected:
+            raise RuntimeError(
+                "V5.3 generation sampling contract drift: "
+                f"expected {expected}, observed {observed}"
+            )
+        if temperature <= 0:
+            raise RuntimeError(
+                "V5.3 requires nonzero temperature for independent attempts"
+            )
+    elif manifest_protocol != GENERATION_PROTOCOL:
+        raise RuntimeError(
+            f"Unsupported generation sampling protocol {manifest_protocol!r}"
+        )
+
+    return {
+        "protocol": (
+            "v5_3_frozen_stochastic_attempts_v1"
+            if manifest_protocol == V5_3_GENERATION_PROTOCOL
+            else "v5_legacy_generation_sampling_v1"
+        ),
+        "temperature": temperature,
+        "top_p": top_p,
+        "base_seed": seed,
+        "num_trials": num_trials,
+        "derived_trial_seeds": seeds,
+        "derived_trial_seeds_are_distinct": True,
+        "judge_temperature": 0.0,
+        "judge_top_p": 1.0,
+    }
+
+
 def endpoint_args(
-    api_base: str, api_key: str, *, max_tokens: int, seed: int
+    api_base: str,
+    api_key: str,
+    *,
+    max_tokens: int,
+    seed: int,
+    temperature: float = 0.0,
+    top_p: float = 1.0,
 ) -> dict[str, Any]:
     return {
         "api_base": api_base,
         "api_key": api_key,
-        "temperature": 0,
+        "temperature": temperature,
+        "top_p": top_p,
         "max_tokens": max_tokens,
         "seed": seed,
         "parallel_tool_calls": False,
@@ -733,6 +1031,8 @@ def write_contract(
     *,
     dynamic_audit_path: Path,
     dynamic_audit_identity: dict[str, Any],
+    gt_compatibility_preflight: dict[str, Any] | None = None,
+    sampling_contract: dict[str, Any] | None = None,
 ) -> Path:
     path = args.output_dir / (
         "run_contract.json"
@@ -749,6 +1049,10 @@ def write_contract(
         "source_commit": args.expected_source_commit,
         "manifest": str(manifest_path),
         "manifest_sha256": sha256_file(manifest_path),
+        "generation_manifest_protocol": manifest_payload.get("protocol"),
+        "gt_compatibility_filter": manifest_payload.get(
+            "gt_compatibility_filter"
+        ),
         "fault_protocol": manifest_payload.get("fault_protocol"),
         "tau2_commit": manifest_payload.get("tau2_commit"),
         "source_files": manifest_payload.get("source_files"),
@@ -756,6 +1060,8 @@ def write_contract(
         "split_manifest_sha256": sha256_file(split_manifest_path),
         "dynamic_audit": str(dynamic_audit_path),
         "dynamic_audit_identity": dynamic_audit_identity,
+        "gt_compatibility_preflight": gt_compatibility_preflight,
+        "sampling_contract": sampling_contract,
         "source_split": "derived_inner_train",
         "official_test_used": False,
         "task_ids": [f"{row['domain']}:{row['task_id']}" for row in rows],
@@ -777,9 +1083,14 @@ def write_contract(
             "model": args.judge_model or args.user_model,
             "revision": args.judge_revision,
             "api_base": args.judge_api_base or args.user_api_base,
+            "protocol": STRICT_NL_JUDGE_PROTOCOL,
+            "content_attempts": DEFAULT_CONTENT_ATTEMPTS,
+            "schema_failure": "fail_closed",
+            "raw_response_audit": True,
         },
         "decoding": {
-            "temperature": 0,
+            "temperature": args.temperature,
+            "top_p": args.top_p,
             "max_tokens": args.max_tokens,
             "parallel_tool_calls": False,
             "parallel_tool_call_normalization": "execute_first_then_replan",
@@ -787,8 +1098,12 @@ def write_contract(
             "max_steps": args.max_steps,
             "task_timeout_seconds": args.timeout,
             "seed": args.seed,
+            "derived_trial_seeds": (
+                sampling_contract or {}
+            ).get("derived_trial_seeds"),
         },
         "result_sha256": {},
+        "strict_judge_audit_evidence": {},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -818,6 +1133,18 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
     if not result_hashes:
         raise RuntimeError("Cannot finalize generation without result files")
     payload["result_sha256"] = dict(sorted(result_hashes.items()))
+    if payload.get("generation_manifest_protocol") == V5_3_GENERATION_PROTOCOL:
+        try:
+            payload["strict_judge_audit_evidence"] = (
+                judge_audit_contract.validate_strict_judge_evidence(
+                    output_files,
+                    maximum_content_attempts=DEFAULT_CONTENT_ATTEMPTS,
+                )
+            )
+        except judge_audit_contract.StrictJudgeEvidenceError as error:
+            raise RuntimeError(
+                "V5.3 generation strict-judge evidence is incomplete"
+            ) from error
     payload["status"] = "COMPLETE"
     payload["completed_at"] = datetime.now(timezone.utc).isoformat()
     temporary = contract_path.with_name(f".{contract_path.name}.tmp")
@@ -846,6 +1173,13 @@ def main() -> None:
         split_manifest=split_manifest,
         split_manifest_sha256=sha256_file(split_manifest_path),
     )
+    sampling_contract = validate_sampling_contract(
+        manifest_protocol=manifest["protocol"],
+        temperature=args.temperature,
+        top_p=args.top_p,
+        num_trials=args.num_trials,
+        seed=args.seed,
+    )
     dynamic_audit_path = args.dynamic_audit.resolve()
     dynamic_audit_identity = load_complete_dynamic_audit(
         dynamic_audit_path,
@@ -870,6 +1204,12 @@ def main() -> None:
     ):
         raise RuntimeError("Teacher and user simulator must be separately served roles")
 
+    configure_tau2_path(args.tau2_root)
+    gt_compatibility = preflight_gt_compatibility(
+        list(manifest["rows"]),
+        teacher_mode=args.teacher_mode,
+        gt_compatibility_filter=manifest["_validated_gt_compatibility_filter"],
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     contract_path = write_contract(
         args,
@@ -878,8 +1218,9 @@ def main() -> None:
         rows,
         dynamic_audit_path=dynamic_audit_path,
         dynamic_audit_identity=dynamic_audit_identity,
+        gt_compatibility_preflight=gt_compatibility,
+        sampling_contract=sampling_contract,
     )
-    configure_tau2_path(args.tau2_root)
     os.environ.setdefault("OPENAI_API_KEY", args.teacher_api_key)
     register_fault_agents()
 
@@ -888,12 +1229,16 @@ def main() -> None:
         args.teacher_api_key,
         max_tokens=args.max_tokens,
         seed=args.seed,
+        temperature=args.temperature,
+        top_p=args.top_p,
     )
     user_args = endpoint_args(
         args.user_api_base,
         args.user_api_key,
         max_tokens=args.max_tokens,
         seed=args.seed,
+        temperature=args.temperature,
+        top_p=args.top_p,
     )
     judge_model = args.judge_model or args.user_model
     judge_args = endpoint_args(
@@ -901,6 +1246,8 @@ def main() -> None:
         args.judge_api_key or args.user_api_key,
         max_tokens=args.max_tokens,
         seed=args.seed,
+        temperature=0.0,
+        top_p=1.0,
     )
     patch_local_nl_judge(litellm_openai_model(judge_model), judge_args)
 

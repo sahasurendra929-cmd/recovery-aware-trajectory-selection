@@ -52,15 +52,25 @@ validation. It does not claim an end-to-end agent improvement yet.
   corrected pilot remained far below the frozen threshold. No four-arm
   comparison was made. See
   [`V5_STAGE1_PREFLIGHT_RESULT.md`](V5_STAGE1_PREFLIGHT_RESULT.md).
-- **v5.2 (implemented, awaiting RunPod preflight):** preserves the V5
-  question, four SFT arms, 7B student, and end-to-end evaluation, but fixes
+- **v5.2 (stopped before training):** preserved the V5
+  question, four SFT arms, 7B student, and end-to-end evaluation, but fixed
   the data-pool design. It runs a fixed 12 attempts per task and condition,
   pairs independently eligible clean and post-fault trajectories at task
-  level, caps each task at two pairs, and uses a frozen 75-task training /
-  8-task loss-validation partition. A fail-closed gate requires at least 40
-  training tasks and 48 pairs. One controller operates a single RunPod host
-  with four RTX 4090 GPUs. See
+  level, caps each task at two pairs, and introduced a fail-closed 40-task /
+  48-pair data gate. Its generation/audit attempt exposed remaining task
+  compatibility, strict-judge, matching, and controller-completion problems;
+  no four-arm training comparison was claimed. See
   [`V5_2_SINGLE_HOST_HANDOFF.md`](V5_2_SINGLE_HOST_HANDOFF.md).
+- **v5.3 (implemented, awaiting the preregistered RunPod pilot):** filters five
+  ground-truth-incompatible tasks before any rollout, freezes the remaining 78
+  tasks into 70 arm-train and 8 loss-validation tasks, uses a 32B-AWQ teacher
+  plus a 14B-AWQ user/judge, and makes 12 disjoint-seed attempts per condition.
+  A 24-task, 576-rollout pilot must yield at least 15 tasks with one pair and
+  4 tasks with a second pair before formal generation is authorized. The
+  controller also binds runtime context/concurrency preflights, global
+  tolerance-aware four-arm matching, checkpoint provenance, full end-to-end
+  result coverage, and recomputed summaries. See
+  [`V5_3_SINGLE_HOST_HANDOFF.md`](V5_3_SINGLE_HOST_HANDOFF.md).
 
 Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples
@@ -84,8 +94,10 @@ baseline success rate is too low to update the scientific claim.
 The V5 Stage-1 preflight establishes a narrower negative engineering result:
 the original same-seed 3/3 pairing requirement cannot supply the registered
 training pool with the frozen generation stack. It does not establish whether
-post-fault supervision helps or harms. V5.2 is the preregistered data-design
-correction needed before that scientific comparison can occur.
+post-fault supervision helps or harms. V5.2 exposed further implementation and
+attainability risks. V5.3 is the current preregistered continuation; it has not
+yet produced a positive scientific result, and formal generation is prohibited
+unless its train-only pilot returns `GO_FORMAL_GENERATION`.
 
 ## Repository map
 
@@ -146,8 +158,12 @@ The label also records whether a user spoke before the corrective tool call. Thi
 - [x] Dynamically audit all 83 generation and 21 validation injected calls
 - [x] Record the fail-closed V5 Stage-1 paired-pool infeasibility result
 - [x] Implement and test the V5.2 task-level, fixed-attempt data-pool protocol
-- [ ] Run the V5.2 1,992-rollout generation and pass its 40-task/48-pair gate
+- [x] Stop V5.2 before training when generation/audit assumptions failed
+- [x] Implement and locally audit the V5.3 pilot-gated 78-task protocol
+- [ ] Run the V5.3 24-task pilot and obtain a frozen GO/NO-GO decision
+- [ ] If and only if GO, run V5.3 formal generation and pass its 40/48 gate
 - [ ] Run the four one-seed 7B QLoRA screening arms plus untrained-base control
+- [ ] Confirm the selected method with a preregistered stronger fixed user/judge
 - [ ] Replicate a gate-passing mixture on three seeds before unsealing test
 - [ ] Run the V4 Clean-SFT / continued-SFT / DPO diagnostic
 - [ ] Confirm any screened V4 signal on fresh held-out tasks and three seeds
