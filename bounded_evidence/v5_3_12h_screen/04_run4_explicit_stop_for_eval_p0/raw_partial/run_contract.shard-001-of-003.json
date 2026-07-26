@@ -1,0 +1,280 @@
+{
+  "protocol": "v5_stage1_inner_train_generation_run",
+  "status": "INCOMPLETE",
+  "created_at": "2026-07-26T15:59:15.293164+00:00",
+  "source_commit": "251b2ec68799557ccb0b1f05dd4dd11d8a854a6d",
+  "manifest": "/workspace/repos/recovery-aware-trajectory-selection/data/processed/v5_3_12h_screen_protocol/screen_manifest.json",
+  "manifest_sha256": "8cfa939fc4634abd9ffd6697fb41dd47d6a5ae7eaea02faae3603f9695c6eda9",
+  "generation_manifest_protocol": "v5_3_12h_exploratory_screen_v1:manifest_v1",
+  "gt_compatibility_filter": {
+    "excluded_task_ids": [
+      "airline:0",
+      "airline:10",
+      "airline:28",
+      "airline:34",
+      "retail:24"
+    ],
+    "exclusion_reason": "no_expected_tool_actions",
+    "included_task_count": 78,
+    "official_test_used": false,
+    "policy": "exclude_before_sharding",
+    "protocol": "v5_3_gt_compatibility_filter_v1",
+    "selection_uses_rollouts_rewards_validation_or_test": false,
+    "source_task_count": 83,
+    "teacher_mode": "ground_truth"
+  },
+  "fault_protocol": {
+    "claim_scope": "multi_fault_family_post_fault_robustness_screen",
+    "families": {
+      "airline": [
+        {
+          "fault_family": "airline_missing_reservation_id",
+          "invalid_argument_key": "reservation_id",
+          "tool_name": "get_reservation_details"
+        },
+        {
+          "fault_family": "airline_missing_user_id",
+          "invalid_argument_key": "user_id",
+          "tool_name": "get_user_details"
+        },
+        {
+          "fault_family": "airline_missing_flight_number",
+          "invalid_argument_key": "flight_number",
+          "tool_name": "get_flight_status"
+        }
+      ],
+      "retail": [
+        {
+          "fault_family": "retail_missing_user_email",
+          "invalid_argument_key": "email",
+          "tool_name": "find_user_id_by_email"
+        },
+        {
+          "fault_family": "retail_missing_user_id",
+          "invalid_argument_key": "user_id",
+          "tool_name": "get_user_details"
+        },
+        {
+          "fault_family": "retail_missing_order_id",
+          "invalid_argument_key": "order_id",
+          "tool_name": "get_order_details"
+        },
+        {
+          "fault_family": "retail_missing_product_id",
+          "invalid_argument_key": "product_id",
+          "tool_name": "get_product_details"
+        }
+      ]
+    },
+    "family_level_inference": "descriptive_only",
+    "guarantees": {
+      "database_absence_checked_at_pinned_tau2_commit": true,
+      "expected_state_mutation": false,
+      "expected_tool_error": true,
+      "per_task_unique_invalid_parameter": true,
+      "tool_type": "READ"
+    },
+    "protocol": "v5_multifamily_readonly_faults_v1"
+  },
+  "tau2_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "source_files": {
+    "airline": {
+      "db_json_sha256": "1af9fea6e03ca7ca15a22bb3fcaf3e351393e3fc9070b6777947da8996f7531b",
+      "tasks_json_sha256": "ccd8ba737b4cc371415af70151187788f728d6108d0916e73bb4317b40542052",
+      "tools_py_sha256": "3987f21c286314cb48764f97052934ff4fd60e27a0b2e4a43423911adf8eaa26"
+    },
+    "retail": {
+      "db_json_sha256": "413a65160adbdb5fde0ffc0015c49b6d70250b10c18128de169b597af7766765",
+      "tasks_json_sha256": "8e03ebce7901bd6218e7a7dc3105faa9324091a68058f7fe61c65262868812e8",
+      "tools_py_sha256": "34f4fe9702d36f0dd4697700fbcd63d0cf5386e6eb8e7499aaa336243bad8750"
+    }
+  },
+  "split_manifest": "/workspace/repos/recovery-aware-trajectory-selection/artifacts/v5_stage0/manifests/split_manifest.json",
+  "split_manifest_sha256": "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a",
+  "dynamic_audit": "/workspace/repos/recovery-aware-trajectory-selection/data/processed/v5_3_12h_screen_protocol/generation_dynamic_audit.json",
+  "dynamic_audit_identity": {
+    "protocol": "v5_stage1_dynamic_injection_audit",
+    "sha256": "a25a1fae5d2a46a2200f443f1de5693ba7e556b12cb3549a026627623a50bf1b",
+    "manifest_sha256": "2896515bee828f6faed05b521eb975ae78535032ad63b95f677ff82578aeb3b4",
+    "split_manifest_sha256": "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a",
+    "source_split": "derived_inner_train",
+    "verified_injections": 78,
+    "official_test_used": false,
+    "official_test_sealed": true
+  },
+  "gt_compatibility_preflight": {
+    "protocol": "v5_gt_compatibility_preflight_v1",
+    "teacher_mode": "ground_truth",
+    "checked_scope": "complete_generation_manifest",
+    "included_manifest_task_count": 24,
+    "checked_task_count": 29,
+    "compatible_task_count": 24,
+    "incompatible_task_ids": [
+      "airline:0",
+      "airline:10",
+      "airline:28",
+      "airline:34",
+      "retail:24"
+    ],
+    "declared_incompatible_task_ids": [
+      "airline:0",
+      "airline:10",
+      "airline:28",
+      "airline:34",
+      "retail:24"
+    ],
+    "filter_protocol": "v5_3_gt_compatibility_filter_v1",
+    "filter_verified": true,
+    "policy": "fail_fast_and_require_preregistered_manifest_revision",
+    "status": "PASS"
+  },
+  "sampling_contract": {
+    "protocol": "v5_3_12h_screen_stochastic_attempts_v1",
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "base_seed": 20260731,
+    "num_trials": 6,
+    "derived_trial_seeds": [
+      25987,
+      293840,
+      725284,
+      249400,
+      591103,
+      257709
+    ],
+    "derived_trial_seeds_are_distinct": true,
+    "judge_temperature": 0.0,
+    "judge_top_p": 1.0
+  },
+  "source_split": "derived_inner_train",
+  "official_test_used": false,
+  "task_ids": [
+    "retail:15",
+    "retail:10",
+    "retail:25",
+    "retail:92",
+    "airline:40",
+    "retail:8",
+    "retail:54",
+    "retail:67"
+  ],
+  "shard_index": 1,
+  "num_shards": 3,
+  "num_trials": 6,
+  "teacher": {
+    "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
+    "revision": "5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c",
+    "api_base": "http://127.0.0.1:8011/v1",
+    "mode": "ground_truth",
+    "tensor_parallel_size": 2
+  },
+  "user": {
+    "model": "Qwen/Qwen2.5-14B-Instruct-AWQ",
+    "revision": "539535859b135b0244c91f3e59816150c8056698",
+    "api_base": "http://127.0.0.1:8001/v1",
+    "tensor_parallel_size": 1
+  },
+  "judge": {
+    "model": "Qwen/Qwen2.5-14B-Instruct-AWQ",
+    "revision": "539535859b135b0244c91f3e59816150c8056698",
+    "api_base": "http://127.0.0.1:8001/v1",
+    "protocol": "v5_strict_nl_judge_v1",
+    "content_attempts": 2,
+    "schema_failure": "fail_closed",
+    "raw_response_audit": true,
+    "tensor_parallel_size": 1
+  },
+  "decoding": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "max_tokens": 512,
+    "parallel_tool_calls": false,
+    "parallel_tool_call_normalization": "execute_first_then_replan",
+    "mixed_tool_call_content_normalization": "drop_text_preserve_sha256",
+    "max_steps": 60,
+    "task_timeout_seconds": 900.0,
+    "seed": 20260731,
+    "derived_trial_seeds": [
+      25987,
+      293840,
+      725284,
+      249400,
+      591103,
+      257709
+    ],
+    "max_model_len": 32768
+  },
+  "result_sha256": {},
+  "strict_judge_audit_evidence": {},
+  "subprotocol": "v5_3_12h_screen_generation_v1",
+  "screen_protocol": "v5_3_12h_exploratory_screen_v1",
+  "formal_data": false,
+  "screen_outputs_may_enter_formal": false,
+  "screen_outputs_may_enter_formal_v5_3": false,
+  "screen_manifest": "/workspace/repos/recovery-aware-trajectory-selection/data/processed/v5_3_12h_screen_protocol/screen_manifest.json",
+  "screen_manifest_sha256": "8cfa939fc4634abd9ffd6697fb41dd47d6a5ae7eaea02faae3603f9695c6eda9",
+  "source_generation_manifest_sha256": "2896515bee828f6faed05b521eb975ae78535032ad63b95f677ff82578aeb3b4",
+  "generation_manifest_sha256": "2896515bee828f6faed05b521eb975ae78535032ad63b95f677ff82578aeb3b4",
+  "base_seed": 20260731,
+  "trial_seeds": [
+    25987,
+    293840,
+    725284,
+    249400,
+    591103,
+    257709
+  ],
+  "task_universe_complete": false,
+  "max_model_len": 32768,
+  "runtime_evidence": {
+    "path": "/workspace/repos/recovery-aware-trajectory-selection/results/v5_3_12h_screen/runtime_preflights/generation-screen.json",
+    "sha256": "eee42078566a206d2e8a5d60cd366a0a36fc8b0caee176b3f431e51f25585913",
+    "protocol": "v5_3_generation_runtime_preflight_v3",
+    "phase": "screen",
+    "canonical_receipt_sha256": "16f2b28480a78d0616210789d923f7434e45c0fb317f94be92cff2538a75d2bf",
+    "max_model_len": 32768,
+    "expected_gpu_model": "NVIDIA GeForce RTX 5090",
+    "gpu_inventory": [
+      {
+        "driver": "580.126.09",
+        "index": 0,
+        "memory_mib": 32607,
+        "name": "NVIDIA GeForce RTX 5090",
+        "uuid": "GPU-37361aa9-95eb-d4af-cced-ae50d5002e9b"
+      },
+      {
+        "driver": "580.126.09",
+        "index": 1,
+        "memory_mib": 32607,
+        "name": "NVIDIA GeForce RTX 5090",
+        "uuid": "GPU-a1c2ef56-dd6f-4400-32ff-5c49ee1c7252"
+      },
+      {
+        "driver": "580.126.09",
+        "index": 2,
+        "memory_mib": 32607,
+        "name": "NVIDIA GeForce RTX 5090",
+        "uuid": "GPU-d85220d3-7086-44ef-c29f-cdc8bbbb29ab"
+      },
+      {
+        "driver": "580.126.09",
+        "index": 3,
+        "memory_mib": 32607,
+        "name": "NVIDIA GeForce RTX 5090",
+        "uuid": "GPU-b862f884-5888-9043-041d-a274a207cb1e"
+      }
+    ],
+    "host_preflight": {
+      "path": "/workspace/repos/recovery-aware-trajectory-selection/results/v5_3_12h_screen/preflight.json",
+      "sha256": "33412f904c1e8137a48e225b9040a44a96b2298a4f9946b7bac9f77668c77847"
+    },
+    "cuda_version": "12.8",
+    "teacher_visible_gpu_indices": [
+      1,
+      2
+    ],
+    "user_and_judge_visible_gpu_indices": [
+      0
+    ]
+  }
+}

@@ -1,0 +1,1980 @@
+{
+  "protocol": "v5_3_multifault_data_construction",
+  "seed": 20260722,
+  "training": false,
+  "scientific_claim_allowed": false,
+  "split_manifest_sha256": "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a",
+  "tau2_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "source_files": {
+    "retail": {
+      "tasks_json_sha256": "8e03ebce7901bd6218e7a7dc3105faa9324091a68058f7fe61c65262868812e8",
+      "db_json_sha256": "413a65160adbdb5fde0ffc0015c49b6d70250b10c18128de169b597af7766765",
+      "tools_py_sha256": "34f4fe9702d36f0dd4697700fbcd63d0cf5386e6eb8e7499aaa336243bad8750"
+    },
+    "airline": {
+      "tasks_json_sha256": "ccd8ba737b4cc371415af70151187788f728d6108d0916e73bb4317b40542052",
+      "db_json_sha256": "1af9fea6e03ca7ca15a22bb3fcaf3e351393e3fc9070b6777947da8996f7531b",
+      "tools_py_sha256": "3987f21c286314cb48764f97052934ff4fd60e27a0b2e4a43423911adf8eaa26"
+    }
+  },
+  "fault_protocol": {
+    "protocol": "v5_multifamily_readonly_faults_v1",
+    "claim_scope": "multi_fault_family_post_fault_robustness_screen",
+    "family_level_inference": "descriptive_only",
+    "guarantees": {
+      "tool_type": "READ",
+      "expected_tool_error": true,
+      "expected_state_mutation": false,
+      "per_task_unique_invalid_parameter": true,
+      "database_absence_checked_at_pinned_tau2_commit": true
+    },
+    "families": {
+      "retail": [
+        {
+          "fault_family": "retail_missing_user_email",
+          "tool_name": "find_user_id_by_email",
+          "invalid_argument_key": "email"
+        },
+        {
+          "fault_family": "retail_missing_user_id",
+          "tool_name": "get_user_details",
+          "invalid_argument_key": "user_id"
+        },
+        {
+          "fault_family": "retail_missing_order_id",
+          "tool_name": "get_order_details",
+          "invalid_argument_key": "order_id"
+        },
+        {
+          "fault_family": "retail_missing_product_id",
+          "tool_name": "get_product_details",
+          "invalid_argument_key": "product_id"
+        }
+      ],
+      "airline": [
+        {
+          "fault_family": "airline_missing_reservation_id",
+          "tool_name": "get_reservation_details",
+          "invalid_argument_key": "reservation_id"
+        },
+        {
+          "fault_family": "airline_missing_user_id",
+          "tool_name": "get_user_details",
+          "invalid_argument_key": "user_id"
+        },
+        {
+          "fault_family": "airline_missing_flight_number",
+          "tool_name": "get_flight_status",
+          "invalid_argument_key": "flight_number"
+        }
+      ]
+    }
+  },
+  "source_split": "derived_inner_train",
+  "official_test_used": false,
+  "official_test_sealed": true,
+  "paired_task_count": 78,
+  "domain_counts": {
+    "retail": 58,
+    "airline": 20
+  },
+  "rows": [
+    {
+      "pair_id": "retail:89",
+      "domain": "retail",
+      "task_id": "89",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-89",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "5596181255"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:92",
+      "domain": "retail",
+      "task_id": "92",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-92",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W7492963"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:31",
+      "domain": "retail",
+      "task_id": "31",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-31",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user330b4f052eea@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:88",
+      "domain": "retail",
+      "task_id": "88",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-88",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W1332002"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:2",
+      "domain": "retail",
+      "task_id": "2",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-2",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_b7fb9db757ca5533"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:52",
+      "domain": "retail",
+      "task_id": "52",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-52",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "3197360687"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:78",
+      "domain": "retail",
+      "task_id": "78",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-78",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user1e09e8af3f56@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:113",
+      "domain": "retail",
+      "task_id": "113",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-113",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W0708015"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:46",
+      "domain": "retail",
+      "task_id": "46",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-46",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_b02f61105e9810fd"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:107",
+      "domain": "retail",
+      "task_id": "107",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-107",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "4769088858"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:81",
+      "domain": "retail",
+      "task_id": "81",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-81",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W3300336"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:87",
+      "domain": "retail",
+      "task_id": "87",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-87",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user0755a3bf3897@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:85",
+      "domain": "retail",
+      "task_id": "85",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-85",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "2218637731"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:4",
+      "domain": "retail",
+      "task_id": "4",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-4",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_f88487ff3c7eb3a8"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:69",
+      "domain": "retail",
+      "task_id": "69",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-69",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_ada014ff976631c7"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:84",
+      "domain": "retail",
+      "task_id": "84",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-84",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W1689749"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:76",
+      "domain": "retail",
+      "task_id": "76",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-76",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W3299611"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:21",
+      "domain": "retail",
+      "task_id": "21",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-21",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user2bc52958324b@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:19",
+      "domain": "retail",
+      "task_id": "19",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-19",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "2289986616"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:37",
+      "domain": "retail",
+      "task_id": "37",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-37",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "usere9ccdaf64194@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:28",
+      "domain": "retail",
+      "task_id": "28",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-28",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_7c52ed1f1cbc1dec"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:30",
+      "domain": "retail",
+      "task_id": "30",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-30",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_2fdacad15c54e396"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:54",
+      "domain": "retail",
+      "task_id": "54",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-54",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user760f8b6f9cd8@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:59",
+      "domain": "retail",
+      "task_id": "59",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-59",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_79b96cf4c26a3f80"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:66",
+      "domain": "retail",
+      "task_id": "66",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-66",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W0224138"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:16",
+      "domain": "retail",
+      "task_id": "16",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-16",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "4989386180"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:14",
+      "domain": "retail",
+      "task_id": "14",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-14",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "usere2f6b129f7ef@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:75",
+      "domain": "retail",
+      "task_id": "75",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-75",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "4154803864"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:10",
+      "domain": "retail",
+      "task_id": "10",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-10",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W4657590"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:7",
+      "domain": "retail",
+      "task_id": "7",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-7",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_0b2a0de68ddce52b"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:106",
+      "domain": "retail",
+      "task_id": "106",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-106",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "7103129669"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:96",
+      "domain": "retail",
+      "task_id": "96",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-96",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "userd4b5290af274@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:1",
+      "domain": "retail",
+      "task_id": "1",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-1",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W7739455"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:13",
+      "domain": "retail",
+      "task_id": "13",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-13",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_dd5f216bb9a675ca"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:25",
+      "domain": "retail",
+      "task_id": "25",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-25",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "userea15ab06b672@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:104",
+      "domain": "retail",
+      "task_id": "104",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-104",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "5922123684"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:98",
+      "domain": "retail",
+      "task_id": "98",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-98",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W4223098"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:83",
+      "domain": "retail",
+      "task_id": "83",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-83",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "6667833056"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:99",
+      "domain": "retail",
+      "task_id": "99",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-99",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W9052310"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:67",
+      "domain": "retail",
+      "task_id": "67",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-67",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user6765ca545250@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:35",
+      "domain": "retail",
+      "task_id": "35",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-35",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_29e4fe13ce515be6"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:112",
+      "domain": "retail",
+      "task_id": "112",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-112",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user4cb75f6102ef@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:23",
+      "domain": "retail",
+      "task_id": "23",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-23",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_f237b2cb1b6ea3bb"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:72",
+      "domain": "retail",
+      "task_id": "72",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-72",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user3e04086d5cdc@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:22",
+      "domain": "retail",
+      "task_id": "22",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-22",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_6470da8d9ce03b0c"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:63",
+      "domain": "retail",
+      "task_id": "63",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-63",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W7270648"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:82",
+      "domain": "retail",
+      "task_id": "82",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-82",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "4870945924"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:103",
+      "domain": "retail",
+      "task_id": "103",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-103",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "0170070409"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:11",
+      "domain": "retail",
+      "task_id": "11",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-11",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "userda966f9d2d2a@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:43",
+      "domain": "retail",
+      "task_id": "43",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-43",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_1b4a31e3a31afbc1"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:8",
+      "domain": "retail",
+      "task_id": "8",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-8",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W8183824"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:110",
+      "domain": "retail",
+      "task_id": "110",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-110",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W0428824"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:105",
+      "domain": "retail",
+      "task_id": "105",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-105",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "1619130749"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:15",
+      "domain": "retail",
+      "task_id": "15",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-15",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "usercf7cf53bf2ce@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:47",
+      "domain": "retail",
+      "task_id": "47",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-47",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_30a0b63fe3cca64f"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:3",
+      "domain": "retail",
+      "task_id": "3",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_user_email",
+        "tool_name": "find_user_id_by_email",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-3",
+        "invalid_argument_key": "email",
+        "arguments": {
+          "email": "user81c641bd32df@example.com"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:29",
+      "domain": "retail",
+      "task_id": "29",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_product_id",
+        "tool_name": "get_product_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-29",
+        "invalid_argument_key": "product_id",
+        "arguments": {
+          "product_id": "1122445979"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "retail:93",
+      "domain": "retail",
+      "task_id": "93",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "retail_missing_order_id",
+        "tool_name": "get_order_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-retail-93",
+        "invalid_argument_key": "order_id",
+        "arguments": {
+          "order_id": "#W4043610"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:11",
+      "domain": "airline",
+      "task_id": "11",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_flight_number",
+        "tool_name": "get_flight_status",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-11",
+        "invalid_argument_key": "flight_number",
+        "arguments": {
+          "flight_number": "HAT643",
+          "date": "2026-08-01"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:21",
+      "domain": "airline",
+      "task_id": "21",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_reservation_id",
+        "tool_name": "get_reservation_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-21",
+        "invalid_argument_key": "reservation_id",
+        "arguments": {
+          "reservation_id": "4CDA82"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:23",
+      "domain": "airline",
+      "task_id": "23",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_flight_number",
+        "tool_name": "get_flight_status",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-23",
+        "invalid_argument_key": "flight_number",
+        "arguments": {
+          "flight_number": "HAT977",
+          "date": "2026-08-01"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:5",
+      "domain": "airline",
+      "task_id": "5",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-5",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_06a4d546ebc98a17"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:49",
+      "domain": "airline",
+      "task_id": "49",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_reservation_id",
+        "tool_name": "get_reservation_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-49",
+        "invalid_argument_key": "reservation_id",
+        "arguments": {
+          "reservation_id": "F1784A"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:33",
+      "domain": "airline",
+      "task_id": "33",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_flight_number",
+        "tool_name": "get_flight_status",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-33",
+        "invalid_argument_key": "flight_number",
+        "arguments": {
+          "flight_number": "HAT555",
+          "date": "2026-08-01"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:14",
+      "domain": "airline",
+      "task_id": "14",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_reservation_id",
+        "tool_name": "get_reservation_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-14",
+        "invalid_argument_key": "reservation_id",
+        "arguments": {
+          "reservation_id": "3000AC"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:38",
+      "domain": "airline",
+      "task_id": "38",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-38",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_9e3677cfb3e90f06"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:4",
+      "domain": "airline",
+      "task_id": "4",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_reservation_id",
+        "tool_name": "get_reservation_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-4",
+        "invalid_argument_key": "reservation_id",
+        "arguments": {
+          "reservation_id": "B20740"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:43",
+      "domain": "airline",
+      "task_id": "43",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-43",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_36a5abe9cf69308f"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:15",
+      "domain": "airline",
+      "task_id": "15",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_flight_number",
+        "tool_name": "get_flight_status",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-15",
+        "invalid_argument_key": "flight_number",
+        "arguments": {
+          "flight_number": "HAT318",
+          "date": "2026-08-01"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:36",
+      "domain": "airline",
+      "task_id": "36",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_reservation_id",
+        "tool_name": "get_reservation_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-36",
+        "invalid_argument_key": "reservation_id",
+        "arguments": {
+          "reservation_id": "222440"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:1",
+      "domain": "airline",
+      "task_id": "1",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-1",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_c80e0697c51cff66"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:20",
+      "domain": "airline",
+      "task_id": "20",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_flight_number",
+        "tool_name": "get_flight_status",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-20",
+        "invalid_argument_key": "flight_number",
+        "arguments": {
+          "flight_number": "HAT462",
+          "date": "2026-08-01"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:12",
+      "domain": "airline",
+      "task_id": "12",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_flight_number",
+        "tool_name": "get_flight_status",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-12",
+        "invalid_argument_key": "flight_number",
+        "arguments": {
+          "flight_number": "HAT741",
+          "date": "2026-08-01"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:40",
+      "domain": "airline",
+      "task_id": "40",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_reservation_id",
+        "tool_name": "get_reservation_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-40",
+        "invalid_argument_key": "reservation_id",
+        "arguments": {
+          "reservation_id": "76382B"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:27",
+      "domain": "airline",
+      "task_id": "27",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_user_id",
+        "tool_name": "get_user_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-27",
+        "invalid_argument_key": "user_id",
+        "arguments": {
+          "user_id": "user_335e8d8be68a3ebb"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:47",
+      "domain": "airline",
+      "task_id": "47",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_reservation_id",
+        "tool_name": "get_reservation_details",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-47",
+        "invalid_argument_key": "reservation_id",
+        "arguments": {
+          "reservation_id": "A8DDA1"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": true,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:9",
+      "domain": "airline",
+      "task_id": "9",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_flight_number",
+        "tool_name": "get_flight_status",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-9",
+        "invalid_argument_key": "flight_number",
+        "arguments": {
+          "flight_number": "HAT627",
+          "date": "2026-08-01"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    },
+    {
+      "pair_id": "airline:17",
+      "domain": "airline",
+      "task_id": "17",
+      "source_split": "derived_inner_train",
+      "clean_condition": {
+        "inject_error": false
+      },
+      "error_condition": {
+        "inject_error": true,
+        "fault_family": "airline_missing_flight_number",
+        "tool_name": "get_flight_status",
+        "tool_type": "READ",
+        "tool_call_id": "v5-stage1-multifault-derived_inner_train-airline-17",
+        "invalid_argument_key": "flight_number",
+        "arguments": {
+          "flight_number": "HAT640",
+          "date": "2026-08-01"
+        },
+        "expected_tool_error": true,
+        "expected_state_mutation": false,
+        "on_reference_path": false,
+        "fault_relevance": "reference_path_or_operation_aligned"
+      }
+    }
+  ],
+  "gt_compatibility_filter": {
+    "protocol": "v5_3_gt_compatibility_filter_v1",
+    "policy": "exclude_before_sharding",
+    "teacher_mode": "ground_truth",
+    "source_task_count": 83,
+    "included_task_count": 78,
+    "excluded_task_ids": [
+      "airline:0",
+      "airline:10",
+      "airline:28",
+      "airline:34",
+      "retail:24"
+    ],
+    "exclusion_reason": "no_expected_tool_actions",
+    "selection_uses_rollouts_rewards_validation_or_test": false,
+    "official_test_used": false
+  }
+}
