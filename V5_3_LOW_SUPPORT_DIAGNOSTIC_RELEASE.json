@@ -1,0 +1,61 @@
+{
+  "release_manifest_version": "v5_3_low_support_diagnostic_release_v1",
+  "created_at_utc": "2026-07-26T18:25:58Z",
+  "status": "READY_AFTER_COMPLETE_SOURCE_FAIL_CLOSED",
+  "execution_branch": "codex/v5.3-low-support-diagnostic",
+  "execution_commit": "ac65086cb06586fba3edcfd8ed820f9785c0b160",
+  "execution_tree": "019add88c2b235d334bdda4e2bdd28445f1a2a99",
+  "experiment": {
+    "protocol": "v5_3_low_support_diagnostic_v1",
+    "source_protocol": "v5_3_12h_exploratory_screen_v1",
+    "seed": 20260731,
+    "hardware": "4x NVIDIA GeForce RTX 5090",
+    "source_rollouts_required": 288,
+    "minimum_distinct_paired_tasks": 8,
+    "minimum_capped_pairs": 10,
+    "maximum_pairs_per_task": 2,
+    "schedule_rows_per_arm": 512,
+    "optimizer_steps_per_arm": 64,
+    "trained_arms": [
+      "perfect_success",
+      "repair_50"
+    ],
+    "evaluated_arms": [
+      "base_model",
+      "perfect_success",
+      "repair_50"
+    ],
+    "evaluation_cases": 126,
+    "official_test_used": false,
+    "formal_v5_3_claim_eligible": false,
+    "paper_level_confirmation_eligible": false
+  },
+  "dependencies": {
+    "tau2_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+    "qwen_2_5_14b_instruct_awq_revision": "539535859b135b0244c91f3e59816150c8056698",
+    "qwen_2_5_7b_instruct_revision": "a09a35458c702b33eeacc393d103063234e8bc28"
+  },
+  "validation": {
+    "unittest_discovery_passed": 330,
+    "unittest_discovery_skipped_external_resources": 5,
+    "unittest_discovery_failed": 0,
+    "targeted_tests_passed": 21,
+    "python_compile": "PASS",
+    "git_diff_check": "PASS",
+    "independent_adversarial_review": "SAFE_TO_COMMIT_AND_RUN",
+    "real_4x5090_integration_run_completed": false
+  },
+  "sha256": {
+    "V5_3_LOW_SUPPORT_DIAGNOSTIC_HANDOFF.md": "f4cfb8a9688173adb3a08cce90fa94f042596b568f08af6f58c5cb433872edfc",
+    "configs/v5_3_low_support_diagnostic.yaml": "5523965b43807a945e84cb13207ea09f54e19a5056f5ab24b563fcb62aa72e75",
+    "scripts/v5_3_low_support_protocol.py": "2470f28d9fd6ba259ba90adcb4cb4ec16da101d1b781395f0b21c6779e62100e",
+    "scripts/prepare_v5_3_low_support_diagnostic.py": "8d82b4afcabc03bc030594d13c17964a5ca01f8f28983690ddd0da9739aafda7",
+    "scripts/train_v5_sft_causal.py": "17ade3779610d6bbc5b5d07259d048c4d6398b2c343df079a49b26d9a30e3309",
+    "scripts/build_v5_checkpoint_registry.py": "95c665f40b683b4972028e365fc08195ca59a5c0a1e89483b85b72121322867f",
+    "scripts/run_v5_sft_causal_eval.py": "d626a3f61ffcdd4b723aed4d4f660af03ad63b1e949a6909a69d3c420014344e",
+    "scripts/summarize_v5_3_low_support_diagnostic.py": "ca0f59c88b2620d4f5d40ce2f6d02582ab355b1df38ddd3388733293f5433d9b",
+    "tests/test_v5_3_low_support_diagnostic.py": "68c418074c8405838a2e2e93669d38afd8846823a2b33de1c636c7e952ce3bb7",
+    "tests/test_v5_3_low_support_evaluation.py": "52f5ad39b153e234a2bc95eea9ff51aa33587123587777da694136a0faa905b0"
+  },
+  "claim_boundary": "Post-yield one-seed low-support directional diagnostic only; no formal V5.3, causal, confirmatory, or paper-level claim."
+}
