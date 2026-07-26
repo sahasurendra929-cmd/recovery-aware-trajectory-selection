@@ -1,0 +1,56 @@
+2026-07-26 15:49:50.448 | WARNING  | tau2.utils.utils:<module>:15 - No .env file found
+2026-07-26 15:49:50.448 | INFO     | tau2.utils.utils:<module>:28 - Using data directory from source: /workspace/repos/recovery-aware-trajectory-selection/data/raw/tau2-bench/data
+2026-07-26 15:49:52.527 | INFO     | tau2.utils.llm_utils:<module>:102 - LiteLLM: Cache is disabled
+2026-07-26 15:49:52.591 | DEBUG    | tau2.registry:<module>:281 - Registering default components...
+2026-07-26 15:49:52.592 | DEBUG    | tau2.registry:<module>:292 - Voice dependencies not installed, skipping voice user registration
+2026-07-26 15:49:52.593 | DEBUG    | tau2.registry:<module>:350 - Default components registered successfully. Registry info: {
+  "domains": [
+    "mock",
+    "airline",
+    "retail",
+    "telecom",
+    "telecom-workflow",
+    "banking_knowledge"
+  ],
+  "agents": [
+    "llm_agent",
+    "llm_agent_gt",
+    "llm_agent_solo",
+    "discrete_time_audio_native_agent"
+  ],
+  "users": [
+    "user_simulator",
+    "dummy_user"
+  ],
+  "task_sets": [
+    "mock",
+    "airline",
+    "retail",
+    "telecom_full",
+    "telecom_small",
+    "telecom",
+    "telecom-workflow",
+    "banking_knowledge"
+  ]
+}
+2026-07-26 15:49:52.669 | WARNING  | tau2.runner.batch:run_tasks:524 - Each trial will modify the seed for the agent
+
+2026-07-26 15:49:52.669 | WARNING  | tau2.runner.batch:run_tasks:526 - Each trial will modify the seed for the user
+
+Traceback (most recent call last):
+  File "/workspace/repos/recovery-aware-trajectory-selection/scripts/run_v5_sft_causal_generate.py", line 2026, in <module>
+    main()
+  File "/workspace/repos/recovery-aware-trajectory-selection/scripts/run_v5_sft_causal_generate.py", line 1999, in main
+    run_condition(
+  File "/workspace/repos/recovery-aware-trajectory-selection/scripts/run_v5_sft_causal_generate.py", line 1325, in run_condition
+    run_tasks(
+  File "/workspace/repos/recovery-aware-trajectory-selection/data/raw/tau2-bench/src/tau2/runner/batch.py", line 572, in run_tasks
+    info = get_info(
+           ^^^^^^^^^
+  File "/workspace/repos/recovery-aware-trajectory-selection/data/raw/tau2-bench/src/tau2/runner/helpers.py", line 147, in get_info
+    global_user_sim_guidelines = get_global_user_sim_guidelines()
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/repos/recovery-aware-trajectory-selection/data/raw/tau2-bench/src/tau2/user/user_simulator.py", line 63, in get_global_user_sim_guidelines
+    with open(GLOBAL_USER_SIM_GUIDELINES_PATH, "r") as fp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/repos/recovery-aware-trajectory-selection/data/raw/tau2-bench/data/tau2/user_simulator/simulation_guidelines.md'
