@@ -871,10 +871,20 @@ def analyze_simulation(
     successful = [row for row in outcomes if not row["error"]]
     final_success = _reward_is_one(simulation)
     if condition == "clean":
-        eligible = final_success and not failed and not injected
-        reason = "eligible" if eligible else (
-            "final_failure" if not final_success else "clean_contains_failure_or_injection"
-        )
+        eligible = final_success and bool(successful) and not failed and not injected
+        if not final_success:
+            reason = "final_failure"
+        elif not successful:
+            # A terminally successful rollout can still contain no structured
+            # assistant tool call (for example, a provider may serialize a
+            # would-be call into assistant text).  Such a rollout has no
+            # locally verified SFT target and must be excluded rather than
+            # failing later or inventing a label.
+            reason = "no_verified_successful_tool_action"
+        elif failed or injected:
+            reason = "clean_contains_failure_or_injection"
+        else:
+            reason = "eligible"
         repair_index = None
     else:
         injected_failure = (

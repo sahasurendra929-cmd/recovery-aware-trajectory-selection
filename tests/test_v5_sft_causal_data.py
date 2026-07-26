@@ -581,6 +581,47 @@ class V5SFTCausalDataTests(unittest.TestCase):
                 )
             )
 
+    def test_success_without_verified_tool_action_is_excluded(self):
+        target = self.raw / "retail_clean.shard-001-of-002.json"
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        text_only = next(
+            row
+            for row in payload["simulations"]
+            if row["task_id"] == "1" and row["trial"] == 3
+        )
+        text_only["reward_info"]["reward"] = 1.0
+        text_only["messages"] = [
+            {"role": "assistant", "content": "Hello", "usage": None},
+            {"role": "user", "content": "Please complete my task."},
+            {
+                "role": "assistant",
+                "content": (
+                    '{"name":"lookup","arguments":{"value":"valid-1"}} '
+                    'system {"status":"ok"}'
+                ),
+                "usage": {},
+            },
+            {"role": "user", "content": "Thanks. ###STOP###"},
+        ]
+        target.write_text(json.dumps(payload), encoding="utf-8")
+
+        audit = self.run_prepare()
+
+        self.assertEqual(audit["status"], "PASS")
+        self.assertEqual(
+            audit["exclusions"]["clean:no_verified_successful_tool_action"],
+            1,
+        )
+        for arm in audit["arms"]:
+            rows = self.read_jsonl(self.output / "arms" / arm / "train.jsonl")
+            self.assertFalse(
+                any(
+                    row["metadata"]["task_id"] == "1"
+                    and row["metadata"]["trial"] == 3
+                    for row in rows
+                )
+            )
+
     def test_multi_tool_call_rollout_is_excluded_without_truncation(self):
         target = self.raw / "retail_clean.shard-001-of-002.json"
         payload = json.loads(target.read_text(encoding="utf-8"))
