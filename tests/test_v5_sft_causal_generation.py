@@ -267,6 +267,11 @@ class V5SFTCausalGenerationTests(unittest.TestCase):
         initial = json.loads(contract.read_text(encoding="utf-8"))
         self.assertEqual(initial["status"], "INCOMPLETE")
         self.assertEqual(initial["result_sha256"], {})
+        self.assertFalse(initial["decoding"]["parallel_tool_calls"])
+        self.assertEqual(
+            initial["decoding"]["mixed_tool_call_content_normalization"],
+            "drop_text_preserve_sha256",
+        )
         self.assertEqual(initial["fault_protocol"], fault_protocol())
         self.assertEqual(initial["tau2_commit"], TAU2_COMMIT)
         self.assertEqual(initial["source_files"], SOURCE_FILES)
@@ -290,6 +295,15 @@ class V5SFTCausalGenerationTests(unittest.TestCase):
         self.assertEqual(hashes[result.name], MODULE.sha256_file(result))
         with self.assertRaisesRegex(RuntimeError, "not INCOMPLETE"):
             MODULE.finalize_contract(contract, [result])
+
+    def test_endpoint_disables_parallel_tool_calls(self):
+        args = MODULE.endpoint_args(
+            "http://localhost/v1",
+            "key",
+            max_tokens=512,
+            seed=20260722,
+        )
+        self.assertIs(args["parallel_tool_calls"], False)
 
 
 if __name__ == "__main__":

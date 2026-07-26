@@ -88,6 +88,10 @@ models:
     model: Qwen/Qwen2.5-7B-Instruct-AWQ
     role: memory_efficient_frozen_roles_during_14b_teacher_generation
     revision: b25037543e9394b818fdfca67ab2a00ecc7dd641
+  generation_interface:
+    parallel_tool_calls: false
+    mixed_tool_call_content_normalization: drop_text_preserve_sha256
+    served_context_length: 32768
   frozen_evaluation_user_and_judge:
     model: Qwen/Qwen2.5-7B-Instruct
     role: base_alias_without_any_arm_adapter_across_all_validation_runs

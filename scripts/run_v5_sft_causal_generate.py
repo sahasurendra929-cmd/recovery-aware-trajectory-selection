@@ -423,6 +423,37 @@ def register_fault_agents() -> None:
     from tau2.data_model.message import AssistantMessage, ToolCall, UserMessage
     from tau2.registry import registry
 
+    def normalize_tool_only_message(message: AssistantMessage) -> AssistantMessage:
+        """Remove a model's textual preface when it also emitted a tool call.
+
+        The frozen agent protocol says a turn is either text or tools, never
+        both. vLLM preserves pre-tool prose in ``content`` for some Qwen
+        responses. The executed tool action is unchanged, and a hash of the
+        removed content is retained in raw_data for auditability.
+        """
+
+        if message.tool_calls and message.content not in (None, ""):
+            content = message.content
+            raw_data = dict(message.raw_data or {})
+            raw_data["v5_stage1_mixed_content_normalized"] = {
+                "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                "utf8_bytes": len(content.encode("utf-8")),
+            }
+            message.raw_data = raw_data
+            message.content = None
+        return message
+
+    class Stage1Agent(LLMAgent):
+        def _generate_next_message(self, message, state):
+            return normalize_tool_only_message(
+                super()._generate_next_message(message, state)
+            )
+
+    class Stage1GTAgent(LLMGTAgent):
+        def generate_next_message(self, message, state):
+            assistant, state = super().generate_next_message(message, state)
+            return normalize_tool_only_message(assistant), state
+
     def injected_message(injection: dict[str, Any], *, ground_truth: bool):
         raw_data = {
             "v5_stage1_injected_fault": True,
@@ -447,7 +478,7 @@ def register_fault_agents() -> None:
             generation_time_seconds=0.0,
         )
 
-    class Stage1FaultAgent(LLMAgent):
+    class Stage1FaultAgent(Stage1Agent):
         def __init__(self, tools, domain_policy, task, llm, llm_args):
             super().__init__(
                 tools=tools,
@@ -467,7 +498,7 @@ def register_fault_agents() -> None:
                 return injected_message(self._injection, ground_truth=False)
             return super()._generate_next_message(message, state)
 
-    class Stage1FaultGTAgent(LLMGTAgent):
+    class Stage1FaultGTAgent(Stage1GTAgent):
         def __init__(self, tools, domain_policy, task, llm, llm_args):
             super().__init__(
                 tools=tools,
@@ -499,6 +530,15 @@ def register_fault_agents() -> None:
             llm_args=kwargs.get("llm_args"),
         )
 
+    def create_gt_agent(tools, domain_policy, **kwargs):
+        return Stage1GTAgent(
+            tools=tools,
+            domain_policy=domain_policy,
+            task=kwargs.get("task"),
+            llm=kwargs.get("llm"),
+            llm_args=kwargs.get("llm_args"),
+        )
+
     def create_fault_gt_agent(tools, domain_policy, **kwargs):
         return Stage1FaultGTAgent(
             tools=tools,
@@ -511,6 +551,12 @@ def register_fault_agents() -> None:
     if registry.get_agent_factory("v5_stage1_generation_fault_agent") is None:
         registry.register_agent_factory(
             create_fault_agent, "v5_stage1_generation_fault_agent"
+        )
+    if registry.get_agent_factory("v5_stage1_generation_gt_agent") is None:
+        registry.register_agent_factory(
+            create_gt_agent,
+            "v5_stage1_generation_gt_agent",
+            task_filter=LLMGTAgent.check_valid_task,
         )
     if registry.get_agent_factory("v5_stage1_generation_fault_gt_agent") is None:
         registry.register_agent_factory(
@@ -551,6 +597,7 @@ def endpoint_args(
         "temperature": 0,
         "max_tokens": max_tokens,
         "seed": seed,
+        "parallel_tool_calls": False,
     }
 
 
@@ -597,7 +644,7 @@ def run_condition(
 
     if args.teacher_mode == "ground_truth":
         agent_name = (
-            "llm_agent_gt"
+            "v5_stage1_generation_gt_agent"
             if condition == "clean"
             else "v5_stage1_generation_fault_gt_agent"
         )
@@ -714,6 +761,8 @@ def write_contract(
         "decoding": {
             "temperature": 0,
             "max_tokens": args.max_tokens,
+            "parallel_tool_calls": False,
+            "mixed_tool_call_content_normalization": "drop_text_preserve_sha256",
             "max_steps": args.max_steps,
             "task_timeout_seconds": args.timeout,
             "seed": args.seed,

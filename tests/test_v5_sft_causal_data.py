@@ -395,6 +395,8 @@ class V5SFTCausalDataTests(unittest.TestCase):
             "decoding": {
                 "temperature": 0,
                 "max_tokens": 512,
+                "parallel_tool_calls": False,
+                "mixed_tool_call_content_normalization": "drop_text_preserve_sha256",
                 "max_steps": 60,
                 "task_timeout_seconds": 900,
                 "seed": MODULE.SEED,
