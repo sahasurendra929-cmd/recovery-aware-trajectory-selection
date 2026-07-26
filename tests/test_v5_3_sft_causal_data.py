@@ -432,6 +432,75 @@ class V53MatchingTests(unittest.TestCase):
             },
         )
 
+    def test_row_weighted_match_is_exact_when_token_mass_is_not_half(self):
+        task = "retail:1"
+        perfect = self._candidate(
+            "perfect-row",
+            supervised_tokens=50,
+            sequence_tokens=100,
+            source="perfect_success",
+        )
+        raw = self._candidate(
+            "raw-row",
+            supervised_tokens=150,
+            sequence_tokens=200,
+            source="failure_rich",
+        )
+        repair = self._candidate(
+            "repair-row",
+            supervised_tokens=150,
+            sequence_tokens=200,
+            source="failure_rich",
+        )
+        schedules, certificate = (
+            MODULE._deterministic_tolerance_aware_joint_match(
+                [task, task],
+                {
+                    "perfect_success": {task: [perfect]},
+                    "failure_raw": {task: [raw]},
+                    "repair_50": {task: [perfect, repair]},
+                    "repair_100": {task: [repair]},
+                },
+                recovery_ratios=None,
+                recovery_row_ratios={
+                    "perfect_success": 0.0,
+                    "failure_raw": 1.0,
+                    "repair_50": 0.5,
+                    "repair_100": 1.0,
+                },
+                seed=MODULE.v5.SEED,
+                enforce_cross_arm_budget_tolerances=False,
+                beam_width_schedule=(16,),
+                final_width=16,
+            )
+        )
+        self.assertIsNotNone(schedules)
+        repair_rows = schedules["repair_50"]
+        self.assertEqual(
+            sum(
+                row["metadata"]["source"] == "failure_rich"
+                for row in repair_rows
+            ),
+            1,
+        )
+        self.assertEqual(
+            certificate["recovery_row_ratio_by_arm"]["repair_50"],
+            0.5,
+        )
+        self.assertEqual(
+            certificate["recovery_supervised_token_ratio_by_arm"][
+                "repair_50"
+            ],
+            0.75,
+        )
+        self.assertEqual(
+            certificate["recovery_mixture_basis"],
+            "row_mean_microbatch_equal_weight",
+        )
+        self.assertFalse(
+            certificate["cross_arm_budget_tolerances_gating"]
+        )
+
     def test_bounded_search_failure_is_inconclusive_not_infeasibility(self):
         task = "retail:1"
         perfect = self._candidate(

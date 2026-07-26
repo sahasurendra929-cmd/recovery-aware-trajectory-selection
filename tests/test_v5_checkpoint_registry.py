@@ -55,6 +55,10 @@ class V5CheckpointRegistryTests(unittest.TestCase):
                     "base_model_name_or_path": MODULE.BASE_MODEL,
                     "r": 16,
                     "lora_alpha": 32,
+                    "lora_dropout": 0.0,
+                    "target_modules": sorted(
+                        MODULE.SCREEN_LORA_TARGET_MODULES
+                    ),
                 }
             ),
             encoding="utf-8",
@@ -72,7 +76,10 @@ class V5CheckpointRegistryTests(unittest.TestCase):
                     "split_manifest_sha256": "e" * 64,
                     "source_split": "derived_inner_train",
                     "verified_injections": (
-                        78 if provenance_profile == "v5_3" else 83
+                        78
+                        if provenance_profile
+                        in {"v5_3", "v5_3_12h_screen"}
+                        else 83
                     ),
                     "official_test_used": False,
                     "official_test_sealed": True,
@@ -103,6 +110,28 @@ class V5CheckpointRegistryTests(unittest.TestCase):
                     },
                 }
             )
+        elif provenance_profile == "v5_3_12h_screen":
+            data_provenance.update(
+                {
+                    "design_version": MODULE.V5_3_12H_DESIGN_VERSION,
+                    "design_provenance": {
+                        "design_version": MODULE.V5_3_12H_DESIGN_VERSION,
+                        "design_protocol": MODULE.V5_3_12H_DESIGN_PROTOCOL,
+                        "screen_protocol": MODULE.V5_3_12H_SCREEN_PROTOCOL,
+                        "screen_tasks": 24,
+                        "screen_rollouts": 288,
+                        "validation_tasks": 21,
+                        "shared_outcome_free_protocol_inputs_read_only": True,
+                        "prior_v5_3_rollout_checkpoint_metric_decision_bytes_reused": False,
+                        "screen_outputs_may_enter_formal_v5_3": False,
+                    },
+                }
+            )
+        target_ratio = MODULE.SCREEN_TARGET_RECOVERY_ROW_RATIOS[
+            directory_arm
+        ]
+        recovery_rows = int(512 * target_ratio)
+        failed_labels = 8 if directory_arm == "failure_raw" else 0
         manifest = {
             "protocol": MODULE.TRAIN_PROTOCOL,
             "source_commit": self.source_commit,
@@ -110,6 +139,64 @@ class V5CheckpointRegistryTests(unittest.TestCase):
             "mode": "formal",
             "model": MODULE.BASE_MODEL,
             "model_revision": self.base_revision,
+            "objective": "message_masked_causal_language_model_cross_entropy",
+            "quantization": {
+                "bits": 4,
+                "type": "nf4",
+                "double_quant": True,
+                "compute_dtype": "bfloat16",
+            },
+            "lora": {
+                "r": 16,
+                "alpha": 32,
+                "dropout": 0.0,
+                "target_modules": sorted(
+                    MODULE.SCREEN_LORA_TARGET_MODULES
+                ),
+            },
+            "seed": MODULE.V5_3_12H_TRAINING_SEED,
+            "max_sequence_tokens": 8192,
+            "truncation": False,
+            "formal_steps": 64,
+            "formal_batch_size": 1,
+            "formal_grad_accum": 8,
+            "effective_steps": 64,
+            "effective_grad_accum": 8,
+            "learning_rate": 1.0e-4,
+            "effective_rows": 512,
+            "effective_validation_rows": 0,
+            "validation_disabled_reason": "fixed_steps_exploratory",
+            "formal_schedule": {
+                "rows": 512,
+                "nonpad_tokens": 10000,
+                "supervised_tokens": 2000,
+                "recovery_rows": recovery_rows,
+                "realized_recovery_row_ratio": target_ratio,
+                "expected_recovery_row_ratio": target_ratio,
+                "recovery_mixture_basis": (
+                    "row_mean_microbatch_equal_weight"
+                ),
+                "realized_recovery_supervised_token_ratio": (
+                    0.37 if directory_arm == "repair_50" else target_ratio
+                ),
+                "expected_recovery_supervised_token_ratio": None,
+                "failed_action_label_messages": failed_labels,
+                "max_sequence_tokens": 1024,
+            },
+            "fit_partition": {
+                "validation_loss_source_examples": 0,
+                "overlap": 0,
+                "validation_disabled_reason": "fixed_steps_exploratory",
+            },
+            "loss_audit": {
+                "finite": True,
+                "numeric_values_checked": 10,
+                "loss_values_checked": 2,
+                "grad_norm_values_checked": 2,
+                "validation_loss_values_checked": 0,
+                "final_train_loss": 0.5,
+                "final_validation_loss": None,
+            },
             "held_out_test_accessed": False,
             "data_provenance": data_provenance,
             "checkpoint": {
@@ -218,6 +305,59 @@ class V5CheckpointRegistryTests(unittest.TestCase):
             expected_profile="v5_3",
         )
         self.assertEqual(loaded, registry)
+
+    def test_12h_screen_rejects_fixed_training_contract_tampering(self):
+        serial = [0]
+
+        def make_screen_runs():
+            serial[0] += 1
+            return {
+                arm: self.make_run(
+                    arm,
+                    f"screen-{serial[0]}-{index}",
+                    provenance_profile="v5_3_12h_screen",
+                )
+                for index, arm in enumerate(MODULE.ARMS)
+            }
+
+        self.arm_dirs = make_screen_runs()
+        registry = self.build()
+        self.assertEqual(
+            registry["provenance_profile"], "v5_3_12h_screen"
+        )
+        cases = {
+            "effective_steps": 63,
+            "formal_grad_accum": 4,
+            "effective_rows": 511,
+            "seed": 1,
+        }
+        for field, value in cases.items():
+            with self.subTest(field=field):
+                self.arm_dirs = make_screen_runs()
+                path = (
+                    self.arm_dirs["repair_50"] / "run_manifest.json"
+                )
+                manifest = json.loads(path.read_text(encoding="utf-8"))
+                manifest[field] = value
+                path.write_text(json.dumps(manifest), encoding="utf-8")
+                with self.assertRaisesRegex(RuntimeError, "fixed-64"):
+                    self.build()
+
+        self.arm_dirs = make_screen_runs()
+        path = self.arm_dirs["repair_50"] / "run_manifest.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest["loss_audit"]["final_train_loss"] = float("nan")
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "finite loss"):
+            self.build()
+
+        self.arm_dirs = make_screen_runs()
+        path = self.arm_dirs["repair_50"] / "run_manifest.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        manifest["formal_schedule"]["recovery_rows"] = 255
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeError, "row-weighted"):
+            self.build()
 
     def test_profiles_reject_cross_version_counts_aliases_and_arbitrary_names(self):
         with self.assertRaisesRegex(RuntimeError, "unsupported provenance"):

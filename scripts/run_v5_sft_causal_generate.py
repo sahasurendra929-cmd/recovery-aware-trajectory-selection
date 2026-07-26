@@ -45,6 +45,9 @@ except ModuleNotFoundError:
 
 GENERATION_PROTOCOL = "v5_stage1_multifault_data_construction"
 V5_3_GENERATION_PROTOCOL = "v5_3_multifault_data_construction"
+SCREEN_MANIFEST_PROTOCOL = "v5_3_12h_exploratory_screen_v1:manifest_v1"
+SCREEN_PROTOCOL = "v5_3_12h_exploratory_screen_v1"
+SCREEN_GENERATION_SUBPROTOCOL = "v5_3_12h_screen_generation_v1"
 FAULT_PROTOCOL = "v5_multifamily_readonly_faults_v1"
 GT_COMPATIBILITY_PROTOCOL = "v5_gt_compatibility_preflight_v1"
 GT_FILTER_PROTOCOL = "v5_3_gt_compatibility_filter_v1"
@@ -52,7 +55,56 @@ V5_3_TEMPERATURE = 0.2
 V5_3_TOP_P = 0.95
 V5_3_NUM_TRIALS = 12
 V5_3_SEED = 20260722
-ALLOWED_PROTOCOLS = {GENERATION_PROTOCOL, V5_3_GENERATION_PROTOCOL}
+SCREEN_TEMPERATURE = 0.2
+SCREEN_TOP_P = 0.95
+SCREEN_NUM_TRIALS = 6
+SCREEN_SEED = 20260731
+SCREEN_TRIAL_SEEDS = [25987, 293840, 725284, 249400, 591103, 257709]
+SCREEN_NUM_SHARDS = 3
+SCREEN_MAX_MODEL_LEN = 32768
+SCREEN_MAX_TOKENS = 512
+SCREEN_TEACHER_MODEL = "Qwen/Qwen2.5-32B-Instruct-AWQ"
+SCREEN_TEACHER_REVISION = "5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c"
+SCREEN_USER_MODEL = "Qwen/Qwen2.5-14B-Instruct-AWQ"
+SCREEN_USER_REVISION = "539535859b135b0244c91f3e59816150c8056698"
+SCREEN_GPU_MODEL = "NVIDIA GeForce RTX 5090"
+SCREEN_CUDA_VERSION = "12.8"
+SCREEN_TAU2_COMMIT = "fc0055dc4e0a316c3f83133267fbd6faaa770992"
+SCREEN_SPLIT_SHA256 = (
+    "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a"
+)
+SCREEN_RUNTIME_EVIDENCE_PROTOCOL = "v5_3_generation_runtime_preflight_v2"
+SCREEN_TASK_IDS = {
+    "airline:1",
+    "airline:11",
+    "airline:14",
+    "airline:33",
+    "airline:38",
+    "airline:40",
+    "retail:2",
+    "retail:8",
+    "retail:10",
+    "retail:15",
+    "retail:19",
+    "retail:25",
+    "retail:30",
+    "retail:35",
+    "retail:54",
+    "retail:67",
+    "retail:69",
+    "retail:72",
+    "retail:85",
+    "retail:92",
+    "retail:93",
+    "retail:104",
+    "retail:106",
+    "retail:110",
+}
+ALLOWED_PROTOCOLS = {
+    GENERATION_PROTOCOL,
+    V5_3_GENERATION_PROTOCOL,
+    SCREEN_MANIFEST_PROTOCOL,
+}
 SPLIT_PROTOCOL = "v5_stage0_tau2_end_to_end"
 DOMAINS = ("retail", "airline")
 EXPECTED_SPLIT_COUNTS = {
@@ -115,12 +167,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-steps", type=int, default=60)
     parser.add_argument("--timeout", type=float, default=900.0)
     parser.add_argument("--max-tokens", type=int, default=512)
+    parser.add_argument("--max-model-len", type=int)
+    parser.add_argument("--runtime-evidence", type=Path)
     parser.add_argument("--expected-source-commit", required=True)
     return parser.parse_args()
 
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def canonical_sha256(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+    )
 
 
 def git_commit() -> str:
@@ -263,13 +335,81 @@ def load_inner_train_manifest(
     split_manifest_sha256: str,
 ) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if payload.get("protocol") not in ALLOWED_PROTOCOLS:
+    protocol = payload.get("protocol")
+    if protocol not in ALLOWED_PROTOCOLS:
         raise RuntimeError("Unexpected inner-train generation manifest protocol")
     rows = payload.get("rows")
     if not isinstance(rows, list) or not rows:
         raise RuntimeError("Generation manifest has no rows")
     if payload.get("paired_task_count") != len(rows):
         raise RuntimeError("Generation manifest count drift")
+    if protocol == SCREEN_MANIFEST_PROTOCOL:
+        core = {
+            key: value
+            for key, value in payload.items()
+            if key != "canonical_sha256"
+        }
+        row_task_ids = [
+            f"{row.get('domain')}:{row.get('task_id')}" for row in rows
+        ]
+        planned_task_ids = payload.get("planned_task_ids")
+        source_generation_sha = payload.get(
+            "source_generation_manifest_sha256"
+        )
+        generation = payload.get("generation")
+        teacher = generation.get("teacher") if isinstance(generation, dict) else None
+        user = generation.get("user") if isinstance(generation, dict) else None
+        judge = generation.get("judge") if isinstance(generation, dict) else None
+        if (
+            payload.get("screen_protocol") != SCREEN_PROTOCOL
+            or payload.get("design_version") != "5.3-12h-screen"
+            or payload.get("formal_v5_3_data") is not False
+            or payload.get("formal_data") is not False
+            or payload.get("screen_outputs_may_enter_formal") is not False
+            or payload.get("screen_outputs_may_enter_formal_v5_3") is not False
+            or payload.get("official_test_used") is not False
+            or payload.get("official_test_sealed") is not True
+            or payload.get("source_split") != "derived_inner_train"
+            or payload.get("base_seed") != SCREEN_SEED
+            or payload.get("trial_seeds") != SCREEN_TRIAL_SEEDS
+            or payload.get("attempts_per_task_per_condition")
+            != SCREEN_NUM_TRIALS
+            or payload.get("conditions") != ["clean", "error"]
+            or payload.get("expected_rollouts")
+            != len(SCREEN_TASK_IDS) * 2 * SCREEN_NUM_TRIALS
+            or payload.get("formal_v5_3_seed_or_bytes_reused") is not False
+            or payload.get("replacement_or_rescue_attempts") is not False
+            or not isinstance(planned_task_ids, list)
+            or row_task_ids != planned_task_ids
+            or set(planned_task_ids) != SCREEN_TASK_IDS
+            or len(planned_task_ids) != len(SCREEN_TASK_IDS)
+            or not is_sha256(source_generation_sha)
+            or payload.get("generation_manifest_sha256")
+            != source_generation_sha
+            or payload.get("tau2_commit") != SCREEN_TAU2_COMMIT
+            or payload.get("split_manifest_sha256") != SCREEN_SPLIT_SHA256
+            or not isinstance(generation, dict)
+            or not isinstance(teacher, dict)
+            or teacher.get("model") != SCREEN_TEACHER_MODEL
+            or teacher.get("revision") != SCREEN_TEACHER_REVISION
+            or not isinstance(user, dict)
+            or user.get("model") != SCREEN_USER_MODEL
+            or user.get("revision") != SCREEN_USER_REVISION
+            or not isinstance(judge, dict)
+            or judge.get("model") != SCREEN_USER_MODEL
+            or judge.get("revision") != SCREEN_USER_REVISION
+            or generation.get("teacher_mode") != "ground_truth"
+            or generation.get("temperature") != SCREEN_TEMPERATURE
+            or generation.get("top_p") != SCREEN_TOP_P
+            or generation.get("max_model_len") != SCREEN_MAX_MODEL_LEN
+            or generation.get("max_tokens") != SCREEN_MAX_TOKENS
+            or generation.get("num_shards") != SCREEN_NUM_SHARDS
+            or generation.get("num_trials") != SCREEN_NUM_TRIALS
+            or generation.get("base_seed") != SCREEN_SEED
+            or generation.get("trial_seeds") != SCREEN_TRIAL_SEEDS
+            or payload.get("canonical_sha256") != canonical_sha256(core)
+        ):
+            raise RuntimeError("V5.3 12-hour screen manifest contract drift")
     fault_protocol = payload.get("fault_protocol")
     if (
         not isinstance(fault_protocol, dict)
@@ -381,7 +521,6 @@ def load_inner_train_manifest(
             "Generation manifest leaks validation/test task IDs: "
             f"{sorted(leaked)[:5]}"
         )
-    protocol = payload.get("protocol")
     if protocol == GENERATION_PROTOCOL:
         if observed != expected_inner:
             raise RuntimeError(
@@ -457,6 +596,65 @@ def load_inner_train_manifest(
             **gt_filter,
             "excluded_task_ids": sorted(excluded_values),
         }
+    elif protocol == SCREEN_MANIFEST_PROTOCOL:
+        gt_filter = payload.get("gt_compatibility_filter")
+        if not isinstance(gt_filter, dict):
+            raise RuntimeError(
+                "V5.3 12-hour screen manifest lacks frozen "
+                "gt_compatibility_filter"
+            )
+        excluded_values = gt_filter.get("excluded_task_ids")
+        if not isinstance(excluded_values, list) or any(
+            not isinstance(value, str) or ":" not in value
+            for value in excluded_values
+        ):
+            raise RuntimeError(
+                "V5.3 12-hour screen GT exclusions are malformed"
+            )
+        if len(set(excluded_values)) != len(excluded_values):
+            raise RuntimeError(
+                "V5.3 12-hour screen GT exclusions contain duplicates"
+            )
+        excluded: set[tuple[str, str]] = set()
+        for value in excluded_values:
+            domain, task_id = value.split(":", 1)
+            if domain not in DOMAINS or not task_id:
+                raise RuntimeError(
+                    f"V5.3 12-hour screen GT exclusion is invalid: {value!r}"
+                )
+            excluded.add((domain, task_id))
+        required_metadata = {
+            "protocol": GT_FILTER_PROTOCOL,
+            "policy": "exclude_before_sharding",
+            "teacher_mode": "ground_truth",
+            "source_task_count": len(expected_inner),
+            "included_task_count": len(expected_inner) - len(excluded),
+            "exclusion_reason": "no_expected_tool_actions",
+            "selection_uses_rollouts_rewards_validation_or_test": False,
+            "official_test_used": False,
+        }
+        for field, expected_value in required_metadata.items():
+            if gt_filter.get(field) != expected_value:
+                raise RuntimeError(
+                    "V5.3 12-hour screen gt_compatibility_filter drift for "
+                    f"{field}: expected {expected_value!r}, "
+                    f"observed {gt_filter.get(field)!r}"
+                )
+        if (
+            observed != {
+                tuple(value.split(":", 1)) for value in SCREEN_TASK_IDS
+            }
+            or not observed <= expected_inner
+            or not excluded <= expected_inner
+            or observed & excluded
+        ):
+            raise RuntimeError(
+                "V5.3 12-hour screen task/filter universe drift"
+            )
+        payload["_validated_gt_compatibility_filter"] = {
+            **gt_filter,
+            "excluded_task_ids": sorted(excluded_values),
+        }
     else:  # guarded above; keeps static analyzers and future edits fail-closed.
         raise RuntimeError("Unexpected generation manifest protocol")
     declared_split_sha = payload.get("split_manifest_sha256")
@@ -508,6 +706,89 @@ def validate_local_manifest_sources(
                 raise RuntimeError(
                     f"Local {domain} {field} differs from multi-fault manifest"
                 )
+
+
+def load_screen_source_dynamic_audit(
+    path: Path,
+    *,
+    manifest: dict[str, Any],
+    split_manifest_path: Path,
+) -> dict[str, Any]:
+    """Validate the full source-generation audit bound by a screen manifest."""
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise RuntimeError("screen source dynamic audit is unreadable") from error
+    rows = payload.get("rows") if isinstance(payload, dict) else None
+    gt_filter = manifest.get("gt_compatibility_filter") or {}
+    expected_count = gt_filter.get("included_task_count")
+    source_generation_sha = manifest.get(
+        "source_generation_manifest_sha256"
+    )
+    if (
+        not isinstance(payload, dict)
+        or payload.get("protocol") != "v5_stage1_dynamic_injection_audit"
+        or payload.get("status") != "COMPLETE"
+        or payload.get("manifest_sha256") != source_generation_sha
+        or payload.get("manifest_protocol") != V5_3_GENERATION_PROTOCOL
+        or payload.get("fault_protocol") != FAULT_PROTOCOL
+        or payload.get("split_manifest_sha256")
+        != sha256_file(split_manifest_path)
+        or payload.get("source_split") != "derived_inner_train"
+        or payload.get("official_test_used") is not False
+        or payload.get("official_test_sealed") is not True
+        or not isinstance(rows, list)
+        or payload.get("verified_injections") != len(rows)
+        or len(rows) != expected_count
+    ):
+        raise RuntimeError("screen source dynamic audit identity drift")
+    observed: set[str] = set()
+    for index, row in enumerate(rows):
+        pair_id = row.get("pair_id") if isinstance(row, dict) else None
+        if (
+            not isinstance(pair_id, str)
+            or pair_id in observed
+            or row.get("runtime_tool_type") != "read"
+            or row.get("runtime_tool_mutates_state") is not False
+            or row.get("tool_error_observed") is not True
+            or row.get("agent_database_before") is None
+            or row.get("agent_database_before")
+            != row.get("agent_database_after")
+            or "user_database_before" not in row
+            or row.get("user_database_before")
+            != row.get("user_database_after")
+            or row.get("agent_database_unchanged") is not True
+            or row.get("user_database_unchanged") is not True
+        ):
+            raise RuntimeError(
+                f"screen source dynamic audit row {index} failed safety"
+            )
+        observed.add(pair_id)
+    if not SCREEN_TASK_IDS <= observed:
+        raise RuntimeError(
+            "screen tasks are absent from the source dynamic audit"
+        )
+    if any(
+        payload.get(field) is not True
+        for field in (
+            "all_runtime_tools_read_only",
+            "all_tool_errors_observed",
+            "all_agent_databases_unchanged",
+            "all_user_databases_unchanged",
+        )
+    ):
+        raise RuntimeError("screen source dynamic audit aggregate drift")
+    return {
+        "protocol": "v5_stage1_dynamic_injection_audit",
+        "sha256": sha256_file(path),
+        "manifest_sha256": source_generation_sha,
+        "split_manifest_sha256": sha256_file(split_manifest_path),
+        "source_split": "derived_inner_train",
+        "verified_injections": len(rows),
+        "official_test_used": False,
+        "official_test_sealed": True,
+    }
 
 
 def shard_rows(
@@ -877,6 +1158,26 @@ def validate_sampling_contract(
             raise RuntimeError(
                 "V5.3 requires nonzero temperature for independent attempts"
             )
+    elif manifest_protocol == SCREEN_MANIFEST_PROTOCOL:
+        expected = {
+            "temperature": SCREEN_TEMPERATURE,
+            "top_p": SCREEN_TOP_P,
+            "num_trials": SCREEN_NUM_TRIALS,
+            "seed": SCREEN_SEED,
+        }
+        observed = {
+            "temperature": temperature,
+            "top_p": top_p,
+            "num_trials": num_trials,
+            "seed": seed,
+        }
+        if observed != expected or seeds != SCREEN_TRIAL_SEEDS:
+            raise RuntimeError(
+                "V5.3 12-hour screen sampling contract drift: "
+                f"expected {expected} with trial seeds "
+                f"{SCREEN_TRIAL_SEEDS}, observed {observed} with "
+                f"trial seeds {seeds}"
+            )
     elif manifest_protocol != GENERATION_PROTOCOL:
         raise RuntimeError(
             f"Unsupported generation sampling protocol {manifest_protocol!r}"
@@ -886,7 +1187,11 @@ def validate_sampling_contract(
         "protocol": (
             "v5_3_frozen_stochastic_attempts_v1"
             if manifest_protocol == V5_3_GENERATION_PROTOCOL
-            else "v5_legacy_generation_sampling_v1"
+            else (
+                "v5_3_12h_screen_stochastic_attempts_v1"
+                if manifest_protocol == SCREEN_MANIFEST_PROTOCOL
+                else "v5_legacy_generation_sampling_v1"
+            )
         ),
         "temperature": temperature,
         "top_p": top_p,
@@ -1023,6 +1328,248 @@ def run_condition(
     return output_path
 
 
+def validate_screen_runtime_evidence(
+    path: Path | None,
+    *,
+    expected_source_commit: str,
+    max_model_len: int | None,
+) -> dict[str, Any]:
+    """Validate and hash-bind the live 32K-context screen service receipt."""
+
+    if max_model_len != SCREEN_MAX_MODEL_LEN:
+        raise RuntimeError(
+            "V5.3 12-hour screen requires --max-model-len "
+            f"{SCREEN_MAX_MODEL_LEN}"
+        )
+    if path is None:
+        raise RuntimeError(
+            "V5.3 12-hour screen requires --runtime-evidence"
+        )
+    resolved = path.resolve()
+    try:
+        payload = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise RuntimeError(
+            f"V5.3 12-hour screen runtime evidence is unreadable: {resolved}"
+        ) from error
+    if not isinstance(payload, dict):
+        raise RuntimeError("V5.3 12-hour screen runtime evidence is not an object")
+    receipt_core = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"canonical_receipt_sha256", "receipt_pointer"}
+    }
+    roles = payload.get("roles")
+    invocation = payload.get("invocation")
+    services = invocation.get("services") if isinstance(invocation, dict) else None
+    inventory = payload.get("gpu_inventory")
+    host_pointer = payload.get("host_preflight")
+    host_path = (
+        Path(str(host_pointer.get("path"))).resolve()
+        if isinstance(host_pointer, dict)
+        else None
+    )
+    try:
+        host_payload = (
+            json.loads(host_path.read_text(encoding="utf-8"))
+            if host_path is not None
+            else None
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise RuntimeError(
+            "V5.3 12-hour screen host/CUDA preflight is unreadable"
+        ) from error
+    train_environment = (
+        (host_payload.get("environments") or {}).get("train")
+        if isinstance(host_payload, dict)
+        else None
+    )
+    expected_roles = {
+        "teacher": {
+            "model": SCREEN_TEACHER_MODEL,
+            "revision": SCREEN_TEACHER_REVISION,
+            "visible_gpu_indices": [1, 2],
+            "tensor_parallel_size": 2,
+        },
+        "user_and_judge": {
+            "model": SCREEN_USER_MODEL,
+            "revision": SCREEN_USER_REVISION,
+            "visible_gpu_indices": [0],
+            "tensor_parallel_size": 1,
+        },
+    }
+    if (
+        payload.get("protocol") != SCREEN_RUNTIME_EVIDENCE_PROTOCOL
+        or payload.get("status") != "PASS"
+        or payload.get("phase") != "screen"
+        or payload.get("source_commit") != expected_source_commit
+        or payload.get("max_model_len") != SCREEN_MAX_MODEL_LEN
+        or payload.get("expected_gpu_model") != SCREEN_GPU_MODEL
+        or payload.get("official_test_used") is not False
+        or payload.get("canonical_receipt_sha256")
+        != canonical_sha256(receipt_core)
+        or not isinstance(roles, dict)
+        or set(roles) != set(expected_roles)
+        or not isinstance(invocation, dict)
+        or not isinstance(services, dict)
+        or set(services) != set(expected_roles)
+        or not isinstance(inventory, list)
+        or len(inventory) != 4
+        or not isinstance(host_pointer, dict)
+        or host_pointer.get("path") != str(host_path)
+        or not host_path.is_file()
+        or host_pointer.get("sha256") != sha256_file(host_path)
+        or not isinstance(train_environment, dict)
+        or train_environment.get("cuda") != SCREEN_CUDA_VERSION
+        or train_environment.get("cuda_available") is not True
+    ):
+        raise RuntimeError("V5.3 12-hour screen runtime receipt drift")
+    inventory_by_index: dict[int, dict[str, Any]] = {}
+    for row in inventory:
+        index = row.get("index") if isinstance(row, dict) else None
+        name = row.get("name") if isinstance(row, dict) else None
+        if (
+            isinstance(index, bool)
+            or not isinstance(index, int)
+            or index in inventory_by_index
+            or not isinstance(name, str)
+            or name != SCREEN_GPU_MODEL
+            or not isinstance(row.get("driver"), str)
+            or not row["driver"]
+        ):
+            raise RuntimeError(
+                "V5.3 12-hour screen runtime GPU identity drift"
+            )
+        inventory_by_index[index] = row
+    if set(inventory_by_index) != {0, 1, 2, 3}:
+        raise RuntimeError("V5.3 12-hour screen requires four indexed RTX 5090s")
+    for role, expected in expected_roles.items():
+        role_receipt = roles.get(role)
+        service = services.get(role)
+        snapshot = service.get("model_snapshot") if isinstance(service, dict) else None
+        long_probe = (
+            role_receipt.get("long_context_probe")
+            if isinstance(role_receipt, dict)
+            else None
+        )
+        prompt_tokens = (
+            long_probe.get("prompt_tokens")
+            if isinstance(long_probe, dict)
+            else None
+        )
+        completion_tokens = (
+            long_probe.get("completion_tokens")
+            if isinstance(long_probe, dict)
+            else None
+        )
+        indices = expected["visible_gpu_indices"]
+        if (
+            not isinstance(role_receipt, dict)
+            or role_receipt.get("model") != expected["model"]
+            or role_receipt.get("revision") != expected["revision"]
+            or role_receipt.get("tensor_parallel_size")
+            != expected["tensor_parallel_size"]
+            or not isinstance(role_receipt.get("api_base"), str)
+            or not isinstance(long_probe, dict)
+            or long_probe.get("status") != "PASS"
+            or long_probe.get("parallel_tool_calls") is not False
+            or long_probe.get("max_tokens") != SCREEN_MAX_TOKENS
+            or isinstance(prompt_tokens, bool)
+            or not isinstance(prompt_tokens, int)
+            or not 27_000
+            <= prompt_tokens
+            <= SCREEN_MAX_MODEL_LEN - SCREEN_MAX_TOKENS
+            or isinstance(completion_tokens, bool)
+            or not isinstance(completion_tokens, int)
+            or not 0 < completion_tokens <= SCREEN_MAX_TOKENS
+            or long_probe.get("total_tokens")
+            != prompt_tokens + completion_tokens
+            or not isinstance(service, dict)
+            or service.get("visible_gpu_indices") != indices
+            or service.get("gpu_identity")
+            != [inventory_by_index[index] for index in indices]
+            or not isinstance(snapshot, dict)
+            or snapshot.get("model") != expected["model"]
+            or snapshot.get("requested_revision") != expected["revision"]
+            or snapshot.get("resolved_revision") != expected["revision"]
+        ):
+            raise RuntimeError(
+                f"V5.3 12-hour screen runtime {role} evidence drift"
+            )
+    return {
+        "path": str(resolved),
+        "sha256": sha256_file(resolved),
+        "protocol": payload["protocol"],
+        "phase": payload["phase"],
+        "canonical_receipt_sha256": payload["canonical_receipt_sha256"],
+        "max_model_len": payload["max_model_len"],
+        "expected_gpu_model": SCREEN_GPU_MODEL,
+        "gpu_inventory": inventory,
+        "host_preflight": dict(host_pointer),
+        "cuda_version": SCREEN_CUDA_VERSION,
+        "teacher_visible_gpu_indices": [1, 2],
+        "user_and_judge_visible_gpu_indices": [0],
+    }
+
+
+def validate_screen_execution_contract(
+    args: argparse.Namespace,
+    manifest: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Fail closed on screen-only CLI/model/runtime drift."""
+
+    if manifest.get("protocol") != SCREEN_MANIFEST_PROTOCOL:
+        return None
+    observed = {
+        "teacher_model": args.teacher_model,
+        "teacher_revision": args.teacher_revision,
+        "teacher_api_base": args.teacher_api_base,
+        "user_model": args.user_model,
+        "user_revision": args.user_revision,
+        "user_api_base": args.user_api_base,
+        "judge_model": args.judge_model or args.user_model,
+        "judge_revision": args.judge_revision,
+        "judge_api_base": args.judge_api_base or args.user_api_base,
+        "teacher_mode": args.teacher_mode,
+        "num_shards": args.num_shards,
+        "num_trials": args.num_trials,
+        "seed": args.seed,
+        "temperature": float(args.temperature),
+        "top_p": float(args.top_p),
+        "max_tokens": args.max_tokens,
+        "max_model_len": args.max_model_len,
+    }
+    expected = {
+        "teacher_model": SCREEN_TEACHER_MODEL,
+        "teacher_revision": SCREEN_TEACHER_REVISION,
+        "teacher_api_base": "http://127.0.0.1:8011/v1",
+        "user_model": SCREEN_USER_MODEL,
+        "user_revision": SCREEN_USER_REVISION,
+        "user_api_base": "http://127.0.0.1:8001/v1",
+        "judge_model": SCREEN_USER_MODEL,
+        "judge_revision": SCREEN_USER_REVISION,
+        "judge_api_base": "http://127.0.0.1:8001/v1",
+        "teacher_mode": "ground_truth",
+        "num_shards": SCREEN_NUM_SHARDS,
+        "num_trials": SCREEN_NUM_TRIALS,
+        "seed": SCREEN_SEED,
+        "temperature": SCREEN_TEMPERATURE,
+        "top_p": SCREEN_TOP_P,
+        "max_tokens": SCREEN_MAX_TOKENS,
+        "max_model_len": SCREEN_MAX_MODEL_LEN,
+    }
+    if observed != expected:
+        raise RuntimeError(
+            "V5.3 12-hour screen execution contract drift: "
+            f"expected {expected}, observed {observed}"
+        )
+    return validate_screen_runtime_evidence(
+        args.runtime_evidence,
+        expected_source_commit=args.expected_source_commit,
+        max_model_len=args.max_model_len,
+    )
+
+
 def write_contract(
     args: argparse.Namespace,
     manifest_path: Path,
@@ -1033,6 +1580,7 @@ def write_contract(
     dynamic_audit_identity: dict[str, Any],
     gt_compatibility_preflight: dict[str, Any] | None = None,
     sampling_contract: dict[str, Any] | None = None,
+    runtime_evidence: dict[str, Any] | None = None,
 ) -> Path:
     path = args.output_dir / (
         "run_contract.json"
@@ -1105,6 +1653,36 @@ def write_contract(
         "result_sha256": {},
         "strict_judge_audit_evidence": {},
     }
+    if manifest_payload.get("protocol") == SCREEN_MANIFEST_PROTOCOL:
+        if runtime_evidence is None:
+            raise RuntimeError(
+                "V5.3 12-hour screen contract lacks runtime evidence"
+            )
+        source_generation_sha = manifest_payload.get(
+            "source_generation_manifest_sha256"
+        )
+        payload.update(
+            {
+                "subprotocol": SCREEN_GENERATION_SUBPROTOCOL,
+                "screen_protocol": SCREEN_PROTOCOL,
+                "formal_data": False,
+                "screen_outputs_may_enter_formal": False,
+                "screen_outputs_may_enter_formal_v5_3": False,
+                "screen_manifest": str(manifest_path),
+                "screen_manifest_sha256": sha256_file(manifest_path),
+                "source_generation_manifest_sha256": source_generation_sha,
+                "generation_manifest_sha256": source_generation_sha,
+                "base_seed": SCREEN_SEED,
+                "trial_seeds": list(SCREEN_TRIAL_SEEDS),
+                "task_universe_complete": False,
+                "max_model_len": SCREEN_MAX_MODEL_LEN,
+                "runtime_evidence": runtime_evidence,
+            }
+        )
+        payload["teacher"]["tensor_parallel_size"] = 2
+        payload["user"]["tensor_parallel_size"] = 1
+        payload["judge"]["tensor_parallel_size"] = 1
+        payload["decoding"]["max_model_len"] = SCREEN_MAX_MODEL_LEN
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
@@ -1133,9 +1711,13 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
     if not result_hashes:
         raise RuntimeError("Cannot finalize generation without result files")
     payload["result_sha256"] = dict(sorted(result_hashes.items()))
-    if payload.get("generation_manifest_protocol") == V5_3_GENERATION_PROTOCOL:
+    generation_protocol = payload.get("generation_manifest_protocol")
+    if generation_protocol in {
+        V5_3_GENERATION_PROTOCOL,
+        SCREEN_MANIFEST_PROTOCOL,
+    }:
         try:
-            payload["strict_judge_audit_evidence"] = (
+            strict_evidence = (
                 judge_audit_contract.validate_strict_judge_evidence(
                     output_files,
                     maximum_content_attempts=DEFAULT_CONTENT_ATTEMPTS,
@@ -1145,6 +1727,19 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
             raise RuntimeError(
                 "V5.3 generation strict-judge evidence is incomplete"
             ) from error
+        if generation_protocol == SCREEN_MANIFEST_PROTOCOL and (
+            strict_evidence.get("status") != "PASS"
+            or isinstance(strict_evidence.get("expected_calls"), bool)
+            or not isinstance(strict_evidence.get("expected_calls"), int)
+            or strict_evidence["expected_calls"] <= 0
+            or strict_evidence.get("observed_unique_pass_audits")
+            != strict_evidence["expected_calls"]
+        ):
+            raise RuntimeError(
+                "V5.3 12-hour screen strict-judge evidence is zero "
+                "or incomplete"
+            )
+        payload["strict_judge_audit_evidence"] = strict_evidence
     payload["status"] = "COMPLETE"
     payload["completed_at"] = datetime.now(timezone.utc).isoformat()
     temporary = contract_path.with_name(f".{contract_path.name}.tmp")
@@ -1180,16 +1775,25 @@ def main() -> None:
         num_trials=args.num_trials,
         seed=args.seed,
     )
+    runtime_evidence = validate_screen_execution_contract(args, manifest)
     dynamic_audit_path = args.dynamic_audit.resolve()
-    dynamic_audit_identity = load_complete_dynamic_audit(
-        dynamic_audit_path,
-        manifest_path=manifest_path,
-        split_manifest_path=split_manifest_path,
-        expected_source_split="derived_inner_train",
-        expected_task_ids={
-            f"{row['domain']}:{row['task_id']}" for row in manifest["rows"]
-        },
-    )
+    if manifest["protocol"] == SCREEN_MANIFEST_PROTOCOL:
+        dynamic_audit_identity = load_screen_source_dynamic_audit(
+            dynamic_audit_path,
+            manifest=manifest,
+            split_manifest_path=split_manifest_path,
+        )
+    else:
+        dynamic_audit_identity = load_complete_dynamic_audit(
+            dynamic_audit_path,
+            manifest_path=manifest_path,
+            split_manifest_path=split_manifest_path,
+            expected_source_split="derived_inner_train",
+            expected_task_ids={
+                f"{row['domain']}:{row['task_id']}"
+                for row in manifest["rows"]
+            },
+        )
     validate_local_manifest_sources(manifest, args.tau2_root.resolve())
     rows = shard_rows(
         list(manifest["rows"]),
@@ -1220,6 +1824,7 @@ def main() -> None:
         dynamic_audit_identity=dynamic_audit_identity,
         gt_compatibility_preflight=gt_compatibility,
         sampling_contract=sampling_contract,
+        runtime_evidence=runtime_evidence,
     )
     os.environ.setdefault("OPENAI_API_KEY", args.teacher_api_key)
     register_fault_agents()

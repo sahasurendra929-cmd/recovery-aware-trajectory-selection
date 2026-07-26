@@ -817,7 +817,8 @@ def _beam_arm_schedules(
     *,
     target_tokens: float,
     target_sequence: float,
-    target_recovery_ratio: float,
+    target_recovery_ratio: float | None,
+    target_recovery_row_ratio: float | None = None,
     seed: int,
     salt: str,
     beam_width: int,
@@ -825,7 +826,10 @@ def _beam_arm_schedules(
 ) -> list[dict[str, Any]]:
     """Bounded deterministic multiple-choice DP for one arm.
 
-    The state contains only supervised, nonpadding, and recovery-token totals.
+    The state contains supervised, nonpadding, recovery-token, and recovery-row
+    totals.  The row dimension is needed by the 12-hour screen because its
+    batch-size-one mean loss gives each trajectory equal optimization weight;
+    supervised-token mass is not the mixture weight in that profile.
     Candidate order is hash-derived from protocol inputs.  Rewards, validation
     results, and official-test outcomes are not inputs to either ordering or
     pruning.
@@ -853,6 +857,8 @@ def _beam_arm_schedules(
     suffix_sequence_max = [0] * (size + 1)
     suffix_recovery_min = [0] * (size + 1)
     suffix_recovery_max = [0] * (size + 1)
+    suffix_recovery_rows_min = [0] * (size + 1)
+    suffix_recovery_rows_max = [0] * (size + 1)
     for position in range(size - 1, -1, -1):
         options = option_lists[position]
         token_values = [
@@ -862,6 +868,10 @@ def _beam_arm_schedules(
             row["token_contract"]["sequence_tokens"] for row in options
         ]
         recovery_values = [_source_recovery_tokens(row) for row in options]
+        recovery_row_values = [
+            int(row["metadata"]["source"] == "failure_rich")
+            for row in options
+        ]
         suffix_token_min[position] = (
             suffix_token_min[position + 1] + min(token_values)
         )
@@ -880,13 +890,22 @@ def _beam_arm_schedules(
         suffix_recovery_max[position] = (
             suffix_recovery_max[position + 1] + max(recovery_values)
         )
+        suffix_recovery_rows_min[position] = (
+            suffix_recovery_rows_min[position + 1]
+            + min(recovery_row_values)
+        )
+        suffix_recovery_rows_max[position] = (
+            suffix_recovery_rows_max[position + 1]
+            + max(recovery_row_values)
+        )
 
     def optimistic_score(
         tokens: int,
         sequence: int,
         recovery: int,
+        recovery_rows: int,
         next_position: int,
-    ) -> tuple[float, float, float, float]:
+    ) -> tuple[float, float, float, float, float]:
         token_distance = _interval_distance(
             target_tokens,
             tokens + suffix_token_min[next_position],
@@ -897,43 +916,66 @@ def _beam_arm_schedules(
             sequence + suffix_sequence_min[next_position],
             sequence + suffix_sequence_max[next_position],
         ) / max(1.0, target_sequence)
-        minimum_ratio = (
-            recovery + suffix_recovery_min[next_position]
-        ) / max(1, tokens + suffix_token_max[next_position])
-        maximum_ratio = (
-            recovery + suffix_recovery_max[next_position]
-        ) / max(1, tokens + suffix_token_min[next_position])
-        ratio_distance = _interval_distance(
-            target_recovery_ratio,
-            minimum_ratio,
-            maximum_ratio,
-        )
+        token_ratio_distance = 0.0
+        if target_recovery_ratio is not None:
+            minimum_ratio = (
+                recovery + suffix_recovery_min[next_position]
+            ) / max(1, tokens + suffix_token_max[next_position])
+            maximum_ratio = (
+                recovery + suffix_recovery_max[next_position]
+            ) / max(1, tokens + suffix_token_min[next_position])
+            token_ratio_distance = _interval_distance(
+                target_recovery_ratio,
+                minimum_ratio,
+                maximum_ratio,
+            )
+        row_ratio_distance = 0.0
+        if target_recovery_row_ratio is not None:
+            minimum_row_ratio = (
+                recovery_rows + suffix_recovery_rows_min[next_position]
+            ) / size
+            maximum_row_ratio = (
+                recovery_rows + suffix_recovery_rows_max[next_position]
+            ) / size
+            row_ratio_distance = _interval_distance(
+                target_recovery_row_ratio,
+                minimum_row_ratio,
+                maximum_row_ratio,
+            )
         return (
-            token_distance + sequence_distance + 4.0 * ratio_distance,
+            token_distance
+            + sequence_distance
+            + 4.0 * token_ratio_distance
+            + 4.0 * row_ratio_distance,
             token_distance,
             sequence_distance,
-            ratio_distance,
+            token_ratio_distance,
+            row_ratio_distance,
         )
 
     # Nodes retain only selected beam predecessors, avoiding an O(n^2) copy of
     # growing choice tuples.  Node zero is the root.
     nodes: list[tuple[int, dict[str, Any] | None]] = [(-1, None)]
-    states: list[tuple[int, int, int, int]] = [(0, 0, 0, 0)]
+    states: list[tuple[int, int, int, int, int]] = [(0, 0, 0, 0, 0)]
     for position, options in enumerate(option_lists):
         # Equal totals have equivalent future reachability.  Keeping the first
         # hash-ordered path is therefore lossless for the registered budgets.
         expanded: dict[
-            tuple[int, int, int],
+            tuple[int, int, int, int],
             tuple[int, dict[str, Any]],
         ] = {}
-        for tokens, sequence, recovery, node_id in states:
+        for tokens, sequence, recovery, recovery_rows, node_id in states:
             for option in options:
                 option_tokens = option["token_contract"]["supervised_tokens"]
                 option_sequence = option["token_contract"]["sequence_tokens"]
+                option_is_recovery = int(
+                    option["metadata"]["source"] == "failure_rich"
+                )
                 key = (
                     tokens + option_tokens,
                     sequence + option_sequence,
                     recovery + _source_recovery_tokens(option),
+                    recovery_rows + option_is_recovery,
                 )
                 expanded.setdefault(key, (node_id, option))
         ranked = sorted(
@@ -953,16 +995,41 @@ def _beam_arm_schedules(
         key=lambda state: (
             abs(state[0] - target_tokens) / max(1.0, target_tokens)
             + abs(state[1] - target_sequence) / max(1.0, target_sequence)
-            + 4.0
-            * abs(state[2] / max(1, state[0]) - target_recovery_ratio),
+            + (
+                0.0
+                if target_recovery_ratio is None
+                else 4.0
+                * abs(
+                    state[2] / max(1, state[0])
+                    - target_recovery_ratio
+                )
+            )
+            + (
+                0.0
+                if target_recovery_row_ratio is None
+                else 4.0
+                * abs(state[3] / size - target_recovery_row_ratio)
+            ),
             abs(state[0] - target_tokens),
             abs(state[1] - target_sequence),
-            abs(state[2] / max(1, state[0]) - target_recovery_ratio),
-            state[:3],
+            (
+                0.0
+                if target_recovery_ratio is None
+                else abs(
+                    state[2] / max(1, state[0])
+                    - target_recovery_ratio
+                )
+            ),
+            (
+                0.0
+                if target_recovery_row_ratio is None
+                else abs(state[3] / size - target_recovery_row_ratio)
+            ),
+            state[:4],
         ),
     )[:final_width]
     schedules: list[dict[str, Any]] = []
-    for tokens, sequence, recovery, node_id in ranked_final:
+    for tokens, sequence, recovery, recovery_rows, node_id in ranked_final:
         rows: list[dict[str, Any]] = []
         while node_id:
             parent_id, row = nodes[node_id]
@@ -981,6 +1048,8 @@ def _beam_arm_schedules(
                 "recovery_supervised_token_ratio": (
                     recovery / max(1, tokens)
                 ),
+                "recovery_rows": recovery_rows,
+                "recovery_row_ratio": recovery_rows / size,
                 "selection_sha256": _compact_sha256(
                     [row["id"] for row in rows]
                 ),
@@ -1035,11 +1104,14 @@ def _deterministic_tolerance_aware_joint_match(
     task_ids: list[str],
     arm_candidates: dict[str, dict[str, list[dict[str, Any]]]],
     *,
-    recovery_ratios: dict[str, float],
+    recovery_ratios: dict[str, float] | None,
+    recovery_row_ratios: dict[str, float] | None = None,
     seed: int,
     supervised_tolerance: float = 0.01,
     sequence_tolerance: float = 0.02,
     recovery_ratio_tolerance: float = 0.01,
+    recovery_row_ratio_tolerance: float = 0.0,
+    enforce_cross_arm_budget_tolerances: bool = True,
     beam_width_schedule: tuple[int, ...] = (128, 512),
     final_width: int = 16,
 ) -> tuple[dict[str, list[dict[str, Any]]] | None, dict[str, Any]]:
@@ -1052,6 +1124,22 @@ def _deterministic_tolerance_aware_joint_match(
 
     if set(arm_candidates) != set(v5.CORE_ARMS):
         raise RuntimeError("matching candidate arms drift")
+    if recovery_ratios is None and recovery_row_ratios is None:
+        raise RuntimeError("matching requires a registered recovery mixture")
+    for name, values in (
+        ("recovery token ratios", recovery_ratios),
+        ("recovery row ratios", recovery_row_ratios),
+    ):
+        if values is not None and (
+            not set(v5.CORE_ARMS) <= set(values)
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not 0.0 <= float(value) <= 1.0
+                for value in values.values()
+            )
+        ):
+            raise RuntimeError(f"matching {name} drift")
     endpoint_bounds_by_arm = {
         arm: {
             "supervised_tokens": v5.endpoint_bounds(
@@ -1079,7 +1167,16 @@ def _deterministic_tolerance_aware_joint_match(
                     arm_candidates[arm],
                     target_tokens=target_tokens,
                     target_sequence=target_sequence,
-                    target_recovery_ratio=recovery_ratios[arm],
+                    target_recovery_ratio=(
+                        recovery_ratios[arm]
+                        if recovery_ratios is not None
+                        else None
+                    ),
+                    target_recovery_row_ratio=(
+                        recovery_row_ratios[arm]
+                        if recovery_row_ratios is not None
+                        else None
+                    ),
                     seed=seed,
                     salt=f"v5.3:{arm}",
                     beam_width=beam_width,
@@ -1104,13 +1201,28 @@ def _deterministic_tolerance_aware_joint_match(
                 sequence_gap = _relative_range(
                     [row["nonpadding_tokens"] for row in combination]
                 )
-                ratio_deviations = [
-                    abs(
-                        row["recovery_supervised_token_ratio"]
-                        - recovery_ratios[arm]
-                    )
-                    for arm, row in zip(v5.CORE_ARMS, combination)
-                ]
+                ratio_deviations = (
+                    [
+                        abs(
+                            row["recovery_supervised_token_ratio"]
+                            - recovery_ratios[arm]
+                        )
+                        for arm, row in zip(v5.CORE_ARMS, combination)
+                    ]
+                    if recovery_ratios is not None
+                    else [0.0] * len(v5.CORE_ARMS)
+                )
+                row_ratio_deviations = (
+                    [
+                        abs(
+                            row["recovery_row_ratio"]
+                            - recovery_row_ratios[arm]
+                        )
+                        for arm, row in zip(v5.CORE_ARMS, combination)
+                    ]
+                    if recovery_row_ratios is not None
+                    else [0.0] * len(v5.CORE_ARMS)
+                )
                 identity = tuple(row["selection_sha256"] for row in combination)
                 score = (
                     token_gap / max(supervised_tolerance, 1e-12)
@@ -1118,6 +1230,10 @@ def _deterministic_tolerance_aware_joint_match(
                     + sum(
                         value / max(recovery_ratio_tolerance, 1e-12)
                         for value in ratio_deviations
+                    )
+                    + sum(
+                        value / max(recovery_row_ratio_tolerance, 1e-12)
+                        for value in row_ratio_deviations
                     ),
                     token_gap,
                     sequence_gap,
@@ -1127,6 +1243,9 @@ def _deterministic_tolerance_aware_joint_match(
                     "supervised_token_relative_range": token_gap,
                     "nonpadding_token_relative_range": sequence_gap,
                     "maximum_recovery_ratio_deviation": max(ratio_deviations),
+                    "maximum_recovery_row_ratio_deviation": max(
+                        row_ratio_deviations
+                    ),
                     "selection_sha256_by_arm": {
                         arm: row["selection_sha256"]
                         for arm, row in zip(v5.CORE_ARMS, combination)
@@ -1135,10 +1254,17 @@ def _deterministic_tolerance_aware_joint_match(
                 if attempt_best is None or score < attempt_best["_score"]:
                     attempt_best = {**observation, "_score": score}
                 if (
-                    token_gap <= supervised_tolerance + 1e-12
-                    and sequence_gap <= sequence_tolerance + 1e-12
+                    (
+                        not enforce_cross_arm_budget_tolerances
+                        or (
+                            token_gap <= supervised_tolerance + 1e-12
+                            and sequence_gap <= sequence_tolerance + 1e-12
+                        )
+                    )
                     and max(ratio_deviations)
                     <= recovery_ratio_tolerance + 1e-12
+                    and max(row_ratio_deviations)
+                    <= recovery_row_ratio_tolerance + 1e-12
                 ):
                     feasible.append((score, combination, observation))
             attempt_record = {
@@ -1172,7 +1298,7 @@ def _deterministic_tolerance_aware_joint_match(
                 }
                 certificate = {
                     "algorithm": (
-                        "deterministic_tolerance_aware_joint_beam_dp_v1"
+                        "deterministic_tolerance_aware_joint_beam_dp_v2"
                     ),
                     "search_status": "FEASIBLE_MATCH_FOUND",
                     "beam_width_schedule": list(beam_width_schedule),
@@ -1199,6 +1325,22 @@ def _deterministic_tolerance_aware_joint_match(
                         arm: row["recovery_supervised_token_ratio"]
                         for arm, row in zip(v5.CORE_ARMS, selected)
                     },
+                    "recovery_row_ratio_by_arm": {
+                        arm: row["recovery_row_ratio"]
+                        for arm, row in zip(v5.CORE_ARMS, selected)
+                    },
+                    "recovery_rows_by_arm": {
+                        arm: row["recovery_rows"]
+                        for arm, row in zip(v5.CORE_ARMS, selected)
+                    },
+                    "recovery_mixture_basis": (
+                        "row_mean_microbatch_equal_weight"
+                        if recovery_row_ratios is not None
+                        else "supervised_token_mass"
+                    ),
+                    "cross_arm_budget_tolerances_gating": (
+                        enforce_cross_arm_budget_tolerances
+                    ),
                     "actual_supervised_token_relative_range": observation[
                         "supervised_token_relative_range"
                     ],
@@ -1210,6 +1352,13 @@ def _deterministic_tolerance_aware_joint_match(
                         "nonpadding_token_relative_range": sequence_tolerance,
                         "recovery_supervised_token_ratio": (
                             recovery_ratio_tolerance
+                            if recovery_ratios is not None
+                            else None
+                        ),
+                        "recovery_row_ratio": (
+                            recovery_row_ratio_tolerance
+                            if recovery_row_ratios is not None
+                            else None
                         ),
                     },
                     "search_attempts": search_attempts,
@@ -1219,7 +1368,7 @@ def _deterministic_tolerance_aware_joint_match(
                 return schedules, certificate
 
     certificate = {
-        "algorithm": "deterministic_tolerance_aware_joint_beam_dp_v1",
+        "algorithm": "deterministic_tolerance_aware_joint_beam_dp_v2",
         "search_status": "MATCHING_SEARCH_INCONCLUSIVE",
         "beam_width_schedule": list(beam_width_schedule),
         "target_points": [
@@ -1242,8 +1391,25 @@ def _deterministic_tolerance_aware_joint_match(
         "tolerances": {
             "supervised_token_relative_range": supervised_tolerance,
             "nonpadding_token_relative_range": sequence_tolerance,
-            "recovery_supervised_token_ratio": recovery_ratio_tolerance,
+            "recovery_supervised_token_ratio": (
+                recovery_ratio_tolerance
+                if recovery_ratios is not None
+                else None
+            ),
+            "recovery_row_ratio": (
+                recovery_row_ratio_tolerance
+                if recovery_row_ratios is not None
+                else None
+            ),
         },
+        "recovery_mixture_basis": (
+            "row_mean_microbatch_equal_weight"
+            if recovery_row_ratios is not None
+            else "supervised_token_mass"
+        ),
+        "cross_arm_budget_tolerances_gating": (
+            enforce_cross_arm_budget_tolerances
+        ),
         "search_attempts": search_attempts,
         "candidate_order_uses_reward_loss_validation_or_test": False,
         "search_space_exhausted": False,

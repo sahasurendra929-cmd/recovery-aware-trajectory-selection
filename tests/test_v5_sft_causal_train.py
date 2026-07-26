@@ -525,6 +525,47 @@ class MessageMaskedSFTContractTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "expected 0.25"):
             MODULE.arm_audit([clean, recovery], "repair_25")
 
+    def test_screen_arm_ratio_is_exact_row_weight_not_token_mass(self):
+        clean = {
+            "id": "clean",
+            "sequence_tokens": 20,
+            "supervised_tokens": 5,
+            "is_recovery": False,
+            "failed_message_count": 0,
+            "failed_label_message_count": 0,
+            "failed_label_tokens": 0,
+        }
+        recovery = {
+            "id": "recovery",
+            "sequence_tokens": 30,
+            "supervised_tokens": 15,
+            "is_recovery": True,
+            "failed_message_count": 1,
+            "failed_label_message_count": 0,
+            "failed_label_tokens": 0,
+        }
+        audit = MODULE.arm_audit(
+            [clean, recovery],
+            "repair_50",
+            recovery_mixture_basis="row_mean_microbatch_equal_weight",
+        )
+        self.assertEqual(audit["realized_recovery_row_ratio"], 0.5)
+        self.assertEqual(
+            audit["realized_recovery_supervised_token_ratio"], 0.75
+        )
+        self.assertIsNone(
+            audit["expected_recovery_supervised_token_ratio"]
+        )
+        self.assertEqual(audit["expected_recovery_row_ratio"], 0.5)
+        with self.assertRaisesRegex(RuntimeError, "recovery row ratio"):
+            MODULE.arm_audit(
+                [clean, recovery, recovery],
+                "repair_50",
+                recovery_mixture_basis=(
+                    "row_mean_microbatch_equal_weight"
+                ),
+            )
+
     def test_tail_logit_contract_aligns_causal_shift(self):
         logits_to_keep, target_start = MODULE.tail_logit_contract(100, 60)
         self.assertEqual(logits_to_keep, 41)

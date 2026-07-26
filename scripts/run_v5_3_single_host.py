@@ -155,6 +155,7 @@ PILOT_FAULT_FAMILY_COUNTS = {
 EVALUATION_SHARDS = 4
 MAX_MODEL_LEN = 32768
 MIN_GPU_MEMORY_MIB = 24_000
+EXPECTED_GPU_MODEL = "NVIDIA GeForce RTX 4090"
 MIN_FREE_DISK_GIB = 140
 GT_INCOMPATIBLE_TASK_IDS = (
     "airline:0",
@@ -472,8 +473,10 @@ def validate_gpu_inventory() -> list[dict[str, Any]]:
     for expected_index, row in enumerate(rows):
         if row["index"] != expected_index:
             raise StageError(f"GPU indices must be 0..3; found {rows}")
-        if "RTX 4090" not in row["name"]:
-            raise StageError(f"GPU {expected_index} is not an RTX 4090: {row}")
+        if row["name"] != EXPECTED_GPU_MODEL:
+            raise StageError(
+                f"GPU {expected_index} is not {EXPECTED_GPU_MODEL}: {row}"
+            )
         if row["memory_mib"] < MIN_GPU_MEMORY_MIB:
             raise StageError(f"GPU {expected_index} has insufficient VRAM: {row}")
     return rows
@@ -608,12 +611,13 @@ def preflight_complete(args: argparse.Namespace) -> bool:
         and payload.get("source_commit") == source_commit()
         and payload.get("tau2_commit") == TAU2_COMMIT
         and payload.get("split_manifest_sha256") == SPLIT_SHA256
+        and payload.get("expected_gpu_model") == EXPECTED_GPU_MODEL
         and isinstance(gpus, list)
         and len(gpus) == 4
         and all(
             isinstance(row, dict)
             and row.get("index") == index
-            and "RTX 4090" in str(row.get("name"))
+            and row.get("name") == EXPECTED_GPU_MODEL
             and isinstance(row.get("memory_mib"), int)
             and row["memory_mib"] >= MIN_GPU_MEMORY_MIB
             for index, row in enumerate(gpus)
@@ -692,6 +696,7 @@ def preflight(args: argparse.Namespace) -> dict[str, Any]:
         "source_commit": source_commit(),
         "tau2_commit": observed_tau2,
         "split_manifest_sha256": SPLIT_SHA256,
+        "expected_gpu_model": EXPECTED_GPU_MODEL,
         "gpus": gpu_rows,
         "free_disk_gib": round(free_gib, 2),
         "ports_free": list(ports),
@@ -1026,7 +1031,7 @@ def vllm_base_command(
 def generation_runtime_preflight_path(
     args: argparse.Namespace, *, phase: str
 ) -> Path:
-    if phase not in {"pilot", "formal"}:
+    if phase not in {"pilot", "formal", "screen"}:
         raise StageError(f"invalid generation preflight phase: {phase}")
     return (
         args.results_root
@@ -1148,7 +1153,7 @@ def _runtime_gpu_identity() -> list[dict[str, Any]]:
         if (
             row["index"] != expected_index
             or not str(row["uuid"]).startswith("GPU-")
-            or "RTX 4090" not in str(row["name"])
+            or row["name"] != EXPECTED_GPU_MODEL
             or row["memory_mib"] < MIN_GPU_MEMORY_MIB
             or not str(row["driver"])
         ):
@@ -1511,6 +1516,7 @@ def generation_runtime_preflight_complete(
         or payload.get("phase") != phase
         or payload.get("source_commit") != commit
         or payload.get("max_model_len") != MAX_MODEL_LEN
+        or payload.get("expected_gpu_model") != EXPECTED_GPU_MODEL
         or payload.get("official_test_used") is not False
         or not host_preflight_path.is_file()
         or host_preflight
@@ -1565,6 +1571,8 @@ def generation_runtime_preflight_complete(
             or not isinstance(concurrency_probe, dict)
             or value.get("model") != specification["model"]
             or value.get("revision") != specification["revision"]
+            or value.get("tensor_parallel_size")
+            != specification["tensor_parallel_size"]
             or value.get("api_base")
             != f"http://127.0.0.1:{specification['port']}/v1"
             or models_endpoint.get("status") != "PASS"
@@ -1835,6 +1843,9 @@ def run_generation_runtime_preflight(
         role_receipts[role] = {
             "model": specification["model"],
             "revision": specification["revision"],
+            "tensor_parallel_size": specification[
+                "tensor_parallel_size"
+            ],
             "api_base": api_base,
             "models_endpoint": {
                 "status": "PASS",
@@ -1880,6 +1891,7 @@ def run_generation_runtime_preflight(
         "phase": phase,
         "source_commit": source_commit(),
         "max_model_len": MAX_MODEL_LEN,
+        "expected_gpu_model": EXPECTED_GPU_MODEL,
         "host_preflight": {
             "path": str(host_preflight_path),
             "sha256": sha256_file(host_preflight_path),
@@ -3865,12 +3877,19 @@ def evaluate(args: argparse.Namespace) -> None:
 def _validate_summary(args: argparse.Namespace) -> None:
     import tempfile
 
-    try:
-        from summarize_v5_sft_causal import summarize as recompute_summary
-    except ModuleNotFoundError:
-        from scripts.summarize_v5_sft_causal import (
-            summarize as recompute_summary,
-        )
+    # Reuse an already loaded canonical package module when present.  Importing
+    # the same source again under a top-level name creates split mock/state
+    # identities in long-lived orchestrators and test discovery.
+    package_summary = sys.modules.get("scripts.summarize_v5_sft_causal")
+    if package_summary is not None:
+        recompute_summary = package_summary.summarize
+    else:
+        try:
+            from summarize_v5_sft_causal import summarize as recompute_summary
+        except ModuleNotFoundError:
+            from scripts.summarize_v5_sft_causal import (
+                summarize as recompute_summary,
+            )
 
     output = args.results_root / "mechanism_screen_summary.json"
     if not output.is_file() or not all(

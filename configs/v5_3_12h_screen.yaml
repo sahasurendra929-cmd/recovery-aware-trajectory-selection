@@ -1,0 +1,158 @@
+experiment_name: v5_3_12h_exploratory_screen
+protocol: v5_3_12h_exploratory_screen_v1
+design_version: "5.3-12h-screen"
+seed: 20260731
+
+hardware:
+  exact_gpu_count: 4
+  exact_gpu_model: NVIDIA GeForce RTX 5090
+  minimum_memory_mib_each: 30000
+  homogeneous_inventory_required: true
+  mid_run_substitution_allowed: false
+  cuda_runtime: "12.8"
+
+claim_boundary:
+  exploratory_screen_only: true
+  formal_v5_3_result: false
+  screen_outputs_may_enter_formal_v5_3: false
+  paper_level_confirmation: false
+  positive_result_guaranteed: false
+  official_test_used: false
+  official_test_sealed: true
+
+isolation:
+  frozen_v5_3_config_modified: false
+  frozen_v5_3_result_paths_reused: false
+  shared_outcome_free_protocol_inputs_read_only: true
+  prior_v5_3_rollout_checkpoint_metric_decision_bytes_reused: false
+  protocol_root: data/processed/v5_3_12h_screen_protocol
+  raw_root: data/raw/v5_3_12h_screen_generation
+  processed_root: data/processed/v5_3_12h_screen
+  results_root: results/v5_3_12h_screen
+  runtime_root: artifacts/v5_3_12h_screen
+
+data_generation:
+  task_count: 24
+  domain_counts: {retail: 18, airline: 6}
+  conditions: [clean, error]
+  attempts_per_task_per_condition: 6
+  expected_rollouts: 288
+  base_seed: 20260731
+  trial_seeds: [25987, 293840, 725284, 249400, 591103, 257709]
+  replacement_or_rescue_attempts: false
+  formal_v5_3_seed_or_bytes_reused: false
+  decoding:
+    temperature: 0.2
+    top_p: 0.95
+    max_tokens: 512
+    max_steps: 60
+    task_timeout_seconds: 900
+    max_model_len: 32768
+    parallel_tool_calls: false
+    parallel_tool_call_normalization: execute_first_then_replan
+    mixed_tool_call_content_normalization: drop_text_preserve_sha256
+  concurrency:
+    generation_shards: 3
+    user_and_judge_gpu: 0
+    teacher_gpus: [1, 2]
+    teacher_tensor_parallel_size: 2
+  teacher:
+    model: Qwen/Qwen2.5-32B-Instruct-AWQ
+    revision: 5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c
+    gpus: [1, 2]
+  user_and_judge:
+    model: Qwen/Qwen2.5-14B-Instruct-AWQ
+    revision: 539535859b135b0244c91f3e59816150c8056698
+    gpu: 0
+
+data_gate:
+  minimum_tasks_with_pair: 14
+  minimum_capped_pairs: 17
+  maximum_pairs_per_task: 2
+  all_attempts_and_strict_judge_evidence_required: true
+
+training:
+  model: Qwen/Qwen2.5-7B-Instruct
+  revision: a09a35458c702b33eeacc393d103063234e8bc28
+  arms: [perfect_success, failure_raw, repair_50, repair_100]
+  parallel_gpus: [0, 1, 2, 3]
+  optimizer_steps: 64
+  seeds: [20260731]
+  early_stopping: false
+  task_support: exact_across_arms
+  mixture_weight_unit: training_row
+  loss_reduction: per_row_supervised_token_mean
+  recovery_row_ratios:
+    perfect_success: 0.0
+    failure_raw: 1.0
+    repair_50: 0.5
+    repair_100: 1.0
+  recovery_row_ratio_tolerance: 0.0
+  supervised_token_relative_range_target: 0.01
+  nonpadding_token_relative_range_target: 0.02
+  token_budget_targets_gate_training: false
+
+evaluation:
+  source_split: derived_validation
+  tasks: 21
+  conditions: [clean, error]
+  trials: 1
+  core_arms: [base_model, perfect_success, repair_50]
+  core_rollouts: 126
+  extension_arms: [failure_raw, repair_100]
+  extension_rollouts: 84
+  extension_admission: complete_core_receipt_exists_by_hour_9
+  extension_admission_uses_metrics: false
+  decoding:
+    temperature: 0
+    max_tokens: 512
+    max_steps: 60
+    task_timeout_seconds: 900
+    seed: 20260731
+    num_trials: 1
+    max_model_len: 32768
+  agent_shards:
+    shard_count: 3
+    gpus: [1, 2, 3]
+    ports: [8101, 8102, 8103]
+    base_model_loaded_on_each_shard: true
+    registered_lora_aliases_on_each_shard: [perfect_success, failure_raw, repair_50, repair_100]
+    active_loras_per_request_worker: 1
+    arm_selection: request_model_alias
+    arm_execution_within_each_shard: sequential
+    state_isolation: request_bound_alias_no_weight_merge
+    core_launch_set_exact: [base_model, perfect_success, repair_50]
+    extension_launch_set_exact: [failure_raw, repair_100]
+    extension_requires_hour_9_admission: true
+  fixed_user_and_strict_judge:
+    gpu: 0
+    model: Qwen/Qwen2.5-14B-Instruct-AWQ
+    revision: 539535859b135b0244c91f3e59816150c8056698
+
+directional_gate:
+  primary_contrast: repair_50_minus_perfect_success
+  primary_metric: tau2_composite_end_to_end_task_success
+  error_success_gain_count_at_least: 2
+  clean_success_loss_count_at_most: 1
+  denominator: 21
+  repeated_failed_call_metric: diagnostic_only
+
+statistics:
+  independent_unit: task_id
+  confidence_level: 0.95
+  stratified_task_paired_bootstrap_seed: 20260731
+  stratified_task_paired_bootstrap_replicates: 100000
+  bootstrap_domain_strata: {retail: 15, airline: 6}
+  error_mcnemar: [exact_one_sided, exact_two_sided]
+  clean_mcnemar: [exact_two_sided]
+  discordant_win_probability_interval: clopper_pearson
+  gate_is_significance_test: false
+
+runtime:
+  immutable_deadline_hours: 12
+  result_independent_extension_gate_hour: 9
+  process_group_shutdown: TERM_then_KILL
+  term_grace_seconds: 30
+  resume_resets_deadline: false
+  terminal_status_write: atomic
+  official_test_sealed: true

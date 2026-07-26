@@ -51,12 +51,23 @@ ARMS = {
     "repair_100",
 }
 TRAINED_ARMS = ARMS - {"base_model"}
-PROVENANCE_PROFILES = ("legacy", "v5_3")
+PROVENANCE_PROFILES = ("legacy", "v5_3", "v5_3_12h_screen")
 V5_3_DESIGN_VERSION = "5.3"
 V5_3_DESIGN_PROTOCOL = "v5_3_task_level_cross_seed_sft_screen"
+V5_3_12H_DESIGN_VERSION = "5.3-12h-screen"
+V5_3_12H_DESIGN_PROTOCOL = "v5_3_12h_screen_sft_data_v1"
+V5_3_12H_SCREEN_PROTOCOL = "v5_3_12h_exploratory_screen_v1"
+V5_3_12H_USER_JUDGE = {
+    "model": "Qwen/Qwen2.5-14B-Instruct-AWQ",
+    "model_id": "openai/v5-3-12h-user-judge",
+    "revision": "539535859b135b0244c91f3e59816150c8056698",
+    "roles": ["user_simulator", "strict_nl_judge"],
+    "official_test_used": False,
+}
 PROFILE_GENERATION_INJECTIONS = {
     "legacy": 83,
     "v5_3": 78,
+    "v5_3_12h_screen": 78,
 }
 PROFILE_MODEL_IDS = {
     "legacy": {
@@ -73,6 +84,13 @@ PROFILE_MODEL_IDS = {
         "repair_50": "openai/v5-3-repair-50",
         "repair_100": "openai/v5-3-repair-100",
     },
+    "v5_3_12h_screen": {
+        "base_model": "openai/v5-3-12h-base",
+        "perfect_success": "openai/v5-3-12h-perfect-success",
+        "failure_raw": "openai/v5-3-12h-failure-raw",
+        "repair_50": "openai/v5-3-12h-repair-50",
+        "repair_100": "openai/v5-3-12h-repair-100",
+    },
 }
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -83,6 +101,10 @@ FROZEN_DECODING = {
     "task_timeout_seconds": 900.0,
     "seed": 20260722,
     "num_trials": 1,
+}
+V5_3_12H_FROZEN_DECODING = {
+    **FROZEN_DECODING,
+    "seed": 20260731,
 }
 FAULT_INJECTIONS: dict[str, dict[str, Any]] = {}
 MAX_MODEL_LEN = 32768
@@ -230,6 +252,30 @@ def _validate_profile_design_provenance(
             raise RuntimeError(
                 "Legacy checkpoint provenance requires absent or 5.2 "
                 f"design_version, got {design_version!r}"
+            )
+        return
+    if provenance_profile == "v5_3_12h_screen":
+        if design_version != V5_3_12H_DESIGN_VERSION:
+            raise RuntimeError(
+                "V5.3-12h checkpoint provenance requires screen design_version"
+            )
+        design = provenance.get("design_provenance")
+        expected = {
+            "design_version": V5_3_12H_DESIGN_VERSION,
+            "design_protocol": V5_3_12H_DESIGN_PROTOCOL,
+            "screen_protocol": V5_3_12H_SCREEN_PROTOCOL,
+            "screen_tasks": 24,
+            "screen_rollouts": 288,
+            "validation_tasks": 21,
+            "shared_outcome_free_protocol_inputs_read_only": True,
+            "prior_v5_3_rollout_checkpoint_metric_decision_bytes_reused": False,
+            "screen_outputs_may_enter_formal_v5_3": False,
+        }
+        if not isinstance(design, dict) or any(
+            design.get(field) != value for field, value in expected.items()
+        ):
+            raise RuntimeError(
+                "V5.3-12h checkpoint provenance lacks isolated screen identity"
             )
         return
     if design_version != V5_3_DESIGN_VERSION:
@@ -407,6 +453,27 @@ def require_shared_api_base(
     return normalized[0]
 
 
+def require_screen_api_bases(
+    agent_api_base: str,
+    user_api_base: str,
+    judge_api_base: str,
+) -> tuple[str, str]:
+    """Keep the screen agent separate from its fixed 14B user/judge."""
+
+    agent = agent_api_base.strip().rstrip("/")
+    user = user_api_base.strip().rstrip("/")
+    judge = judge_api_base.strip().rstrip("/")
+    if not agent or not user or not judge:
+        raise RuntimeError("screen role API bases must be non-empty")
+    if user != judge:
+        raise RuntimeError("screen user and strict judge must share one endpoint")
+    if agent == user:
+        raise RuntimeError(
+            "screen agent must not share the fixed 14B user/judge endpoint"
+        )
+    return agent, user
+
+
 def registry_served_aliases(registry: dict[str, Any]) -> list[str]:
     """Translate LiteLLM ``openai/`` routes to vLLM served model IDs."""
 
@@ -456,6 +523,39 @@ def verify_served_registry_aliases(
             f"/v1/models is missing checkpoint-registry aliases: {missing}"
         )
     return sorted(expected)
+
+
+def verify_served_model_id(
+    api_base: str,
+    api_key: str,
+    expected_model_id: str,
+    *,
+    timeout_seconds: float = 15.0,
+) -> str:
+    """Require one independently served, pinned model alias."""
+
+    url = f"{api_base.rstrip('/')}/models"
+    request = Request(
+        url,
+        headers={"Authorization": f"Bearer {api_key}"},
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as error:
+        raise RuntimeError(f"cannot verify served model at {url}: {error}") from error
+    rows = payload.get("data") if isinstance(payload, dict) else None
+    observed = {
+        row.get("id")
+        for row in rows or []
+        if isinstance(row, dict) and isinstance(row.get("id"), str)
+    }
+    if expected_model_id.removeprefix("openai/") not in observed:
+        raise RuntimeError(
+            f"/v1/models is missing {expected_model_id!r}: {sorted(observed)}"
+        )
+    return expected_model_id.removeprefix("openai/")
 
 
 def load_checkpoint_registry(
@@ -550,6 +650,13 @@ def load_checkpoint_registry(
         payload,
         expected_profile=provenance_profile,
     )
+    if (
+        provenance_profile == "v5_3_12h_screen"
+        and payload.get("screen_evaluator") != V5_3_12H_USER_JUDGE
+    ):
+        raise RuntimeError(
+            "V5.3-12h registry lacks the pinned 14B evaluator identity"
+        )
     return payload
 
 
@@ -575,11 +682,23 @@ def validate_checkpoint_identity(
             f"--agent-model {agent_model!r} does not match registry entry "
             f"{entry.get('model_id')!r} for {arm}"
         )
-    frozen_base_alias = registry["entries"]["base_model"]["model_id"]
-    if user_model != frozen_base_alias or judge_model != frozen_base_alias:
-        raise RuntimeError(
-            "User and judge model IDs must both equal the registry base_model alias"
-        )
+    profile = checkpoint_registry_provenance_profile(registry)
+    if profile == "v5_3_12h_screen":
+        if (
+            registry.get("screen_evaluator") != V5_3_12H_USER_JUDGE
+            or user_model != V5_3_12H_USER_JUDGE["model_id"]
+            or judge_model != V5_3_12H_USER_JUDGE["model_id"]
+        ):
+            raise RuntimeError(
+                "V5.3-12h user/judge must equal the pinned 14B evaluator"
+            )
+    else:
+        frozen_base_alias = registry["entries"]["base_model"]["model_id"]
+        if user_model != frozen_base_alias or judge_model != frozen_base_alias:
+            raise RuntimeError(
+                "User and judge model IDs must both equal the registry "
+                "base_model alias"
+            )
     return dict(entry)
 
 
@@ -592,9 +711,15 @@ def validate_evaluation_protocol(args: argparse.Namespace) -> None:
         "seed": args.seed,
         "num_trials": args.num_trials,
     }
-    if observed != FROZEN_DECODING:
+    expected = (
+        V5_3_12H_FROZEN_DECODING
+        if getattr(args, "provenance_profile", None)
+        == "v5_3_12h_screen"
+        else FROZEN_DECODING
+    )
+    if observed != expected:
         raise RuntimeError(
-            f"Evaluation decoding must equal frozen protocol {FROZEN_DECODING}, "
+            f"Evaluation decoding must equal frozen protocol {expected}, "
             f"got {observed}"
         )
     if args.condition != "both":
@@ -1249,13 +1374,19 @@ def validate_contract_core(payload: dict[str, Any]) -> None:
             "Run contract tool-action interface drift; refusing completion"
         )
     preflight = payload.get("runtime_preflight")
+    expected_decoding = (
+        V5_3_12H_FROZEN_DECODING
+        if payload.get("checkpoint_registry_provenance_profile")
+        == "v5_3_12h_screen"
+        else FROZEN_DECODING
+    )
     expected_preflight = {
         "served_context_window_tokens": MAX_MODEL_LEN,
-        "request_max_tokens": FROZEN_DECODING["max_tokens"],
+        "request_max_tokens": expected_decoding["max_tokens"],
         "maximum_nonoverflow_prompt_tokens": (
-            MAX_MODEL_LEN - FROZEN_DECODING["max_tokens"]
+            MAX_MODEL_LEN - expected_decoding["max_tokens"]
         ),
-        "max_steps": FROZEN_DECODING["max_steps"],
+        "max_steps": expected_decoding["max_steps"],
         "request_token_overflow_policy": "fail_closed",
         "longest_prompt_observation": (
             "completion_audit.max_observed_prompt_tokens"
@@ -1266,7 +1397,7 @@ def validate_contract_core(payload: dict[str, Any]) -> None:
             "Run contract 32k/60-step preflight metadata drift"
         )
     decoding = payload.get("decoding")
-    if decoding != FROZEN_DECODING:
+    if decoding != expected_decoding:
         raise RuntimeError("Run contract frozen decoding drift")
     judge = payload.get("judge")
     expected_strict_judge = {
@@ -1525,6 +1656,14 @@ def write_contract(
     if contract_path.exists():
         raise RuntimeError(f"Refusing to overwrite existing contract: {contract_path}")
     manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    provenance_profile = checkpoint_registry_provenance_profile(
+        checkpoint_registry
+    )
+    user_judge_revision = (
+        V5_3_12H_USER_JUDGE["revision"]
+        if provenance_profile == "v5_3_12h_screen"
+        else checkpoint_registry["base_model_revision"]
+    )
     contract = {
         "protocol": RUN_CONTRACT_PROTOCOL,
         "status": "INCOMPLETE",
@@ -1544,7 +1683,7 @@ def write_contract(
         "checkpoint_registry_sha256": sha256_file(checkpoint_registry_path),
         "checkpoint_registry_protocol": checkpoint_registry["protocol"],
         "checkpoint_registry_provenance_profile": (
-            checkpoint_registry_provenance_profile(checkpoint_registry)
+            provenance_profile
         ),
         "checkpoint_entry": checkpoint_entry,
         "locally_verified_adapter_identity": local_adapter_identity,
@@ -1561,12 +1700,12 @@ def write_contract(
         },
         "user": {
             "model": args.user_model,
-            "revision": checkpoint_registry["base_model_revision"],
+            "revision": user_judge_revision,
             "api_base": args.user_api_base,
         },
         "judge": {
             "model": args.judge_model or args.user_model,
-            "revision": checkpoint_registry["base_model_revision"],
+            "revision": user_judge_revision,
             "api_base": args.judge_api_base or args.user_api_base,
             "strict_backend": {
                 "module": STRICT_NL_JUDGE_MODULE,
@@ -1603,6 +1742,15 @@ def write_contract(
         "completion_audit": {},
         "strict_judge_audit_evidence": {},
     }
+    if provenance_profile == "v5_3_12h_screen":
+        contract["screen_claim_boundary"] = {
+            "exploratory_screen_only": True,
+            "formal_v5_3_result": False,
+            "screen_outputs_may_enter_formal_v5_3": False,
+            "paper_level_confirmation": False,
+            "official_test_used": False,
+            "official_test_sealed": True,
+        }
     contract["contract_core_sha256"] = contract_core_sha256(contract)
     contract_path.parent.mkdir(parents=True, exist_ok=True)
     contract_path.write_text(
@@ -1673,9 +1821,12 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
         "request_token_overflow_detected": False,
         "status": "PASS",
     }
-    if payload.get("checkpoint_registry_provenance_profile") == "v5_3":
+    if payload.get("checkpoint_registry_provenance_profile") in {
+        "v5_3",
+        "v5_3_12h_screen",
+    }:
         try:
-            payload["strict_judge_audit_evidence"] = (
+            strict_evidence = (
                 judge_audit_contract.validate_strict_judge_evidence(
                     output_files,
                     maximum_content_attempts=2,
@@ -1685,6 +1836,23 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
             raise RuntimeError(
                 "V5.3 evaluation strict-judge evidence is incomplete"
             ) from error
+        if (
+            payload.get("checkpoint_registry_provenance_profile")
+            == "v5_3_12h_screen"
+            and (
+                strict_evidence.get("status") != "PASS"
+                or isinstance(strict_evidence.get("expected_calls"), bool)
+                or not isinstance(strict_evidence.get("expected_calls"), int)
+                or strict_evidence["expected_calls"] <= 0
+                or strict_evidence.get("observed_unique_pass_audits")
+                != strict_evidence["expected_calls"]
+            )
+        ):
+            raise RuntimeError(
+                "V5.3-12h evaluation strict-judge evidence is zero "
+                "or incomplete"
+            )
+        payload["strict_judge_audit_evidence"] = strict_evidence
     payload["status"] = "COMPLETE"
     payload["completed_at"] = datetime.now(timezone.utc).isoformat()
     temporary = contract_path.with_name(f".{contract_path.name}.tmp")
@@ -1698,10 +1866,20 @@ def finalize_contract(contract_path: Path, output_files: list[Path]) -> dict[str
 
 def main() -> None:
     args = parse_args()
-    validate_evaluation_protocol(args)
     split_manifest_path = args.split_manifest.resolve()
     manifest_path = args.manifest.resolve()
     checkpoint_registry_path = args.checkpoint_registry.resolve()
+    checkpoint_registry = load_checkpoint_registry(
+        checkpoint_registry_path,
+        expected_profile=args.provenance_profile,
+    )
+    # The registry is the authoritative profile.  An omitted CLI profile must
+    # still select the registered screen decoding contract rather than falling
+    # back to legacy defaults.
+    args.provenance_profile = checkpoint_registry_provenance_profile(
+        checkpoint_registry
+    )
+    validate_evaluation_protocol(args)
     split_manifest = load_split_manifest(split_manifest_path)
     manifest = load_manifest(
         manifest_path,
@@ -1730,18 +1908,27 @@ def main() -> None:
     judge_model = args.judge_model or args.user_model
     judge_api_base = args.judge_api_base or args.user_api_base
     judge_api_key = args.judge_api_key or args.user_api_key
-    shared_api_base = require_shared_api_base(
-        args.agent_api_base,
-        args.user_api_base,
-        judge_api_base,
-    )
-    args.agent_api_base = shared_api_base
-    args.user_api_base = shared_api_base
-    args.judge_api_base = shared_api_base
-    checkpoint_registry = load_checkpoint_registry(
-        checkpoint_registry_path,
-        expected_profile=args.provenance_profile,
-    )
+    profile = checkpoint_registry_provenance_profile(checkpoint_registry)
+    if profile == "v5_3_12h_screen":
+        agent_api_base, user_judge_api_base = require_screen_api_bases(
+            args.agent_api_base,
+            args.user_api_base,
+            judge_api_base,
+        )
+        args.agent_api_base = agent_api_base
+        args.user_api_base = user_judge_api_base
+        args.judge_api_base = user_judge_api_base
+        judge_api_base = user_judge_api_base
+    else:
+        shared_api_base = require_shared_api_base(
+            args.agent_api_base,
+            args.user_api_base,
+            judge_api_base,
+        )
+        args.agent_api_base = shared_api_base
+        args.user_api_base = shared_api_base
+        args.judge_api_base = shared_api_base
+        judge_api_base = shared_api_base
     if (
         checkpoint_registry["training_data_provenance"]["dynamic_audits"][
             "validation"
@@ -1757,10 +1944,16 @@ def main() -> None:
         adapter_dirs,
     )
     served_registry_aliases = verify_served_registry_aliases(
-        shared_api_base,
+        args.agent_api_base,
         args.agent_api_key,
         checkpoint_registry,
     )
+    if profile == "v5_3_12h_screen":
+        verify_served_model_id(
+            args.user_api_base,
+            args.user_api_key,
+            V5_3_12H_USER_JUDGE["model_id"],
+        )
     require_clean_tracked_source()
     local_source_commit = git_commit()
     checkpoint_entry = validate_checkpoint_identity(

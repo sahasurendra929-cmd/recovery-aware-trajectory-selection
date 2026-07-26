@@ -58,6 +58,42 @@ EXPECTED_DYNAMIC_AUDITS = {
 }
 V5_3_DESIGN_VERSION = "5.3"
 V5_3_DESIGN_PROTOCOL = "v5_3_task_level_cross_seed_sft_screen"
+V5_3_12H_DESIGN_VERSION = "5.3-12h-screen"
+V5_3_12H_DESIGN_PROTOCOL = "v5_3_12h_screen_sft_data_v1"
+V5_3_12H_SCREEN_PROTOCOL = "v5_3_12h_exploratory_screen_v1"
+V5_3_12H_TRAINING_SEED = 20260731
+V5_3_12H_RECOVERY_ROW_RATIOS = {
+    "perfect_success": 0.0,
+    "failure_raw": 1.0,
+    "repair_50": 0.5,
+    "repair_100": 1.0,
+}
+V5_3_12H_TASK_IDS = (
+    "airline:1",
+    "airline:11",
+    "airline:14",
+    "airline:33",
+    "airline:38",
+    "airline:40",
+    "retail:2",
+    "retail:8",
+    "retail:10",
+    "retail:15",
+    "retail:19",
+    "retail:25",
+    "retail:30",
+    "retail:35",
+    "retail:54",
+    "retail:67",
+    "retail:69",
+    "retail:72",
+    "retail:85",
+    "retail:92",
+    "retail:93",
+    "retail:104",
+    "retail:106",
+    "retail:110",
+)
 V5_3_GENERATION_MANIFEST_PROTOCOL = "v5_3_multifault_data_construction"
 V5_3_VALIDATION_MANIFEST_PROTOCOL = "v5_stage1_sft_causal_validation"
 V5_3_GENERATION_SHARDS = 3
@@ -321,6 +357,144 @@ def validate_v5_3_design_provenance(
     }
 
 
+def validate_v5_3_12h_design_provenance(
+    *,
+    audit: dict[str, Any],
+    hashes: dict[str, Any],
+    data_root: Path,
+    dynamic_identities: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Bind training to the isolated 24-task/288-rollout screen only."""
+
+    if (
+        audit.get("design_protocol") != V5_3_12H_DESIGN_PROTOCOL
+        or audit.get("screen_protocol") != V5_3_12H_SCREEN_PROTOCOL
+        or audit.get("screen_task_ids") != list(V5_3_12H_TASK_IDS)
+        or audit.get("attempts_per_task_per_condition") != 6
+        or audit.get("expected_rollouts") != 288
+        or audit.get("shared_outcome_free_protocol_inputs_read_only")
+        is not True
+        or audit.get(
+            "prior_v5_3_rollout_checkpoint_metric_decision_bytes_reused"
+        )
+        is not False
+        or audit.get("screen_outputs_may_enter_formal_v5_3") is not False
+    ):
+        raise RuntimeError("V5.3-12h screen design identity drift")
+    gate = audit.get("data_gate")
+    observed = gate.get("observed") if isinstance(gate, dict) else None
+    thresholds = gate.get("thresholds") if isinstance(gate, dict) else None
+    if (
+        not isinstance(gate, dict)
+        or gate.get("status") != "PASS"
+        or gate.get("training_authorized") is not True
+        or not isinstance(observed, dict)
+        or observed.get("tasks") != 24
+        or observed.get("tasks_with_pair", 0) < 14
+        or observed.get("capped_pairs", 0) < 17
+        or observed.get("maximum_pairs_per_task") != 2
+        or thresholds
+        != {
+            "minimum_tasks_with_pair": 14,
+            "minimum_capped_pairs": 17,
+            "maximum_pairs_per_task": 2,
+        }
+    ):
+        raise RuntimeError("V5.3-12h screen data gate drift")
+    arms = audit.get("arms")
+    mixture = audit.get("arm_mixture_contract")
+    if (
+        not isinstance(arms, dict)
+        or set(arms) != set(V5_3_12H_RECOVERY_ROW_RATIOS)
+        or not isinstance(mixture, dict)
+        or mixture.get("weight_unit") != "training_row"
+        or mixture.get("target_recovery_row_ratios")
+        != V5_3_12H_RECOVERY_ROW_RATIOS
+        or mixture.get("target_miss_blocks_training") is not False
+        or audit.get("cross_arm_token_budgets_gate_training") is not False
+    ):
+        raise RuntimeError("V5.3-12h row-weighted arm mixture drift")
+    for arm, expected_ratio in V5_3_12H_RECOVERY_ROW_RATIOS.items():
+        arm_row = arms.get(arm)
+        expected_rows = int(FORMAL_SCHEDULE_ROWS * expected_ratio)
+        if (
+            not isinstance(arm_row, dict)
+            or arm_row.get("rows") != FORMAL_SCHEDULE_ROWS
+            or arm_row.get("recovery_rows") != expected_rows
+            or arm_row.get("recovery_row_ratio") != expected_ratio
+            or arm_row.get("expected_recovery_row_ratio") != expected_ratio
+            or arm_row.get("recovery_mixture_basis")
+            != "row_mean_microbatch_equal_weight"
+        ):
+            raise RuntimeError(
+                f"V5.3-12h {arm} row-weighted arm mixture drift"
+            )
+    generation_contracts = audit.get("generation_contracts")
+    if (
+        not isinstance(generation_contracts, dict)
+        or generation_contracts.get("protocol")
+        != f"{V5_3_12H_SCREEN_PROTOCOL}:generation_contract_audit_v1"
+        or generation_contracts.get("task_union") != 24
+        or generation_contracts.get("shards") != 3
+        or generation_contracts.get("official_test_used") is not False
+    ):
+        raise RuntimeError("V5.3-12h generation provenance drift")
+    mapping_sha = generation_contracts.get(
+        "strict_judge_evidence_mapping_sha256"
+    )
+    if (
+        not isinstance(mapping_sha, str)
+        or SHA256_RE.fullmatch(mapping_sha) is None
+    ):
+        raise RuntimeError("V5.3-12h strict-judge evidence is unbound")
+    validation_path = data_root / "validation_manifest.json"
+    validation_sha = hashes.get("validation_manifest.json")
+    if (
+        not isinstance(validation_sha, str)
+        or SHA256_RE.fullmatch(validation_sha) is None
+        or not validation_path.is_file()
+        or sha256_file(validation_path) != validation_sha
+        or audit.get("validation_manifest_sha256") != validation_sha
+        or dynamic_identities["validation"].get("manifest_sha256")
+        != validation_sha
+    ):
+        raise RuntimeError("V5.3-12h validation manifest binding drift")
+    validation = read_json_object(
+        validation_path,
+        label="V5.3-12h validation manifest",
+    )
+    rows = validation.get("rows")
+    if (
+        validation.get("protocol") != V5_3_VALIDATION_MANIFEST_PROTOCOL
+        or validation.get("paired_task_count") != 21
+        or not isinstance(rows, list)
+        or len(rows) != 21
+        or validation.get("official_test_used") is not False
+        or validation.get("official_test_sealed") is not True
+        or any(
+            not isinstance(row, dict)
+            or row.get("source_split") != "derived_validation"
+            for row in rows
+        )
+    ):
+        raise RuntimeError("V5.3-12h derived-validation coverage drift")
+    return {
+        "design_version": V5_3_12H_DESIGN_VERSION,
+        "design_protocol": V5_3_12H_DESIGN_PROTOCOL,
+        "screen_protocol": V5_3_12H_SCREEN_PROTOCOL,
+        "screen_tasks": 24,
+        "screen_rollouts": 288,
+        "validation_tasks": 21,
+        "strict_judge_evidence_mapping_sha256": mapping_sha,
+        "recovery_mixture_basis": "row_mean_microbatch_equal_weight",
+        "target_recovery_row_ratios": V5_3_12H_RECOVERY_ROW_RATIOS,
+        "cross_arm_token_budgets_gate_training": False,
+        "shared_outcome_free_protocol_inputs_read_only": True,
+        "prior_v5_3_rollout_checkpoint_metric_decision_bytes_reused": False,
+        "screen_outputs_may_enter_formal_v5_3": False,
+    }
+
+
 def validate_training_data_provenance(
     *,
     arm: str,
@@ -380,7 +554,10 @@ def validate_training_data_provenance(
         "validation_loss.jsonl",
     }
     design_version = audit.get("design_version")
-    if design_version == V5_3_DESIGN_VERSION:
+    if design_version in {
+        V5_3_DESIGN_VERSION,
+        V5_3_12H_DESIGN_VERSION,
+    }:
         required_hash_keys.add("validation_manifest.json")
     for key in required_hash_keys:
         value = hashes.get(key)
@@ -407,12 +584,26 @@ def validate_training_data_provenance(
     if not isinstance(arm_audit, dict) or arm_audit.get("sha256") != train_sha:
         raise RuntimeError("selected arm SHA is not bound into data audit")
     validation_audit = audit.get("validation_loss")
+    expected_validation_source = (
+        "not_applicable_fixed_step_screen"
+        if design_version == V5_3_12H_DESIGN_VERSION
+        else "inner_train"
+    )
     if (
         not isinstance(validation_audit, dict)
         or validation_audit.get("sha256") != validation_sha
-        or validation_audit.get("source_split") != "inner_train"
+        or validation_audit.get("source_split")
+        != expected_validation_source
     ):
         raise RuntimeError("validation-loss SHA/source is not bound into data audit")
+    if design_version == V5_3_12H_DESIGN_VERSION and (
+        validation_audit.get("rows") != 0
+        or validation_audit.get("used_for_checkpoint_selection") is not False
+        or validation_audit.get("validation_disabled_reason")
+        != "fixed_steps_exploratory"
+        or validation_file.stat().st_size != 0
+    ):
+        raise RuntimeError("screen no-eval validation contract drift")
 
     dynamic = audit.get("dynamic_audits")
     if not isinstance(dynamic, dict):
@@ -423,7 +614,8 @@ def validate_training_data_provenance(
         raise RuntimeError("data audit split-manifest SHA is invalid")
     expected_dynamic_audits = (
         V5_3_EXPECTED_DYNAMIC_AUDITS
-        if design_version == V5_3_DESIGN_VERSION
+        if design_version
+        in {V5_3_DESIGN_VERSION, V5_3_12H_DESIGN_VERSION}
         else EXPECTED_DYNAMIC_AUDITS
     )
     for name, expected in expected_dynamic_audits.items():
@@ -453,6 +645,13 @@ def validate_training_data_provenance(
     design_provenance = None
     if design_version == V5_3_DESIGN_VERSION:
         design_provenance = validate_v5_3_design_provenance(
+            audit=audit,
+            hashes=hashes,
+            data_root=data_root,
+            dynamic_identities=dynamic_identities,
+        )
+    elif design_version == V5_3_12H_DESIGN_VERSION:
+        design_provenance = validate_v5_3_12h_design_provenance(
             audit=audit,
             hashes=hashes,
             data_root=data_root,
@@ -993,19 +1192,50 @@ def encode_rows(
     ]
 
 
-def arm_audit(encoded_rows: list[dict[str, Any]], arm: str) -> dict[str, Any]:
+def arm_audit(
+    encoded_rows: list[dict[str, Any]],
+    arm: str,
+    *,
+    recovery_mixture_basis: str = "supervised_token_mass",
+) -> dict[str, Any]:
     loss_tokens = sum(row["supervised_tokens"] for row in encoded_rows)
     recovery_loss_tokens = sum(
         row["supervised_tokens"] for row in encoded_rows if row["is_recovery"]
     )
     if loss_tokens <= 0:
         raise RuntimeError("training schedule has zero supervised tokens")
-    observed_ratio = recovery_loss_tokens / loss_tokens
+    recovery_rows = sum(row["is_recovery"] for row in encoded_rows)
+    observed_token_ratio = recovery_loss_tokens / loss_tokens
+    observed_row_ratio = recovery_rows / len(encoded_rows)
     expected_ratio = ARM_TARGET_RECOVERY_RATIOS[arm]
-    if abs(observed_ratio - expected_ratio) > RATIO_TOLERANCE:
+    if recovery_mixture_basis == "supervised_token_mass":
+        if abs(observed_token_ratio - expected_ratio) > RATIO_TOLERANCE:
+            raise RuntimeError(
+                f"{arm} recovery supervised-token ratio is "
+                f"{observed_token_ratio:.6f}; expected {expected_ratio:.2f} "
+                f"+/- {RATIO_TOLERANCE:.2f}"
+            )
+        expected_token_ratio: float | None = expected_ratio
+        expected_row_ratio: float | None = None
+    elif recovery_mixture_basis == "row_mean_microbatch_equal_weight":
+        # With batch size one, mean-reduced causal loss, and fixed gradient
+        # accumulation, every schedule row contributes one equally weighted
+        # microbatch loss.  The arm dose must therefore be exact in rows.
+        expected_rows = int(len(encoded_rows) * expected_ratio)
+        if (
+            len(encoded_rows) * expected_ratio != expected_rows
+            or recovery_rows != expected_rows
+        ):
+            raise RuntimeError(
+                f"{arm} recovery row ratio is {observed_row_ratio:.6f}; "
+                f"expected exactly {expected_ratio:.2f} "
+                f"({expected_rows}/{len(encoded_rows)} rows)"
+            )
+        expected_token_ratio = None
+        expected_row_ratio = expected_ratio
+    else:
         raise RuntimeError(
-            f"{arm} recovery supervised-token ratio is {observed_ratio:.6f}; "
-            f"expected {expected_ratio:.2f} +/- {RATIO_TOLERANCE:.2f}"
+            f"unsupported recovery mixture basis: {recovery_mixture_basis}"
         )
     failed_labels = sum(row["failed_label_message_count"] for row in encoded_rows)
     failed_label_tokens = sum(row["failed_label_tokens"] for row in encoded_rows)
@@ -1017,10 +1247,13 @@ def arm_audit(encoded_rows: list[dict[str, Any]], arm: str) -> dict[str, Any]:
         "rows": len(encoded_rows),
         "nonpad_tokens": sum(row["sequence_tokens"] for row in encoded_rows),
         "supervised_tokens": loss_tokens,
-        "recovery_rows": sum(row["is_recovery"] for row in encoded_rows),
+        "recovery_rows": recovery_rows,
         "recovery_supervised_tokens": recovery_loss_tokens,
-        "realized_recovery_supervised_token_ratio": observed_ratio,
-        "expected_recovery_supervised_token_ratio": expected_ratio,
+        "realized_recovery_supervised_token_ratio": observed_token_ratio,
+        "expected_recovery_supervised_token_ratio": expected_token_ratio,
+        "realized_recovery_row_ratio": observed_row_ratio,
+        "expected_recovery_row_ratio": expected_row_ratio,
+        "recovery_mixture_basis": recovery_mixture_basis,
         "failed_action_context_messages": sum(
             row["failed_message_count"] for row in encoded_rows
         ),
@@ -1060,7 +1293,12 @@ def initialize_cuda_peak_tracking(torch_module: Any) -> int:
     return device
 
 
-def finite_training_audit(log_history: list[dict[str, Any]], metrics: dict[str, Any]) -> dict[str, Any]:
+def finite_training_audit(
+    log_history: list[dict[str, Any]],
+    metrics: dict[str, Any],
+    *,
+    require_validation_loss: bool = True,
+) -> dict[str, Any]:
     loss_values: list[float] = []
     grad_norms: list[float] = []
     eval_losses: list[float] = []
@@ -1082,8 +1320,12 @@ def finite_training_audit(log_history: list[dict[str, Any]], metrics: dict[str, 
         raise RuntimeError("training emitted no finite loss")
     if not grad_norms:
         raise RuntimeError("training emitted no finite grad_norm")
-    if not eval_losses:
+    if require_validation_loss and not eval_losses:
         raise RuntimeError("training emitted no finite validation loss")
+    if not require_validation_loss and eval_losses:
+        raise RuntimeError(
+            "fixed-step screen unexpectedly emitted validation loss"
+        )
     return {
         "finite": True,
         "numeric_values_checked": checked,
@@ -1091,7 +1333,7 @@ def finite_training_audit(log_history: list[dict[str, Any]], metrics: dict[str, 
         "grad_norm_values_checked": len(grad_norms),
         "validation_loss_values_checked": len(eval_losses),
         "final_train_loss": float(metrics["train_loss"]),
-        "final_validation_loss": eval_losses[-1],
+        "final_validation_loss": eval_losses[-1] if eval_losses else None,
     }
 
 
@@ -1178,6 +1420,12 @@ def main() -> None:
         expected_train_sha256=expected_train_sha,
         expected_validation_sha256=expected_validation_sha,
     )
+    effective_seed = (
+        V5_3_12H_TRAINING_SEED
+        if data_provenance.get("design_version")
+        == V5_3_12H_DESIGN_VERSION
+        else SEED
+    )
     train_sha = data_provenance["train_file_sha256"]
     validation_sha = data_provenance["validation_file_sha256"]
     if args.output_dir.exists() and (
@@ -1236,8 +1484,30 @@ def main() -> None:
         )
 
     train_rows = read_jsonl(args.train_file)
-    validation_rows = read_jsonl(args.validation_file)
-    fit_partition_audit = validate_fit_partition(train_rows, validation_rows)
+    screen_no_eval = (
+        data_provenance.get("design_version")
+        == V5_3_12H_DESIGN_VERSION
+    )
+    if screen_no_eval:
+        if args.validation_file.read_bytes() != b"":
+            raise RuntimeError("screen validation artifact must be zero bytes")
+        validation_rows = []
+        fit_partition_audit = {
+            "train_source_examples": len(
+                {
+                    row["metadata"]["source_example_id"]
+                    for row in train_rows
+                }
+            ),
+            "validation_loss_source_examples": 0,
+            "overlap": 0,
+            "validation_disabled_reason": "fixed_steps_exploratory",
+        }
+    else:
+        validation_rows = read_jsonl(args.validation_file)
+        fit_partition_audit = validate_fit_partition(
+            train_rows, validation_rows
+        )
     if len(train_rows) != FORMAL_SCHEDULE_ROWS:
         raise RuntimeError(
             f"formal schedule must contain exactly {FORMAL_SCHEDULE_ROWS} rows; "
@@ -1261,13 +1531,25 @@ def main() -> None:
         arm=args.arm,
         split="train",
     )
-    validation_encoded = encode_rows(
-        tokenizer,
-        validation_rows,
-        arm=None,
-        split="validation",
+    validation_encoded = (
+        []
+        if screen_no_eval
+        else encode_rows(
+            tokenizer,
+            validation_rows,
+            arm=None,
+            split="validation",
+        )
     )
-    formal_arm_audit = arm_audit(formal_encoded, args.arm)
+    formal_arm_audit = arm_audit(
+        formal_encoded,
+        args.arm,
+        recovery_mixture_basis=(
+            "row_mean_microbatch_equal_weight"
+            if screen_no_eval
+            else "supervised_token_mass"
+        ),
+    )
     if args.mode == "smoke":
         encoded_rows = sorted(
             formal_encoded,
@@ -1276,18 +1558,22 @@ def main() -> None:
         )[:SMOKE_ROWS]
         effective_steps = SMOKE_STEPS
         effective_grad_accum = SMOKE_GRAD_ACCUM
-        effective_validation = sorted(
-            validation_encoded,
-            key=lambda row: (row["sequence_tokens"], row["id"]),
-            reverse=True,
-        )[: min(16, len(validation_encoded))]
+        effective_validation = (
+            []
+            if screen_no_eval
+            else sorted(
+                validation_encoded,
+                key=lambda row: (row["sequence_tokens"], row["id"]),
+                reverse=True,
+            )[: min(16, len(validation_encoded))]
+        )
     else:
         encoded_rows = formal_encoded
         effective_steps = FORMAL_STEPS
         effective_grad_accum = FORMAL_GRAD_ACCUM
         effective_validation = validation_encoded
 
-    set_seed(SEED)
+    set_seed(effective_seed)
     torch.use_deterministic_algorithms(True)
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
@@ -1430,7 +1716,7 @@ def main() -> None:
         max_grad_norm=1.0,
         logging_strategy="steps",
         logging_steps=1,
-        eval_strategy="steps",
+        eval_strategy="no" if screen_no_eval else "steps",
         eval_steps=effective_steps,
         save_strategy="no",
         report_to=[],
@@ -1440,8 +1726,8 @@ def main() -> None:
         optim="paged_adamw_8bit",
         gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False},
-        seed=SEED,
-        data_seed=SEED,
+        seed=effective_seed,
+        data_seed=effective_seed,
         remove_unused_columns=False,
         dataloader_num_workers=0,
         dataloader_pin_memory=False,
@@ -1452,11 +1738,19 @@ def main() -> None:
         model=model,
         args=training_args,
         train_dataset=dataset_features(encoded_rows),
-        eval_dataset=dataset_features(effective_validation),
+        eval_dataset=(
+            None
+            if screen_no_eval
+            else dataset_features(effective_validation)
+        ),
         data_collator=DynamicCompletionCollator(),
     )
     result = trainer.train()
-    loss_audit = finite_training_audit(trainer.state.log_history, result.metrics)
+    loss_audit = finite_training_audit(
+        trainer.state.log_history,
+        result.metrics,
+        require_validation_loss=not screen_no_eval,
+    )
     checkpoint = args.output_dir / "checkpoint_final"
     model.save_pretrained(checkpoint)
     tokenizer.save_pretrained(checkpoint)
@@ -1504,7 +1798,7 @@ def main() -> None:
                 "down_proj",
             ],
         },
-        "seed": SEED,
+        "seed": effective_seed,
         "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
         "truncation": False,
         "formal_steps": FORMAL_STEPS,
@@ -1531,6 +1825,8 @@ def main() -> None:
         },
         "environment": environment,
     }
+    if screen_no_eval:
+        manifest["validation_disabled_reason"] = "fixed_steps_exploratory"
     (args.output_dir / "training_metrics.json").write_text(
         json.dumps(result.metrics, indent=2) + "\n",
         encoding="utf-8",

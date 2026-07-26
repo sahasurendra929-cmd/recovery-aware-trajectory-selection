@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import tempfile
@@ -37,16 +38,44 @@ V5_3_MODEL_IDS = {
     "repair_50": "openai/v5-3-repair-50",
     "repair_100": "openai/v5-3-repair-100",
 }
-PROVENANCE_PROFILES = ("legacy", "v5_3")
+V5_3_12H_MODEL_IDS = {
+    "base_model": "openai/v5-3-12h-base",
+    "perfect_success": "openai/v5-3-12h-perfect-success",
+    "failure_raw": "openai/v5-3-12h-failure-raw",
+    "repair_50": "openai/v5-3-12h-repair-50",
+    "repair_100": "openai/v5-3-12h-repair-100",
+}
+PROVENANCE_PROFILES = ("legacy", "v5_3", "v5_3_12h_screen")
 V5_3_DESIGN_VERSION = "5.3"
 V5_3_DESIGN_PROTOCOL = "v5_3_task_level_cross_seed_sft_screen"
+V5_3_12H_DESIGN_VERSION = "5.3-12h-screen"
+V5_3_12H_DESIGN_PROTOCOL = "v5_3_12h_screen_sft_data_v1"
+V5_3_12H_SCREEN_PROTOCOL = "v5_3_12h_exploratory_screen_v1"
+V5_3_12H_TRAINING_SEED = 20260731
+SCREEN_TARGET_RECOVERY_ROW_RATIOS = {
+    "perfect_success": 0.0,
+    "failure_raw": 1.0,
+    "repair_50": 0.5,
+    "repair_100": 1.0,
+}
+SCREEN_LORA_TARGET_MODULES = {
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
+}
 PROFILE_GENERATION_INJECTIONS = {
     "legacy": 83,
     "v5_3": 78,
+    "v5_3_12h_screen": 78,
 }
 PROFILE_MODEL_IDS = {
     "legacy": MODEL_IDS,
     "v5_3": V5_3_MODEL_IDS,
+    "v5_3_12h_screen": V5_3_12H_MODEL_IDS,
 }
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -118,6 +147,8 @@ def infer_provenance_profile(arm_dirs: dict[str, Path]) -> str:
     }
     if versions == {V5_3_DESIGN_VERSION}:
         return "v5_3"
+    if versions == {V5_3_12H_DESIGN_VERSION}:
+        return "v5_3_12h_screen"
     if versions <= {None, "5.2"}:
         return "legacy"
     raise RuntimeError(
@@ -143,6 +174,30 @@ def _validate_profile_provenance(
                 f"design_version, got {design_version!r}"
             )
         return
+    if provenance_profile == "v5_3_12h_screen":
+        if design_version != V5_3_12H_DESIGN_VERSION:
+            raise RuntimeError(
+                "V5.3-12h provenance profile requires screen design_version"
+            )
+        design = provenance.get("design_provenance")
+        expected = {
+            "design_version": V5_3_12H_DESIGN_VERSION,
+            "design_protocol": V5_3_12H_DESIGN_PROTOCOL,
+            "screen_protocol": V5_3_12H_SCREEN_PROTOCOL,
+            "screen_tasks": 24,
+            "screen_rollouts": 288,
+            "validation_tasks": 21,
+            "shared_outcome_free_protocol_inputs_read_only": True,
+            "prior_v5_3_rollout_checkpoint_metric_decision_bytes_reused": False,
+            "screen_outputs_may_enter_formal_v5_3": False,
+        }
+        if not isinstance(design, dict) or any(
+            design.get(field) != value for field, value in expected.items()
+        ):
+            raise RuntimeError(
+                "V5.3-12h provenance lacks the frozen isolated design identity"
+            )
+        return
     if design_version != V5_3_DESIGN_VERSION:
         raise RuntimeError(
             "V5.3 provenance profile requires design_version '5.3'"
@@ -160,6 +215,133 @@ def _validate_profile_provenance(
         raise RuntimeError(
             "V5.3 provenance profile lacks the frozen 78/21 design identity"
         )
+
+
+def _validate_screen_training_manifest(
+    *,
+    manifest: dict[str, Any],
+    adapter_config: dict[str, Any],
+    arm: str,
+) -> None:
+    """Enforce the exact fixed-64 screen training contract at registry time."""
+
+    quantization = manifest.get("quantization")
+    lora = manifest.get("lora")
+    schedule = manifest.get("formal_schedule")
+    loss = manifest.get("loss_audit")
+    fit = manifest.get("fit_partition")
+    expected_ratio = SCREEN_TARGET_RECOVERY_ROW_RATIOS[arm]
+    expected_recovery_rows = int(512 * expected_ratio)
+    scalar_contract = {
+        "objective": "message_masked_causal_language_model_cross_entropy",
+        "seed": V5_3_12H_TRAINING_SEED,
+        "max_sequence_tokens": 8192,
+        "truncation": False,
+        "formal_steps": 64,
+        "formal_batch_size": 1,
+        "formal_grad_accum": 8,
+        "effective_steps": 64,
+        "effective_grad_accum": 8,
+        "learning_rate": 1.0e-4,
+        "effective_rows": 512,
+        "effective_validation_rows": 0,
+        "validation_disabled_reason": "fixed_steps_exploratory",
+    }
+    if any(manifest.get(key) != value for key, value in scalar_contract.items()):
+        raise RuntimeError(f"{arm}: V5.3-12h fixed-64 training contract drift")
+    if quantization != {
+        "bits": 4,
+        "type": "nf4",
+        "double_quant": True,
+        "compute_dtype": "bfloat16",
+    }:
+        raise RuntimeError(f"{arm}: V5.3-12h quantization contract drift")
+    if (
+        not isinstance(lora, dict)
+        or lora.get("r") != 16
+        or lora.get("alpha") != 32
+        or lora.get("dropout") != 0.0
+        or set(lora.get("target_modules") or [])
+        != SCREEN_LORA_TARGET_MODULES
+        or adapter_config.get("peft_type") != "LORA"
+        or adapter_config.get("base_model_name_or_path") != BASE_MODEL
+        or adapter_config.get("r") != 16
+        or adapter_config.get("lora_alpha") != 32
+        or adapter_config.get("lora_dropout") not in {0, 0.0}
+        or set(adapter_config.get("target_modules") or [])
+        != SCREEN_LORA_TARGET_MODULES
+    ):
+        raise RuntimeError(f"{arm}: V5.3-12h LoRA contract drift")
+    if (
+        not isinstance(schedule, dict)
+        or schedule.get("rows") != 512
+        or schedule.get("expected_recovery_supervised_token_ratio")
+        is not None
+        or schedule.get("recovery_mixture_basis")
+        != "row_mean_microbatch_equal_weight"
+        or schedule.get("recovery_rows") != expected_recovery_rows
+        or schedule.get("expected_recovery_row_ratio") != expected_ratio
+        or schedule.get("realized_recovery_row_ratio") != expected_ratio
+        or isinstance(
+            schedule.get("realized_recovery_supervised_token_ratio"), bool
+        )
+        or not isinstance(
+            schedule.get("realized_recovery_supervised_token_ratio"),
+            (int, float),
+        )
+        or not math.isfinite(
+            float(schedule["realized_recovery_supervised_token_ratio"])
+        )
+        or not 0.0
+        <= float(schedule["realized_recovery_supervised_token_ratio"])
+        <= 1.0
+        or not isinstance(schedule.get("supervised_tokens"), int)
+        or schedule["supervised_tokens"] <= 0
+        or not isinstance(schedule.get("nonpad_tokens"), int)
+        or schedule["nonpad_tokens"] <= 0
+        or not isinstance(schedule.get("max_sequence_tokens"), int)
+        or not 0 < schedule["max_sequence_tokens"] <= 8192
+        or (
+            arm == "failure_raw"
+            and (
+                not isinstance(
+                    schedule.get("failed_action_label_messages"), int
+                )
+                or schedule["failed_action_label_messages"] <= 0
+            )
+        )
+        or (
+            arm != "failure_raw"
+            and schedule.get("failed_action_label_messages") != 0
+        )
+    ):
+        raise RuntimeError(
+            f"{arm}: V5.3-12h formal row-weighted schedule/ratio drift"
+        )
+    if (
+        not isinstance(loss, dict)
+        or loss.get("finite") is not True
+        or not isinstance(loss.get("numeric_values_checked"), int)
+        or loss["numeric_values_checked"] <= 0
+        or not isinstance(loss.get("loss_values_checked"), int)
+        or loss["loss_values_checked"] <= 0
+        or not isinstance(loss.get("grad_norm_values_checked"), int)
+        or loss["grad_norm_values_checked"] <= 0
+        or loss.get("validation_loss_values_checked") != 0
+        or loss.get("final_validation_loss") is not None
+        or isinstance(loss.get("final_train_loss"), bool)
+        or not isinstance(loss.get("final_train_loss"), (int, float))
+        or not math.isfinite(float(loss["final_train_loss"]))
+    ):
+        raise RuntimeError(f"{arm}: V5.3-12h finite loss audit drift")
+    if (
+        not isinstance(fit, dict)
+        or fit.get("validation_loss_source_examples") != 0
+        or fit.get("overlap") != 0
+        or fit.get("validation_disabled_reason")
+        != "fixed_steps_exploratory"
+    ):
+        raise RuntimeError(f"{arm}: V5.3-12h no-validation partition drift")
 
 
 def validate_run(
@@ -214,6 +396,12 @@ def validate_run(
         provenance,
         provenance_profile=provenance_profile,
     )
+    if provenance_profile == "v5_3_12h_screen":
+        _validate_screen_training_manifest(
+            manifest=manifest,
+            adapter_config=adapter_config,
+            arm=arm,
+        )
     if (
         provenance.get("official_test_used") is not False
         or provenance.get("official_test_sealed") is not True
@@ -357,7 +545,7 @@ def build_registry(
         raise RuntimeError("trained arms contain duplicate adapter bytes")
     if len(set(manifest_hashes)) != len(manifest_hashes):
         raise RuntimeError("trained arms contain duplicate run manifests")
-    return {
+    registry = {
         "protocol": PROTOCOL,
         "source_commit": source_commit,
         "base_model_revision": base_revision,
@@ -365,6 +553,22 @@ def build_registry(
         "training_data_provenance": common_provenance,
         "entries": entries,
     }
+    if provenance_profile == "v5_3_12h_screen":
+        registry["screen_claim_boundary"] = {
+            "exploratory_screen_only": True,
+            "formal_v5_3_result": False,
+            "screen_outputs_may_enter_formal_v5_3": False,
+            "official_test_used": False,
+            "official_test_sealed": True,
+        }
+        registry["screen_evaluator"] = {
+            "model": "Qwen/Qwen2.5-14B-Instruct-AWQ",
+            "model_id": "openai/v5-3-12h-user-judge",
+            "revision": "539535859b135b0244c91f3e59816150c8056698",
+            "roles": ["user_simulator", "strict_nl_judge"],
+            "official_test_used": False,
+        }
+    return registry
 
 
 def atomic_write_registry(path: Path, registry: dict[str, Any]) -> None:
@@ -402,7 +606,8 @@ def parse_args() -> argparse.Namespace:
         choices=PROVENANCE_PROFILES,
         help=(
             "Explicitly require legacy (83 generation injections, openai/v5-*) "
-            "or V5.3 (78 generation injections, openai/v5-3-*). If omitted, "
+            "or V5.3 (78 generation injections, openai/v5-3-*), or the "
+            "isolated V5.3-12h screen profile. If omitted, "
             "derive only from the registered data_provenance.design_version."
         ),
     )
