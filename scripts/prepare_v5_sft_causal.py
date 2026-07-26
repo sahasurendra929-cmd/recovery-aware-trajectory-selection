@@ -1059,19 +1059,54 @@ def neutralize_messages(
 def _template_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = []
     for message in messages:
-        item = {"role": message["role"], "content": message.get("content") or ""}
+        content = message.get("content")
+        if content is None:
+            normalized_content = ""
+        elif isinstance(content, str):
+            normalized_content = content
+        elif isinstance(content, (dict, list)):
+            # Match the trainer's normalization exactly.  The JSONL writer
+            # canonicalizes nested objects, so contracts must not depend on
+            # provider insertion order or on an in-memory structured value.
+            normalized_content = canonical(content)
+        else:
+            raise RuntimeError(
+                "message content must be string, object, list, or null"
+            )
+        item = {
+            "role": message["role"],
+            "content": normalized_content,
+        }
         if message.get("tool_calls"):
-            item["tool_calls"] = [
-                {
-                    "id": call["id"],
+            calls = []
+            for call in message["tool_calls"]:
+                arguments = call.get("arguments", {})
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError as error:
+                        raise RuntimeError(
+                            "tool-call arguments are not valid JSON"
+                        ) from error
+                if not isinstance(arguments, dict):
+                    raise RuntimeError(
+                        "tool-call arguments must encode an object"
+                    )
+                call_item = {
                     "type": "function",
                     "function": {
                         "name": call["name"],
-                        "arguments": deepcopy(call.get("arguments") or {}),
+                        # Canonical round-trip makes the pre-write contract
+                        # identical to the post-JSONL trainer view.  JSON
+                        # object order is not semantic, but the pinned chat
+                        # template can render it into an order-sensitive
+                        # token stream.
+                        "arguments": json.loads(canonical(arguments)),
                     },
                 }
-                for call in message["tool_calls"]
-            ]
+                call_item["id"] = call["id"]
+                calls.append(call_item)
+            item["tool_calls"] = calls
         if message["role"] == "tool":
             item["tool_call_id"] = message["tool_call_id"]
         normalized.append(item)
@@ -1084,12 +1119,16 @@ def token_contract(
     label_mask: list[bool],
     tool_schemas: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    normalized = _template_messages(messages)
+    # Contracts are computed on the exact recursively canonical JSON view
+    # that the trainer will load from disk, never on provider insertion order.
+    canonical_messages = json.loads(canonical(messages))
+    normalized = _template_messages(canonical_messages)
+    canonical_tool_schemas = json.loads(canonical(tool_schemas))
 
     def ids(prefix: list[dict[str, Any]], generation: bool) -> list[int]:
         value = tokenizer.apply_chat_template(
             prefix,
-            tools=tool_schemas,
+            tools=canonical_tool_schemas,
             tokenize=True,
             add_generation_prompt=generation,
         )

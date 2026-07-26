@@ -88,6 +88,46 @@ class FakeTokenizer:
         return tokens
 
 
+class CanonicalRoundTripSensitiveTokenizer(FakeTokenizer):
+    """Expose token-length drift caused only by nested JSON key ordering."""
+
+    @classmethod
+    def _order_penalty(cls, value):
+        if isinstance(value, dict):
+            return int(list(value) != sorted(value)) + sum(
+                cls._order_penalty(child) for child in value.values()
+            )
+        if isinstance(value, list):
+            return sum(cls._order_penalty(child) for child in value)
+        return 0
+
+    @classmethod
+    def _size(cls, message):
+        return FakeTokenizer._size(message) + cls._order_penalty(message)
+
+    def apply_chat_template(
+        self, messages, *, tools, tokenize, add_generation_prompt
+    ):
+        assert tokenize is True
+        tokens = [10] * (
+            2
+            + len(json.dumps(tools, sort_keys=True)) // 80
+            + self._order_penalty(tools)
+        )
+        for message in messages:
+            role = message["role"]
+            header = 900 if role == "assistant" else {
+                "system": 100,
+                "user": 200,
+                "tool": 300,
+            }[role]
+            tokens.append(header)
+            tokens.extend([header + 1] * (self._size(message) - 1))
+        if add_generation_prompt:
+            tokens.append(900)
+        return tokens
+
+
 def assistant_call(call_id, name, arguments, *, injected=False):
     row = {
         "role": "assistant",
@@ -561,6 +601,135 @@ class V5SFTCausalDataTests(unittest.TestCase):
                 self.assertNotIn("v5-stage1-special", serialized)
                 self.assertIn("call_0001", serialized)
         self.assertTrue(all(value == task_multisets[0] for value in task_multisets))
+
+    def test_token_contract_survives_canonical_jsonl_round_trip(self):
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "update_reservation_passengers",
+                    "description": "Update passengers",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "reservation_id": {"type": "string"},
+                            "passengers": {"type": "array"},
+                        },
+                    },
+                },
+            }
+        ]
+        messages = [
+            {"role": "system", "content": "policy"},
+            {
+                "role": "user",
+                "content": {
+                    "request": "update my reservation",
+                    "reservation_id": "3RK2T9",
+                },
+            },
+            assistant_call(
+                "provider-call",
+                "update_reservation_passengers",
+                {
+                    "reservation_id": "3RK2T9",
+                    "passengers": [
+                        {
+                            "first_name": "Anya",
+                            "last_name": "Garcia",
+                            "dob": "1992-11-12",
+                        }
+                    ],
+                },
+            ),
+            {
+                "role": "tool",
+                "tool_call_id": "provider-call",
+                "name": "update_reservation_passengers",
+                "error": False,
+                "content": "updated",
+            },
+        ]
+        label_mask = [False, False, True, False]
+        tokenizer = CanonicalRoundTripSensitiveTokenizer()
+        row = {
+            "id": "perfect_success:schedule:0007",
+            "messages": messages,
+            "label_mask": label_mask,
+            "metadata": {
+                "arm": "perfect_success",
+                "source": "perfect_success",
+                "source_split": "inner_train",
+                "fit_split": "train_schedule",
+                "source_example_id": "airline:40:perfect_success",
+                "full_trajectory_reward": 1.0,
+                "source_trajectory_sha256": "a" * 64,
+                "official_test_used": False,
+                "failed_assistant_message_indices": [],
+                "injected_failed_assistant_message_index": None,
+                "tool_schemas": tools,
+                "tool_schemas_sha256": MODULE.sha256_text(
+                    MODULE.canonical(tools)
+                ),
+            },
+            "token_contract": MODULE.token_contract(
+                tokenizer,
+                messages,
+                label_mask,
+                tools,
+            ),
+        }
+        persisted = json.loads(MODULE.canonical(row))
+        prepared_messages = MODULE._template_messages(
+            persisted["messages"]
+        )
+        training_messages = [
+            TRAIN_MODULE.normalize_message(
+                message,
+                where=f"{persisted['id']}.messages[{index}]",
+            )
+            for index, message in enumerate(persisted["messages"])
+        ]
+        self.assertEqual(
+            json.dumps(
+                prepared_messages,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            json.dumps(
+                training_messages,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+        )
+        encoded = TRAIN_MODULE.encode_row(
+            tokenizer,
+            TRAIN_MODULE.validate_row(
+                persisted,
+                arm="perfect_success",
+                split="train",
+            ),
+        )
+        self.assertEqual(
+            encoded["sequence_tokens"],
+            persisted["token_contract"]["sequence_tokens"],
+        )
+        self.assertEqual(
+            encoded["supervised_tokens"],
+            persisted["token_contract"]["supervised_tokens"],
+        )
+        malformed = deepcopy(messages)
+        malformed[2]["tool_calls"][0]["arguments"] = ""
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "tool-call arguments are not valid JSON",
+        ):
+            MODULE.token_contract(
+                tokenizer,
+                malformed,
+                label_mask,
+                tools,
+            )
 
     def test_empty_tau2_rollout_is_excluded_without_becoming_a_label(self):
         target = self.raw / "retail_clean.shard-001-of-002.json"
