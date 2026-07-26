@@ -1,0 +1,439 @@
+experiment_name: v5_2_stage1_sft_screen
+protocol: v5_2_task_level_cross_seed_sft_screen
+protocol_version: "5.2"
+protocol_status: implementation_tested_pending_runpod_gpu_preflight
+design_parent_commit: 48dc4e89e712c63f7ebbe04caf6f8f36ac2f8cf0
+run_source_commit: detached_HEAD_resolved_at_launch_and_bound_into_all_contracts
+seed: 20260722
+confirmation_seeds: [20260722, 20260723, 20260724]
+
+claim_boundary:
+  stage: one_seed_derived_validation_screen
+  positive_result_guaranteed: false
+  paper_level_confirmation_allowed: false
+  semantic_repair_claim_allowed: false
+  causal_identification_claimed: false
+  interpretation: controlled_data_composition_and_mechanism_screen
+  passing_screen_authorizes: replication_only
+  official_test_policy: sealed_until_method_mixture_hyperparameters_and_confirmation_plan_are_frozen
+
+research_question: >-
+  At matched task, supervised-token, non-padding-token, optimizer-step, model,
+  and evaluation budgets, does a 50/50 mixture of flawless-success and
+  successful post-fault trajectories improve held-out end-to-end task success
+  under a controlled read-only tool failure relative to flawless-success SFT,
+  without materially harming clean task success?
+mechanism_questions:
+  - whether successful post-fault context helps relative to flawless-only demonstrations
+  - whether positively supervising the failed action is harmful
+  - whether an intermediate clean/post-fault mixture is preferable to either endpoint
+unavoidable_identification_limit: >-
+  Clean and post-fault demonstrations are matched at task level and on training
+  budgets, but they may come from different rollout seeds and necessarily have
+  different contexts and action sequences. V5.2 therefore does not identify a
+  counterfactual trajectory-level causal effect.
+
+benchmark:
+  repository: https://github.com/sierra-research/tau2-bench.git
+  release: v1.0.1
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  domains: [retail, airline]
+  original_inner_train_tasks: {retail: 59, airline: 24, total: 83}
+  v5_2_arm_train_tasks: {retail: 53, airline: 22, total: 75}
+  v5_2_loss_validation_tasks: {retail: 6, airline: 2, total: 8}
+  derived_end_to_end_validation_tasks: {retail: 15, airline: 6, total: 21}
+  sealed_official_test_tasks: {retail: 40, airline: 20, total: 60}
+  independent_evaluation_unit: task_id
+
+immutable_stage0:
+  split_manifest: artifacts/v5_stage0/manifests/split_manifest.json
+  split_manifest_sha256: a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a
+  bytes_must_not_change: true
+  regenerate_for_v5_2: false
+  official_test_content_exported: false
+  official_test_used: false
+
+inner_train_partition:
+  protocol: v5_2_inner_train_loss_validation_split
+  source_split: derived_inner_train
+  seed: 20260722
+  method: >-
+    Within each domain, sort task IDs by the hexadecimal SHA-256 of
+    "v5.2-loss-validation|20260722|{domain}|{task_id}", breaking any tie by
+    numeric task ID. Select the first six retail and first two airline IDs for
+    loss validation; all remaining IDs are arm-train tasks.
+  canonicalization: utf8_json_sorted_keys_compact_separators
+  canonical_manifest_sha256: b476ec66996485445dd0b65f9fc982347526ff70fbec5769bbe9805aa70ce50a
+  domains:
+    retail:
+      train_ids:
+        ["1", "2", "3", "4", "7", "8", "10", "11", "13", "14", "15",
+         "16", "19", "22", "23", "24", "25", "29", "30", "31", "35",
+         "37", "46", "47", "52", "54", "59", "63", "66", "67", "69",
+         "72", "75", "76", "78", "81", "82", "83", "84", "85", "87",
+         "88", "89", "92", "93", "96", "98", "103", "104", "105",
+         "106", "107", "113"]
+      loss_validation_ids: ["21", "28", "43", "99", "110", "112"]
+      counts: {train: 53, loss_validation: 6}
+    airline:
+      train_ids:
+        ["0", "1", "4", "5", "9", "10", "11", "12", "15", "17", "20",
+         "21", "23", "28", "33", "34", "36", "38", "40", "43", "47",
+         "49"]
+      loss_validation_ids: ["14", "27"]
+      counts: {train: 22, loss_validation: 2}
+  invariants:
+    - train_and_loss_validation_are_disjoint
+    - union_equals_all_83_derived_inner_train_tasks
+    - domain_counts_match
+    - official_test_and_derived_end_to_end_validation_are_absent
+
+fault_protocol:
+  protocol: v5_multifamily_readonly_faults_v1
+  train_and_loss_validation_manifest: data/processed/v5_2_protocol/generation_manifest.json
+  end_to_end_validation_manifest: data/processed/v5_2_protocol/evaluation_manifest.json
+  train_and_loss_validation_dynamic_audit: data/processed/v5_2_protocol/generation_dynamic_audit.json
+  end_to_end_validation_dynamic_audit: data/processed/v5_2_protocol/evaluation_dynamic_audit.json
+  required_dynamic_audit_rows: {generation: 83, evaluation: 21}
+  invalid_parameter: unique_and_database_absent_per_task
+  tool_type: READ
+  expected_tool_error: true
+  expected_state_mutation: false
+  exactly_one_controlled_failure_per_error_rollout: true
+  additional_tool_errors_allowed: false
+  semantic_link_to_later_success_proven: false
+  fault_family_inference: descriptive_only
+  source_hashes_bound_per_domain: [tasks_json_sha256, db_json_sha256, tools_py_sha256]
+
+models:
+  trajectory_teacher:
+    model: Qwen/Qwen2.5-14B-Instruct-AWQ
+    revision: 539535859b135b0244c91f3e59816150c8056698
+  generation_user_and_judge:
+    model: Qwen/Qwen2.5-7B-Instruct-AWQ
+    revision: b25037543e9394b818fdfca67ab2a00ecc7dd641
+  screen_student_and_evaluation_base:
+    model: Qwen/Qwen2.5-7B-Instruct
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+  evaluation_user_and_judge_must_use_unadapted_base: true
+
+serving_contract:
+  interface: openai_compatible_vllm
+  assistant_action_policy: sequential_single_tool_action_then_replan
+  parallel_tool_calls_request_value: false
+  ordered_parallel_response_normalization: execute_first_then_replan
+  mixed_text_and_tool_call_normalization: drop_text_preserve_sha256_then_execute_call
+  deferred_or_removed_content_audit: sha256_required
+  enable_auto_tool_choice: true
+  tool_call_parser: hermes
+  generation_config: vllm
+  every_vllm_server_max_model_len: 32768
+  non_32768_vllm_server_is_protocol_violation: true
+
+trajectory_generation:
+  source_tasks: all_83_derived_inner_train_tasks
+  conditions: [clean, error]
+  attempts_per_task_per_condition: 12
+  total_expected_rollouts: 1992
+  attempt_index_range: [0, 11]
+  attempt_seed_contract: >-
+    Use the pinned tau2 TextRunConfig deterministic trial-seed behavior and
+    record the actual seed in every simulation. V5.2 does not claim an
+    unverified domain/task/condition-specific seed-derivation formula.
+  selection_may_not_request_extra_attempts: true
+  formal_interim_feasibility_early_stop: false
+  feasibility_audit_timing: after_all_1992_rollouts_are_complete
+  decoding:
+    temperature: 0
+    max_tokens: 512
+    max_steps: 60
+    task_timeout_seconds: 900
+  sharding:
+    num_shards: 3
+    assignment:
+      gpu0: {service: shared_7b_awq_user_and_judge, client_shards: []}
+      gpu1: {service: local_14b_awq_teacher, client_shards: [0]}
+      gpu2: {service: local_14b_awq_teacher, client_shards: [1]}
+      gpu3: {service: local_14b_awq_teacher, client_shards: [2]}
+
+eligibility:
+  clean:
+    official_task_reward: 1.0
+    tool_errors: 0
+    invalid_tool_calls: 0
+  post_fault:
+    official_task_reward: 1.0
+    controlled_injected_failures: exactly_1
+    injected_failure_is_read_only: true
+    injected_tool_result_error: true
+    additional_tool_errors: 0
+    later_id_matched_non_error_tool_result_required: true
+  common:
+    nonempty_well_formed_messages: true
+    sequential_single_tool_action_contract: true
+    final_failure_excluded_from_positive_sft_labels: true
+    deduplicate_before_pairing: true
+    training_sequence_tokens_at_most: 8192
+    overlength_policy: exclude_before_pairing_and_report
+    runtime_truncation: false
+
+task_level_cross_seed_pairing:
+  pairing_key: [domain, task_id]
+  same_rollout_seed_required: false
+  eligible_order:
+    salt: v5.2-eligible-attempt-order
+    key: >-
+      SHA256("v5.2-eligible-attempt-order|20260722|{domain}|{task_id}|
+      {condition}|{attempt_index}|{attempt_seed}") ascending, then
+      attempt_index and attempt_seed as deterministic tie breakers
+    trajectory_content_sha256_use: deduplication_only_not_ranking
+  construction: >-
+    For each task, independently order eligible clean and post-fault
+    trajectories, zip them by rank, and retain at most the first two pairs.
+  maximum_pairs_per_task: 2
+  no_shortest_or_loss_based_selection: true
+  no_validation_or_test_outcome_selection: true
+  no_replacement_before_arm_schedule: true
+  reporting:
+    - clean_eligible_attempts_by_task
+    - error_eligible_attempts_by_task
+    - paired_slots_by_task
+    - cross_seed_pair_fraction
+    - all_attempt_exclusion_reasons
+    - pair_yield_per_gpu_hour
+
+formal_data_gate:
+  population: 75_arm_train_tasks_only
+  minimum_distinct_task_ids: 40
+  minimum_task_level_pairs: 48
+  maximum_pairs_per_task: 2
+  both_minima_must_pass: true
+  supervised_token_mass:
+    minimum_hidden_threshold: null
+    required_report_by_arm_and_source: true
+    used_for_cross_arm_matching: true
+  total_nonpadding_token_mass:
+    required_report_by_arm: true
+    used_for_cross_arm_matching: true
+  failure_action_token_mass:
+    required_report_for_failure_raw: true
+  on_failure: stop_before_arm_training
+  interpretation: feasibility_gate_not_a_positive_scientific_result
+
+loss_validation:
+  tasks: 8
+  source: frozen_inner_train_loss_validation_partition
+  used_for_gradient_updates: false
+  used_for_protocol_or_arm_selection: false
+  official_end_to_end_validation_replacement: false
+  report:
+    - distinct_tasks_with_eligible_examples
+    - selected_rows
+    - supervised_tokens
+    - total_nonpadding_tokens
+  must_be_nonempty_and_have_finite_loss: true
+
+label_contract:
+  format: messages_plus_message_level_label_mask
+  no_future_messages: true
+  only_assistant_messages_may_be_supervised: true
+  supervised_assistant_message_type: tool_call_only
+  tool_call_label_requires_adjacent_id_matched_tool_result: true
+  successful_tool_call_label_requires_error_false: true
+  assistant_text_is_context_not_label: true
+  tool_and_user_messages_are_never_labels: true
+  candidate_tool_call_ids_must_be_neutralized: true
+  provider_or_arm_specific_label_markers_forbidden: true
+
+arms:
+  perfect_success:
+    clean_supervised_token_fraction: 1.0
+    post_fault_supervised_token_fraction: 0.0
+    failed_action_supervised: false
+    purpose: flawless_success_control
+  failure_raw:
+    clean_supervised_token_fraction: 0.0
+    post_fault_supervised_token_fraction: 1.0
+    failed_action_supervised: true
+    failed_action_scope: controlled_injected_failure_only
+    deployment_candidate: false
+    purpose: intentionally_harmful_failure_supervision_control
+  repair_50:
+    clean_supervised_token_fraction: 0.5
+    post_fault_supervised_token_fraction: 0.5
+    failed_action_supervised: false
+    failed_action_remains_masked_context: true
+    purpose: preregistered_primary_mixture_candidate
+  repair_100:
+    clean_supervised_token_fraction: 0.0
+    post_fault_supervised_token_fraction: 1.0
+    failed_action_supervised: false
+    failed_action_remains_masked_context: true
+    purpose: all_post_fault_endpoint
+
+matching:
+  common_task_multiset_across_four_arms: true
+  common_task_pair_support_across_four_arms: true
+  pair_occurrence_multiset_equal_across_four_arms: false
+  interpretation: >-
+    Every arm draws from the same eligible task-level pair pool and has the
+    same scheduled task multiset. Token matching may select different pair
+    occurrences within a task; identical pair-occurrence multisets are not
+    required.
+  scheduled_supervised_tokens_tolerance_fraction: 0.01
+  scheduled_total_nonpadding_tokens_tolerance_fraction: 0.02
+  optimizer_steps_identical: true
+  arm_batch_order: deterministic_hash_order
+  actual_token_mass_and_gpu_hours_reported: true
+  repeated_schedule_rows_do_not_create_independent_tasks: true
+
+training:
+  method: qlora_sft
+  base_model: Qwen/Qwen2.5-7B-Instruct
+  base_revision: a09a35458c702b33eeacc393d103063234e8bc28
+  load_in_4bit: true
+  quantization: {type: nf4, double_quant: true, compute_dtype: bfloat16}
+  lora:
+    rank: 16
+    alpha: 32
+    dropout: 0.0
+    target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  max_sequence_tokens: 8192
+  runtime_truncation: false
+  per_device_batch_size: 1
+  gradient_accumulation: 8
+  optimizer: paged_adamw_8bit
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  gradient_checkpointing: true
+  bf16: true
+  sampler: frozen_sequential_schedule
+  optimizer_steps: derived_from_common_arm_schedule
+  smoke_optimizer_steps: 2
+  save_only_final_adapter: true
+  gpu_assignment:
+    gpu0: perfect_success
+    gpu1: failure_raw
+    gpu2: repair_50
+    gpu3: repair_100
+
+end_to_end_validation:
+  source_split: derived_validation
+  tasks: 21
+  domain_counts: {retail: 15, airline: 6}
+  conditions: [clean, error]
+  models:
+    [base_model, perfect_success, failure_raw, repair_50, repair_100]
+  num_trials: 1
+  primary_metric: tau2_official_composite_task_success_error_condition
+  safety_metric: tau2_official_composite_task_success_clean_condition
+  diagnostics:
+    - repeated_identical_failed_call_rate
+    - valid_post_error_tool_result_rate
+  decoding:
+    temperature: 0
+    max_tokens: 512
+    max_steps: 60
+    task_timeout_seconds: 900
+    seed: 20260722
+  sharding:
+    unit: task_id
+    num_shards: 4
+    each_gpu_evaluates_all_five_models_on_one_task_shard: true
+  compatibility_model_aliases:
+    base_model: openai/v5-base
+    perfect_success: openai/v5-perfect-success
+    failure_raw: openai/v5-failure-raw
+    repair_50: openai/v5-repair-50
+    repair_100: openai/v5-repair-100
+  evaluation_user_and_judge_alias: openai/v5-base
+  second_user_or_judge_server_forbidden: true
+
+primary_screen_gate:
+  comparison_arm: perfect_success
+  candidate_arm: repair_50
+  independent_unit: task_id
+  injected_additional_successes_required_of_21: 2
+  clean_success_losses_allowed_of_21: 1
+  failed_call_replay_must_not_increase: true
+  all_conditions_required: true
+  interpretation: directional_validation_signal_not_a_paper_claim
+
+single_host_execution:
+  required_hardware:
+    gpu_count: 4
+    gpu_model: NVIDIA_RTX_4090
+    minimum_vram_mib_per_gpu: 24000
+  host: one_runpod_pod
+  shared_filesystem_required: true
+  local_ports:
+    generation_user_judge: 8001
+    teacher_gpu1: 8011
+    teacher_gpu2: 8012
+    teacher_gpu3: 8013
+    evaluation_gpu0: 8100
+    evaluation_gpu1: 8101
+    evaluation_gpu2: 8102
+    evaluation_gpu3: 8103
+  cuda_visible_devices_must_be_explicit: true
+  generation_and_training_services_must_not_overlap: true
+  training_and_evaluation_services_must_not_overlap: true
+  orchestration_script_expected: scripts/run_v5_2_single_host.py
+  results_root: results/v5_2_sft_causal
+  processed_data_root: data/processed/v5_2_sft_causal
+  raw_generation_root: data/raw/v5_2_sft_causal_generation
+
+software:
+  python_major_minor: "3.12"
+  train_torch: "2.7.1"
+  train_cuda_wheel: "cu128"
+  separate_serving_and_training_environments: true
+  vllm_may_not_be_installed_into_training_environment: true
+
+statistics:
+  independent_unit: task_id
+  rollouts_pairs_and_training_rows_are_not_independent_tasks: true
+  validation_use: method_and_mixture_selection_only
+  deterministic_bootstrap_unit: task_id
+  fault_family_results: descriptive_only
+  confirmation_training_seeds_required: 3
+  clean_noninferiority_margin: -0.05
+  multiple_comparisons: holm_if_more_than_one_confirmatory_contrast
+
+provenance_and_packaging:
+  record:
+    - source_commit
+    - processing_commit
+    - tau2_commit
+    - configuration_sha256
+    - immutable_stage0_split_sha256
+    - inner_train_partition_sha256
+    - protocol_manifest_and_dynamic_audit_sha256
+    - all_attempt_result_and_exclusion_sha256
+    - prepared_arm_and_loss_validation_sha256
+    - checkpoint_registry_and_adapter_sha256
+    - evaluation_contract_and_result_sha256
+    - environment_manifest
+    - commands_jsonl
+    - gpu_hours_and_wall_clock
+  partial_run_contract_status: INCOMPLETE
+  complete_run_contract_status: COMPLETE
+  ordinary_git_may_contain_large_adapter_files: false
+  upload_target_branch: freeze_at_launch
+
+invalid_actions:
+  - inspect_or_use_official_test_before_confirmation_freeze
+  - change_attempt_count_after_generation_starts
+  - request_more_than_12_attempts_for_a_difficult_task
+  - select_pairs_by_validation_outcome_loss_length_or_convenience
+  - relax_40_task_or_48_pair_gate_after_observing_yield
+  - count_rollouts_or_pairs_as_independent_evaluation_units
+  - run_any_vllm_server_with_max_model_len_other_than_32768
+  - start_training_when_data_gate_fails
+  - edit_incomplete_contract_to_complete
+  - silently_change_model_revision_prompt_decoding_label_mask_or_evaluator
+  - claim_guaranteed_positive_result
+  - call_validation_screen_paper_level_confirmation
+  - call_failure_raw_a_deployment_candidate

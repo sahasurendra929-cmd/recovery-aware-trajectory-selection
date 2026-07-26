@@ -493,8 +493,24 @@ def validate_generation_contracts(
     dynamic_audit_identity: dict[str, Any],
     expected_generation_source_commit: str | None = None,
     expected_shards: int = 4,
+    expected_teacher_api_base_by_shard: dict[int, str] | None = None,
     observed_source_commit: str | None = None,
 ) -> dict[str, Any]:
+    if expected_teacher_api_base_by_shard is not None:
+        if (
+            not isinstance(expected_teacher_api_base_by_shard, dict)
+            or any(
+                type(index) is not int
+                or not isinstance(api_base, str)
+                or not api_base
+                for index, api_base in expected_teacher_api_base_by_shard.items()
+            )
+            or set(expected_teacher_api_base_by_shard)
+            != set(range(expected_shards))
+        ):
+            raise RuntimeError(
+                "expected teacher API bases must map every shard index exactly"
+            )
     if observed_source_commit is None:
         require_clean_tracked_source()
         observed_source_commit = subprocess.run(
@@ -627,8 +643,20 @@ def validate_generation_contracts(
         if task_union & set(tasks):
             raise RuntimeError(f"{path}: shard task overlap")
         task_union.update(tasks)
+        teacher_for_common = contract.get("teacher")
+        if expected_teacher_api_base_by_shard is not None:
+            expected_api_base = expected_teacher_api_base_by_shard[index]
+            if (
+                not isinstance(teacher_for_common, dict)
+                or teacher_for_common.get("api_base") != expected_api_base
+            ):
+                raise RuntimeError(
+                    f"{path}: teacher API base differs from frozen shard endpoint"
+                )
+            teacher_for_common = deepcopy(teacher_for_common)
+            teacher_for_common["api_base"] = "<validated-per-shard>"
         frozen = {
-            "teacher": contract.get("teacher"),
+            "teacher": teacher_for_common,
             "user": contract.get("user"),
             "judge": contract.get("judge"),
             "decoding": contract.get("decoding"),
@@ -697,7 +725,7 @@ def validate_generation_contracts(
             f"missing={sorted(declared_names - actual_names)}, "
             f"undeclared={sorted(actual_names - declared_names)}"
         )
-    return {
+    audit = {
         "contract_files": {str(path): sha256_file(path) for path in paths},
         "result_files": {
             str(actual_result_paths[name]): declared_result_hashes[name]
@@ -710,6 +738,12 @@ def validate_generation_contracts(
         "shards": expected_shards,
         "frozen_roles_and_decoding": common,
     }
+    if expected_teacher_api_base_by_shard is not None:
+        audit["teacher_api_base_by_shard"] = {
+            str(index): expected_teacher_api_base_by_shard[index]
+            for index in range(expected_shards)
+        }
+    return audit
 
 
 def normalize_tool_schema(schema: Any) -> dict[str, Any]:

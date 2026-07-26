@@ -471,6 +471,15 @@ class V5SFTCausalDataTests(unittest.TestCase):
             observed_source_commit="4" * 40,
         )
 
+    @staticmethod
+    def set_teacher_api_bases(contracts, api_base_by_shard):
+        for contract_path in contracts:
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["teacher"]["api_base"] = api_base_by_shard[
+                contract["shard_index"]
+            ]
+            contract_path.write_text(json.dumps(contract), encoding="utf-8")
+
     def test_generation_and_processing_commits_are_audited_separately(self):
         raw_dir, generation_manifest, _, audit_identity, _, _ = (
             self.strict_generation_fixture("separate-source-commits")
@@ -743,6 +752,119 @@ class V5SFTCausalDataTests(unittest.TestCase):
             set(audit["result_files"]),
             {str(path) for path in results.values()},
         )
+
+    def test_generation_contract_accepts_only_registered_per_shard_teacher_endpoints(
+        self,
+    ):
+        (
+            raw_dir,
+            generation_manifest,
+            _,
+            audit_identity,
+            contracts,
+            _,
+        ) = self.strict_generation_fixture("per-shard-teacher-endpoints")
+        api_bases = {
+            index: f"http://127.0.0.1:{8011 + index}/v1"
+            for index in range(4)
+        }
+        self.set_teacher_api_bases(contracts, api_bases)
+        audit = MODULE.validate_generation_contracts(
+            raw_dir=raw_dir,
+            split_manifest=self.split_path,
+            split=MODULE.load_split(self.split_path, strict_counts=False),
+            generation_manifest=generation_manifest,
+            expected_trials=3,
+            expected_seed=MODULE.SEED,
+            expected_source_commit="4" * 40,
+            dynamic_audit_identity=audit_identity,
+            expected_teacher_api_base_by_shard=api_bases,
+            observed_source_commit="4" * 40,
+        )
+        self.assertEqual(
+            audit["teacher_api_base_by_shard"],
+            {str(index): api_bases[index] for index in range(4)},
+        )
+        self.assertEqual(
+            audit["frozen_roles_and_decoding"]["teacher"]["api_base"],
+            "<validated-per-shard>",
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "generation model/decoding contracts differ across shards",
+        ):
+            self.validate_strict_generation(
+                raw_dir,
+                generation_manifest,
+                audit_identity,
+            )
+        wrong_api_bases = dict(api_bases)
+        wrong_api_bases[2] = "http://127.0.0.1:8999/v1"
+        with self.assertRaisesRegex(RuntimeError, "teacher API base"):
+            MODULE.validate_generation_contracts(
+                raw_dir=raw_dir,
+                split_manifest=self.split_path,
+                split=MODULE.load_split(
+                    self.split_path, strict_counts=False
+                ),
+                generation_manifest=generation_manifest,
+                expected_trials=3,
+                expected_seed=MODULE.SEED,
+                expected_source_commit="4" * 40,
+                dynamic_audit_identity=audit_identity,
+                expected_teacher_api_base_by_shard=wrong_api_bases,
+                observed_source_commit="4" * 40,
+            )
+
+    def test_per_shard_teacher_endpoints_do_not_relax_other_frozen_fields(self):
+        cases = (
+            ("teacher-model", "teacher", "model", "wrong-teacher"),
+            ("teacher-revision", "teacher", "revision", "f" * 40),
+            ("user", "user", "model", "wrong-user"),
+            ("judge", "judge", "model", "wrong-judge"),
+            ("decoding", "decoding", "max_tokens", 513),
+        )
+        for name, section, field, value in cases:
+            with self.subTest(field=name):
+                (
+                    raw_dir,
+                    generation_manifest,
+                    _,
+                    audit_identity,
+                    contracts,
+                    _,
+                ) = self.strict_generation_fixture(
+                    f"per-shard-frozen-{name}"
+                )
+                api_bases = {
+                    index: f"http://127.0.0.1:{8011 + index}/v1"
+                    for index in range(4)
+                }
+                self.set_teacher_api_bases(contracts, api_bases)
+                for contract_path in contracts:
+                    contract = json.loads(
+                        contract_path.read_text(encoding="utf-8")
+                    )
+                    contract[section][field] = value
+                    contract_path.write_text(
+                        json.dumps(contract), encoding="utf-8"
+                    )
+                with self.assertRaises(RuntimeError):
+                    MODULE.validate_generation_contracts(
+                        raw_dir=raw_dir,
+                        split_manifest=self.split_path,
+                        split=MODULE.load_split(
+                            self.split_path, strict_counts=False
+                        ),
+                        generation_manifest=generation_manifest,
+                        expected_trials=3,
+                        expected_seed=MODULE.SEED,
+                        expected_source_commit="4" * 40,
+                        dynamic_audit_identity=audit_identity,
+                        expected_teacher_api_base_by_shard=api_bases,
+                        observed_source_commit="4" * 40,
+                    )
 
     def test_generation_contract_rejects_incomplete_status(self):
         raw_dir, generation_manifest, _, audit_identity, contracts, _ = (

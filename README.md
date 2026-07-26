@@ -29,7 +29,7 @@ validation. It does not claim an end-to-end agent improvement yet.
   error-injected task success were both 10% on different tasks. This validates
   execution and measurement only. See
   [`STAGE0_V5_RESULT_REPORT.md`](STAGE0_V5_RESULT_REPORT.md).
-- **v5 Stage 1 (designed, not yet run):** a controlled SFT
+- **v5 Stage 1 (preflight stopped before training):** a controlled SFT
   data-composition/mechanism screen on full multi-turn trajectories. Under
   matched task, supervised-token, non-padding-token, and optimizer-step
   budgets, it compares flawless demonstrations,
@@ -46,7 +46,21 @@ validation. It does not claim an end-to-end agent improvement yet.
   `data/processed/v5_stage0` files are not Stage-1 inputs. The claim is
   post-fault task robustness, not proof of semantic repair; per-family results
   are descriptive only. See
-  [`V5_STAGE1_SFT_HANDOFF.md`](V5_STAGE1_SFT_HANDOFF.md).
+  [`V5_STAGE1_SFT_HANDOFF.md`](V5_STAGE1_SFT_HANDOFF.md). Its registered
+  three-same-seed-pairs-per-task pool proved operationally infeasible: the
+  complete initial generation yielded no eligible paired slot, and the
+  corrected pilot remained far below the frozen threshold. No four-arm
+  comparison was made. See
+  [`V5_STAGE1_PREFLIGHT_RESULT.md`](V5_STAGE1_PREFLIGHT_RESULT.md).
+- **v5.2 (implemented, awaiting RunPod preflight):** preserves the V5
+  question, four SFT arms, 7B student, and end-to-end evaluation, but fixes
+  the data-pool design. It runs a fixed 12 attempts per task and condition,
+  pairs independently eligible clean and post-fault trajectories at task
+  level, caps each task at two pairs, and uses a frozen 75-task training /
+  8-task loss-validation partition. A fail-closed gate requires at least 40
+  training tasks and 48 pairs. One controller operates a single RunPod host
+  with four RTX 4090 GPUs. See
+  [`V5_2_SINGLE_HOST_HANDOFF.md`](V5_2_SINGLE_HOST_HANDOFF.md).
 
 Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples
@@ -66,6 +80,12 @@ the same post-error context.
 V5 Stage 0 establishes that the project can now measure full task completion
 after a controlled tool failure. Its 10-pair result is too small and its 7B
 baseline success rate is too low to update the scientific claim.
+
+The V5 Stage-1 preflight establishes a narrower negative engineering result:
+the original same-seed 3/3 pairing requirement cannot supply the registered
+training pool with the frozen generation stack. It does not establish whether
+post-fault supervision helps or harms. V5.2 is the preregistered data-design
+correction needed before that scientific comparison can occur.
 
 ## Repository map
 
@@ -123,8 +143,10 @@ The label also records whether a user spoke before the corrective tool call. Thi
 - [x] Verify all ten injected failures are real and database-preserving
 - [x] Freeze the V5 Stage-1 controlled SFT data, training, and end-to-end evaluation code
 - [x] Isolate the Stage-1 multi-fault manifests from immutable Stage-0 artifacts
-- [ ] Dynamically audit all 83 generation and 21 validation injected calls
-- [ ] Generate and audit the paired V5 Stage-1 inner-train trajectory pool
+- [x] Dynamically audit all 83 generation and 21 validation injected calls
+- [x] Record the fail-closed V5 Stage-1 paired-pool infeasibility result
+- [x] Implement and test the V5.2 task-level, fixed-attempt data-pool protocol
+- [ ] Run the V5.2 1,992-rollout generation and pass its 40-task/48-pair gate
 - [ ] Run the four one-seed 7B QLoRA screening arms plus untrained-base control
 - [ ] Replicate a gate-passing mixture on three seeds before unsealing test
 - [ ] Run the V4 Clean-SFT / continued-SFT / DPO diagnostic
