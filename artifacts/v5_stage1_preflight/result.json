@@ -1,0 +1,62 @@
+{
+  "protocol": "v5_stage1_preflight_result",
+  "status": "FAIL_CLOSED",
+  "decision": "DO_NOT_TRAIN",
+  "recorded_at_utc": "2026-07-26T01:08:55Z",
+  "official_test_used": false,
+  "split_manifest_sha256": "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a",
+  "tau2_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "complete_generation_source_commit": "fa4494ef6c913a28f7aa5d30986e66e0b6402a8c",
+  "final_interface_source_commit": "65362cc8817a20146c86d721f7e329e09c073336",
+  "required_pool": {
+    "distinct_task_ids": 40,
+    "paired_slots": 120,
+    "eligible_paired_slots_per_task": 3
+  },
+  "complete_generation_audit": {
+    "clean_eligible": 4,
+    "error_eligible": 1,
+    "paired_slots": 0,
+    "tasks_with_any_pair": 0,
+    "clean_reason_counts": {
+      "eligible": 4,
+      "final_failure": 12,
+      "invalid_simulation_mixed_text_and_tool_call": 66,
+      "invalid_simulation_no_messages": 56,
+      "invalid_simulation_non_single_tool_call": 111
+    },
+    "error_reason_counts": {
+      "eligible": 1,
+      "final_failure": 11,
+      "invalid_simulation_mixed_text_and_tool_call": 37,
+      "invalid_simulation_no_messages": 61,
+      "invalid_simulation_non_single_tool_call": 138,
+      "not_exactly_one_controlled_failure": 1
+    }
+  },
+  "corrected_interface_early_stop": {
+    "completed_cases": 21,
+    "scored_cases": 18,
+    "successful_cases": 4,
+    "clean_success_rate": 0.2222222222,
+    "conditions_started": [
+      "clean"
+    ],
+    "error_condition_started": false,
+    "reason": "Observed clean success was already incompatible with the frozen requirement of three paired successes on at least 40 tasks; continuing could not rescue the registered pool without a protocol change."
+  },
+  "complete_contract_sha256": {
+    "run_contract.shard-000-of-004.json": "c8df1ae92fc36c86ccecd7ab374ca7a3025d5cd025bd354848532f627a70b720",
+    "run_contract.shard-001-of-004.json": "6b062414831803bfca1dcb9fdbe42de334959627e220dd85c952d144b383d7e1",
+    "run_contract.shard-002-of-004.json": "2e2b07f4584e20914df04c2378706c008b9036335ec85960e6d738a5f70d12ee",
+    "run_contract.shard-003-of-004.json": "f5ac298abe969d5eba65c973d525bcca6201ef8122b10e9058f0fa1c37736375"
+  },
+  "corrected_interface_log_sha256": {
+    "generation_shard0_source-65362cc8817a.log": "8f935500801e6d379deb8e9d575d0779c598978ff7ebdba67dfd198f77fb8ca9",
+    "generation_shard1_source-65362cc8817a.log": "780ce7a9a1531523b12d678ca2aa54748bcb220e460ceeaa0d060c1bc5185379",
+    "generation_shard2_source-65362cc8817a.log": "8868417363f18f4bf6d66c6c08aafb2e58ee607921908a7e9618496f209c39b4"
+  },
+  "training_started": false,
+  "evaluation_started": false,
+  "reportable_four_arm_metrics": false
+}
