@@ -1,0 +1,130 @@
+experiment_name: v5_4_counterfactual_branch_pilot
+protocol: v5_4_counterfactual_branch_pilot_v1
+design_version: "5.4-pilot"
+base_seed: 20260804
+
+claim_boundary:
+  data_feasibility_only: true
+  training: false
+  validation_evaluation: false
+  official_test_used: false
+  official_test_sealed: true
+  positive_result_guaranteed: false
+
+hardware:
+  host: single_runpod
+  exact_gpu_count: 4
+  gpu_class: RTX 4090
+  persistent_workspace_required: true
+  reuse_existing_venvs_and_model_cache: true
+  reinstall_cuda_or_pytorch: false
+
+models:
+  teacher:
+    model: Qwen/Qwen2.5-32B-Instruct-AWQ
+    revision: 5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c
+    gpus: [1, 2]
+    tensor_parallel_size: 2
+  user_and_strict_judge:
+    model: Qwen/Qwen2.5-14B-Instruct-AWQ
+    revision: 539535859b135b0244c91f3e59816150c8056698
+    gpu: 0
+  reserve_and_audit:
+    gpu: 3
+
+provenance:
+  tau2_commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  split_sha256: a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a
+  source_split: derived_inner_train
+  official_test_used: false
+  reuse_v5_3_generated_bytes: false
+  v5_3_result_role: historical_efficiency_baseline_only
+
+task_registry:
+  tasks: 24
+  retail: 18
+  airline: 6
+  maximum_pairs_per_task: 2
+
+slot_budget:
+  slots_per_task: 12
+  clean_search_slots: 8
+  recovery_branch_slots: 4
+  maximum_total_slots: 288
+  unused_slots_reallocated: false
+  clean_early_stop: first_eligible_success
+  recovery_early_stop: two_eligible_pairs
+  terminal_status_required_for_every_slot: true
+
+generation:
+  temperature: 0.2
+  top_p: 0.95
+  max_tokens: 512
+  max_steps: 60
+  timeout_seconds: 900
+  max_model_len: 32768
+  parallel_tool_calls: false
+  serialize_first_call_then_replan: true
+  mixed_tool_text_removed_with_sha256: true
+
+counterfactual_branch:
+  injection_scope: read_only_tool_calls
+  injection_position: deterministic_hash_over_eligible_positions
+  one_controlled_error_only: true
+  schema_valid_required: true
+  clean_action_correct_required: true
+  injected_action_task_incorrect_required: true
+  consequential_required: true
+  naturalistic_taxonomy_required: true
+  future_clean_suffix_deleted: true
+  actual_tool_error_observed_before_recovery: true
+  recovery_generated_fresh: true
+  failed_call_supervised: false
+  error_result_supervised: false
+  controlled_stress_test_counts_for_primary_gate: false
+
+audits:
+  level_0: source_model_seed_split_and_interface
+  level_1: eligible_clean_end_to_end_success
+  level_2: real_error_and_prefix_replay_safety_before_recovery
+  level_3: recovery_success_future_leakage_and_label_mask
+  level_4: accepted_pairs_plus_rejected_sample_review
+  all_fail_closed: true
+
+primary_metrics:
+  - eligible_pairs_per_executed_slot
+  - paired_tasks_per_24
+  - eligible_pairs_per_gpu_hour
+  - gpu_hours_per_eligible_pair
+  - real_error_pass_rate
+  - consequential_error_rate
+  - recovery_success_rate
+  - domain_coverage
+
+pilot_gate:
+  minimum_tasks_with_pair: 14
+  minimum_capped_pairs: 17
+  must_exceed_v5_3_observed_tasks_with_pair: 8
+  must_exceed_v5_3_observed_capped_pairs: 12
+  must_improve_one_registered_cost_normalized_metric: true
+  retail_and_airline_both_required: true
+  zero_future_leakage: true
+  zero_failed_calls_as_positive_labels: true
+  training_authorized_even_if_pass: false
+
+outputs:
+  root: artifacts/v5_4_counterfactual_pilot
+  protocol:
+    - v5_4_pilot_protocol.json
+    - task_registry.json
+    - slot_registry.jsonl
+  generation:
+    - clean_manifest.jsonl
+    - error_event_manifest.jsonl
+    - recovery_branch_manifest.jsonl
+  audit:
+    - eligible_pairs.jsonl
+    - audit_report.json
+    - cost_report.json
+    - difficulty_coverage.json
+    - GO_NO_GO_DECISION.md
