@@ -138,3 +138,23 @@ This is an invocation error, not a service or GPU failure. The exact recovery
 is to resubmit the unchanged evaluation command with
 `--train-python /root/v55-train/bin/python-v55`; no service restart is needed
 because retry 6 never launched a service.
+
+## Retry 7: vLLM rejected Tau2 automatic tool choice
+
+All four health endpoints returned HTTP 200 and the controller submitted the
+first three evaluation shards. Their first simulations reached the OpenAI API,
+but vLLM rejected every tool-enabled request:
+
+```text
+litellm.BadRequestError: OpenAIException - "auto" tool choice requires
+--enable-auto-tool-choice and --tool-call-parser to be set
+```
+
+The resulting empty failed simulations then correctly failed the output
+interface audit (`simulation[0] lacks messages`). The root cause is that the
+service command enables LoRA but does not enable vLLM's automatic tool-call
+parsing required by Tau2. Recovery is to add
+`--enable-auto-tool-choice --tool-call-parser hermes` to both agent and
+user/judge Qwen 2.5 services, cover both command variants with a regression
+test, preserve retry 7 outputs, and rerun only after the controller has
+finished its normal service cleanup.
