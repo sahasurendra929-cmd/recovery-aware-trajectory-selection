@@ -50,6 +50,7 @@ DEFAULT_USER_JUDGE_REVISION = "539535859b135b0244c91f3e59816150c8056698"
 SCREEN_ARMS = ("perfect_success", "repair_50", "repair_100")
 BASE_DIAGNOSTIC_ARM = "base_control"
 LOW_LR = 1.25e-5
+REDUCED_EXPOSURE_STEPS = 32
 FULL_ARMS = tuple(TRAINER_ARMS)
 
 
@@ -171,6 +172,8 @@ def selected_grid(mode: str) -> tuple[tuple[str, ...], tuple[int, ...]]:
         return (BASE_DIAGNOSTIC_ARM,), (full.TRAINING_SEEDS[0],)
     if mode == "low-lr-screen":
         return SCREEN_ARMS, (full.TRAINING_SEEDS[0],)
+    if mode == "reduced-exposure-screen":
+        return SCREEN_ARMS, (full.TRAINING_SEEDS[0],)
     if mode == "full":
         return FULL_ARMS, full.TRAINING_SEEDS
     raise RuntimeError(f"unsupported mode {mode}")
@@ -179,7 +182,12 @@ def selected_grid(mode: str) -> tuple[tuple[str, ...], tuple[int, ...]]:
 def selected_evaluation_seeds(mode: str) -> tuple[int, ...]:
     if mode == "base-diagnostic":
         return (full.EVALUATION_SEEDS[0],)
-    if mode in {"reference-screen", "low-lr-screen", "full"}:
+    if mode in {
+        "reference-screen",
+        "low-lr-screen",
+        "reduced-exposure-screen",
+        "full",
+    }:
         return full.EVALUATION_SEEDS
     raise RuntimeError(f"unsupported mode {mode}")
 
@@ -298,8 +306,10 @@ def training_command(
     ]
     if args.local_files_only:
         command.append("--local-files-only")
-    if args.experiment_mode == "low-lr-screen":
+    if args.experiment_mode in {"low-lr-screen", "reduced-exposure-screen"}:
         command.extend(["--learning-rate", str(LOW_LR)])
+    if args.experiment_mode == "reduced-exposure-screen":
+        command.extend(["--formal-steps", str(REDUCED_EXPOSURE_STEPS)])
     return command
 
 
@@ -908,6 +918,7 @@ def parse_args() -> argparse.Namespace:
             "reference-screen",
             "base-diagnostic",
             "low-lr-screen",
+            "reduced-exposure-screen",
             "full",
         ),
         default="reference-screen",

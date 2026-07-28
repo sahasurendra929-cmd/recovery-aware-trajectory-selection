@@ -1825,6 +1825,16 @@ def parse_args() -> argparse.Namespace:
             "Frozen V5.5 rate by default; V5.5.2 preregisters 1.25e-5."
         ),
     )
+    parser.add_argument(
+        "--formal-steps",
+        type=int,
+        choices=(32, FORMAL_STEPS),
+        default=FORMAL_STEPS,
+        help=(
+            "Frozen 64-step budget by default; V5.5.3 preregisters 32 steps "
+            "with the V5.5.2 learning rate."
+        ),
+    )
     parser.add_argument("--local-files-only", action="store_true")
     return parser.parse_args()
 
@@ -1840,6 +1850,10 @@ def main() -> None:
         raise RuntimeError(
             "--learning-rate must be the frozen V5.5 value or the "
             "preregistered V5.5.2 value"
+        )
+    if args.formal_steps == 32 and args.learning_rate != 1.25e-5:
+        raise RuntimeError(
+            "the preregistered 32-step V5.5.3 budget requires learning rate 1.25e-5"
         )
     expected_train_sha = validate_sha256(
         args.expected_train_sha256, "--expected-train-sha256"
@@ -2077,7 +2091,7 @@ def main() -> None:
         )
     else:
         encoded_rows = formal_encoded
-        effective_steps = FORMAL_STEPS
+        effective_steps = args.formal_steps
         effective_grad_accum = FORMAL_GRAD_ACCUM
         effective_validation = validation_encoded
 
@@ -2309,7 +2323,7 @@ def main() -> None:
         "seed": effective_seed,
         "max_sequence_tokens": effective_max_sequence_tokens,
         "truncation": False,
-        "formal_steps": FORMAL_STEPS,
+        "formal_steps": args.formal_steps,
         "formal_batch_size": FORMAL_BATCH_SIZE,
         "formal_grad_accum": FORMAL_GRAD_ACCUM,
         "effective_steps": effective_steps,

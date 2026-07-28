@@ -153,6 +153,48 @@ def test_low_lr_screen_changes_only_training_learning_rate(tmp_path: Path):
     )
 
 
+def test_reduced_exposure_screen_keeps_low_lr_and_halves_steps(tmp_path: Path):
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    (data_root / "hashes.json").write_text(
+        json.dumps(
+            {
+                "arms/perfect_success/train.jsonl": "a" * 64,
+                "validation_loss.jsonl": "b" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = SimpleNamespace(
+        train_python=Path("python"),
+        data_root=data_root,
+        base_model_revision="c" * 40,
+        source_commit="d" * 40,
+        local_files_only=True,
+        experiment_mode="reduced-exposure-screen",
+    )
+    arms, seeds = controller.selected_grid(args.experiment_mode)
+    assert arms == controller.SCREEN_ARMS
+    assert seeds == (full_protocol.TRAINING_SEEDS[0],)
+    assert (
+        controller.selected_evaluation_seeds(args.experiment_mode)
+        == full_protocol.EVALUATION_SEEDS
+    )
+    command = controller.training_command(
+        args,
+        arm=controller.SCREEN_ARMS[0],
+        seed=seeds[0],
+        mode="formal",
+        output=tmp_path / "training",
+    )
+    assert command[command.index("--learning-rate") + 1] == str(
+        controller.LOW_LR
+    )
+    assert command[command.index("--formal-steps") + 1] == str(
+        controller.REDUCED_EXPOSURE_STEPS
+    )
+
+
 def test_base_diagnostic_uses_revision_pinned_registry_base(tmp_path: Path):
     audit = tmp_path / "audit.json"
     audit.write_text("{}\n", encoding="utf-8")
