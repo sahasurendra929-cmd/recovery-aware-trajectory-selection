@@ -65,6 +65,8 @@ def test_blackwell_service_commands_force_vllm_eager():
             args, gpu=0, port=8001, registry=registry, user_judge=user_judge
         )
         assert "--enforce-eager" in command
+        assert "--enable-auto-tool-choice" in command
+        assert command[command.index("--tool-call-parser") + 1] == "hermes"
 
 
 def test_user_judge_port_avoids_managed_container_endpoint(tmp_path: Path):

@@ -438,6 +438,9 @@ def service_command(
     blackwell_safe = [
         "--enforce-eager",
         "--disable-log-requests",
+        "--enable-auto-tool-choice",
+        "--tool-call-parser",
+        "hermes",
     ]
     if user_judge:
         return [
