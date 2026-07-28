@@ -55,6 +55,7 @@ def main() -> None:
     shard_dirs = [batch / f"shard-{index}" for index in range(3)]
     rows: list[dict] = []
     inputs: list[dict] = []
+    result_hashes_verified = 0
     for index, shard in enumerate(shard_dirs):
         metrics_path = shard / "metrics.json"
         rows_path = shard / "rows.jsonl"
@@ -67,6 +68,11 @@ def main() -> None:
             raise RuntimeError(f"invalid run contract: {contract_path}")
         if contract.get("evaluation_source_commit") != SOURCE_COMMIT:
             raise RuntimeError(f"source commit drift: {contract_path}")
+        for name, expected_digest in contract.get("result_sha256", {}).items():
+            result_path = shard / name
+            if sha256(result_path) != expected_digest:
+                raise RuntimeError(f"result hash drift: {result_path}")
+            result_hashes_verified += 1
         shard_rows = [
             json.loads(line)
             for line in rows_path.read_text(encoding="utf-8").splitlines()
@@ -120,6 +126,7 @@ def main() -> None:
         "diagnostic_only": all(
             row.get("claim_level") == "diagnostic_only" for row in rows
         ),
+        "result_hashes_verified_18": result_hashes_verified == 18,
     }
     if not all(checks.values()):
         raise RuntimeError(f"diagnostic completeness audit failed: {checks}")
