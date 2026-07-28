@@ -128,22 +128,52 @@ def test_evaluation_inputs_fail_before_service_start(tmp_path: Path):
 
 def test_completed_evaluation_batch_requires_audited_outputs(tmp_path: Path):
     outputs = [tmp_path / f"shard-{shard}" for shard in range(3)]
-    for output in outputs:
+    source_commit = "a" * 40
+    for shard, output in enumerate(outputs):
         output.mkdir()
         (output / "rows.jsonl").write_text(
-            json.dumps({"task_id": output.name}) + "\n",
+            "".join(
+                json.dumps({"task_id": f"{output.name}-{index}"}) + "\n"
+                for index in range(14)
+            ),
             encoding="utf-8",
         )
-        _write(output / "metrics.json", {"official_test_used": False})
-        _write(output / "run_contract.json", {"official_test_used": False})
+        common = {
+            "status": "PASS",
+            "arm": "repair_50",
+            "training_seed": 20260805,
+            "evaluation_seed": 20260817,
+            "official_test_used": False,
+        }
+        _write(output / "metrics.json", {**common, "rows": 14})
+        _write(
+            output / "run_contract.json",
+            {**common, "evaluation_source_commit": source_commit},
+        )
+        for domain in ("retail", "airline"):
+            for condition in ("clean", "error"):
+                _write(
+                    output
+                    / (
+                        f"{domain}_{condition}.shard-"
+                        f"{shard:03d}-of-003.json"
+                    ),
+                    {"simulations": [{}]},
+                )
         (output.parent / f"{output.name}.console.log").write_text(
             "complete\n",
             encoding="utf-8",
         )
-    assert controller.evaluation_batch_complete(outputs)
+    kwargs = {
+        "evaluation_source_commit": source_commit,
+        "arm": "repair_50",
+        "training_seed": 20260805,
+        "evaluation_seed": 20260817,
+    }
+    assert controller.evaluation_batch_complete(outputs, **kwargs)
 
     (outputs[1] / "rows.jsonl").write_text("", encoding="utf-8")
-    assert not controller.evaluation_batch_complete(outputs)
+    assert not controller.evaluation_batch_complete(outputs, **kwargs)
 
 
 def _write(path: Path, value: dict) -> None:

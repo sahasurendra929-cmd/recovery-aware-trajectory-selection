@@ -669,14 +669,25 @@ def evaluation_command(
     return command, output
 
 
-def evaluation_batch_complete(outputs: list[Path]) -> bool:
-    for output in outputs:
+def evaluation_batch_complete(
+    outputs: list[Path],
+    *,
+    evaluation_source_commit: str,
+    arm: str,
+    training_seed: int,
+    evaluation_seed: int,
+) -> bool:
+    for shard, output in enumerate(outputs):
         rows_path = output / "rows.jsonl"
         required = (
             rows_path,
             output / "metrics.json",
             output / "run_contract.json",
             output.parent / f"{output.name}.console.log",
+            output / f"retail_clean.shard-{shard:03d}-of-003.json",
+            output / f"retail_error.shard-{shard:03d}-of-003.json",
+            output / f"airline_clean.shard-{shard:03d}-of-003.json",
+            output / f"airline_error.shard-{shard:03d}-of-003.json",
         )
         if not all(path.is_file() for path in required):
             return False
@@ -685,13 +696,29 @@ def evaluation_batch_complete(outputs: list[Path]) -> bool:
             for line in rows_path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
-        if not rows:
+        if len(rows) != 14:
             return False
         metrics = read_json(output / "metrics.json")
         contract = read_json(output / "run_contract.json")
-        if metrics.get("official_test_used") is not False:
+        expected = {
+            "arm": arm,
+            "training_seed": training_seed,
+            "evaluation_seed": evaluation_seed,
+        }
+        if (
+            metrics.get("status") != "PASS"
+            or metrics.get("rows") != 14
+            or metrics.get("official_test_used") is not False
+            or any(metrics.get(key) != value for key, value in expected.items())
+        ):
             return False
-        if contract.get("official_test_used") is not False:
+        if (
+            contract.get("status") != "PASS"
+            or contract.get("evaluation_source_commit")
+            != evaluation_source_commit
+            or contract.get("official_test_used") is not False
+            or any(contract.get(key) != value for key, value in expected.items())
+        ):
             return False
     return True
 
@@ -716,7 +743,13 @@ def phase_evaluate(args: argparse.Namespace) -> None:
                         for shard in range(3)
                     ]
                     outputs = [output for _, output in planned]
-                    if evaluation_batch_complete(outputs):
+                    if evaluation_batch_complete(
+                        outputs,
+                        evaluation_source_commit=args.source_commit,
+                        arm=arm,
+                        training_seed=training_seed,
+                        evaluation_seed=evaluation_seed,
+                    ):
                         print(
                             json.dumps(
                                 {
