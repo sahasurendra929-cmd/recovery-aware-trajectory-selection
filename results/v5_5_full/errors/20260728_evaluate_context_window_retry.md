@@ -2,9 +2,11 @@
 
 ## Status
 
-Non-fatal evaluation error. The frozen runner's built-in second attempt completed
-the affected task in the first observed batch. The evaluation controller was not
-stopped or modified.
+Permanent evaluation failure on evaluation seed `20260817`. The frozen runner's
+built-in second attempt completed the affected task for seed `20260816`, but both
+attempts exceeded the context window for seed `20260817`. The result-interface
+audit then rejected the failed simulation because it lacked messages, and the
+evaluation controller exited after cleaning up its services.
 
 ## Source and protocol
 
@@ -66,13 +68,38 @@ Task 95, and completed shard 1 with:
 - `rows: 14`
 - `official_test_used: false`
 
-The `20260817` occurrence likewise entered `Retry 1/1` while the controller and
-all services remained healthy.
+For evaluation seed `20260817`, the second attempt reproduced the exact same
+`33002 > 32768` rejection at `2026-07-28 12:08:29 UTC`. The runner emitted:
+
+```text
+Task 95 failed after 2 attempts
+Task 95 failed permanently after 2 attempts
+```
+
+The remaining task in that condition completed, after which the result-interface
+audit failed:
+
+```text
+RuntimeError: retail_error.shard-001-of-003.json simulation[4] lacks messages
+```
+
+The controller propagated the shard exit:
+
+```text
+RuntimeError: evaluation failed with exit 1:
+/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/evaluation/repair_50/20260805/20260817/shard-1.console.log
+```
+
+At failure time, shard 0 and shard 2 had each produced 14 rows and metrics.
+Shard 1 retained its console log, run contract, retail-clean output, and the
+retail-error output containing the failed simulation. No evaluation processes or
+vLLM services remained after controller cleanup.
 
 ## Handling decision
 
 No seed, manifest, shard assignment, context limit, max-steps setting, or frozen
-protocol was changed. Because this error is currently absorbed by the protocol's
-existing retry and does not remove an evaluation row, the running controller is
-being allowed to finish. This report preserves the repeated, deterministic
-first-attempt failure for the final integrity audit.
+protocol was changed before this report was updated and pushed. Evaluation seed
+`20260817` cannot complete under the current implementation because the same
+request deterministically exceeds the serving limit on both attempts. A fix must
+preserve the frozen task set and produce all 14 shard rows; skipping the failed
+simulation or accepting a missing row is not permitted.
