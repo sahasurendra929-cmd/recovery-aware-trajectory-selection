@@ -173,6 +173,14 @@ def selected_grid(mode: str) -> tuple[tuple[str, ...], tuple[int, ...]]:
     raise RuntimeError(f"unsupported mode {mode}")
 
 
+def selected_evaluation_seeds(mode: str) -> tuple[int, ...]:
+    if mode == "base-diagnostic":
+        return (full.EVALUATION_SEEDS[0],)
+    if mode in {"reference-screen", "full"}:
+        return full.EVALUATION_SEEDS
+    raise RuntimeError(f"unsupported mode {mode}")
+
+
 def phase_preflight(args: argparse.Namespace) -> None:
     source = git_value("rev-parse", "HEAD^{commit}")
     if source != args.source_commit:
@@ -734,7 +742,9 @@ def phase_evaluate(args: argparse.Namespace) -> None:
     try:
         for arm in arms:
             for training_seed in seeds:
-                for evaluation_seed in full.EVALUATION_SEEDS:
+                for evaluation_seed in selected_evaluation_seeds(
+                    args.experiment_mode
+                ):
                     planned = [
                         evaluation_command(
                             args,
@@ -826,6 +836,21 @@ def phase_evaluate(args: argparse.Namespace) -> None:
 
 
 def phase_summarize(args: argparse.Namespace) -> None:
+    if args.experiment_mode == "base-diagnostic":
+        run_checked(
+            [
+                str(args.serve_python),
+                "scripts/summarize_v5_5_base_diagnostic.py",
+                "--results-root",
+                str(args.results_root / "evaluation"),
+                "--validation-manifest",
+                str(args.validation_manifest),
+                "--output-dir",
+                str(args.results_root / "summary"),
+            ],
+            stdout_path=args.results_root / "summary.log",
+        )
+        return
     arms, seeds = selected_grid(args.experiment_mode)
     command = [
         str(args.serve_python),
@@ -843,7 +868,10 @@ def phase_summarize(args: argparse.Namespace) -> None:
         "--training-seeds",
         ",".join(str(seed) for seed in seeds),
         "--evaluation-seeds",
-        ",".join(str(seed) for seed in full.EVALUATION_SEEDS),
+        ",".join(
+            str(seed)
+            for seed in selected_evaluation_seeds(args.experiment_mode)
+        ),
         "--bootstrap-replicates",
         str(full.BOOTSTRAP_REPLICATES),
     ]

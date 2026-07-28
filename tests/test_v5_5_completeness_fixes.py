@@ -106,6 +106,12 @@ def test_base_diagnostic_grid_is_single_seed_and_does_not_train():
     arms, seeds = controller.selected_grid("base-diagnostic")
     assert arms == ("base_control",)
     assert seeds == (full_protocol.TRAINING_SEEDS[0],)
+    assert controller.selected_evaluation_seeds("base-diagnostic") == (
+        full_protocol.EVALUATION_SEEDS[0],
+    )
+    assert controller.selected_evaluation_seeds(
+        "reference-screen"
+    ) == full_protocol.EVALUATION_SEEDS
 
 
 def test_base_diagnostic_uses_revision_pinned_registry_base(tmp_path: Path):
