@@ -6,10 +6,20 @@ This handoff schedules the complete design in
 `V5_5_FULL_EXPERIMENT_PLAN.md`. It does not authorize treating the existing
 reference-grounded 48-pair pilot as natural-conversation training data.
 
-The current branch freezes the scientific protocol. The natural-conversation
-generator, V5.5 arm builder and V5.5 training/evaluation provenance profile
-must pass smoke tests in a subsequent implementation commit before formal GPU
-work starts.
+The branch now contains the complete executable path:
+
+- `scripts/prepare_v5_5_natural_pairs.py`: natural clean-trajectory selection,
+  counterfactual insertion, and independent environment replay;
+- `scripts/prepare_v5_5_full_sft.py`: five exact supervised-token-dose arms;
+- `scripts/train_v5_sft_causal.py`: V5.5 provenance plus three frozen seeds;
+- `scripts/build_v5_5_checkpoint_registry.py`: immutable adapter registry;
+- `scripts/run_v5_5_end_to_end_eval.py`: real tau2 task-success evaluation;
+- `scripts/summarize_v5_5_results.py`: task-cluster paired statistics;
+- `scripts/run_v5_5_full.py`: four-GPU single-host controller.
+
+Formal GPU work is authorized only after the code commit is published, the
+checkout is clean, the pair audit is `PASS_TRAINING_AUTHORIZED`, and
+`run_v5_5_full.py --phase preflight` passes.
 
 ## Human decision points
 
@@ -22,6 +32,78 @@ Only three decisions require the coordinator:
    \(r^\*\), checkpoints and analysis code are frozen.
 
 Agents may perform all other registered steps without changing thresholds.
+
+## Fast executable path
+
+Use persistent environments instead of reinstalling CUDA for every version:
+
+```bash
+export REPO=/workspace/repos/recovery-aware-trajectory-selection
+export TAU2="$REPO/data/raw/tau2-bench"
+export TRAIN_PY=/workspace/venvs/v5-2-train/bin/python
+export SERVE_PY=/workspace/venvs/v5-2-serve/bin/python
+export V55_COMMIT='<published-full-implementation-commit>'
+
+cd "$REPO"
+git fetch origin
+git checkout --detach "$V55_COMMIT"
+git diff --quiet --
+git diff --cached --quiet --
+```
+
+Reference-grounded three-arm screen:
+
+```bash
+"$TRAIN_PY" scripts/run_v5_5_full.py \
+  --phase all \
+  --experiment-mode reference-screen \
+  --source-commit "$V55_COMMIT" \
+  --tau2-root "$TAU2" \
+  --train-python "$TRAIN_PY" \
+  --serve-python "$SERVE_PY" \
+  --pair-mode reference \
+  --pairs /workspace/v5_5_reference/pairs.jsonl \
+  --pair-audit /workspace/v5_5_reference/pair_audit.json \
+  --pair-manifest /workspace/v5_5_reference/manifest.json
+```
+
+For the full natural study, first construct and independently audit natural
+pairs:
+
+```bash
+"$SERVE_PY" scripts/prepare_v5_5_natural_pairs.py build \
+  --tau2-root "$TAU2" \
+  --split-manifest artifacts/v5_stage0/manifests/split_manifest.json \
+  --input retail=/workspace/natural_raw/retail.json \
+  --input airline=/workspace/natural_raw/airline.json \
+  --output-dir /workspace/v5_5_natural
+
+"$SERVE_PY" scripts/prepare_v5_5_natural_pairs.py audit \
+  --tau2-root "$TAU2" \
+  --manifest /workspace/v5_5_natural/manifest.json \
+  --pairs /workspace/v5_5_natural/pairs.jsonl \
+  --output /workspace/v5_5_natural/pair_audit.json
+```
+
+Only after that audit passes:
+
+```bash
+"$TRAIN_PY" scripts/run_v5_5_full.py \
+  --phase all \
+  --experiment-mode full \
+  --source-commit "$V55_COMMIT" \
+  --tau2-root "$TAU2" \
+  --train-python "$TRAIN_PY" \
+  --serve-python "$SERVE_PY" \
+  --pair-mode natural \
+  --pairs /workspace/v5_5_natural/pairs.jsonl \
+  --pair-audit /workspace/v5_5_natural/pair_audit.json \
+  --pair-manifest /workspace/v5_5_natural/manifest.json
+```
+
+The controller is fail-closed and does not resume into or overwrite a
+non-empty phase directory. Re-run only the failed phase after archiving its
+partial directory.
 
 ## Stage B — reference-grounded mechanism screen
 

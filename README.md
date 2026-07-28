@@ -76,16 +76,19 @@ validation. It does not claim an end-to-end agent improvement yet.
   clean prefix. It produced 22 audited pairs over 13 tasks in two domains, but
   stopped one task below the frozen 14-task coverage gate. The official test
   was not used and training was not authorized.
-- **v5.5 (audit-first data release):** structurally screens the pinned
+- **v5.5 (complete executable audit-first experiment):** structurally screens the pinned
   inner-train split for reference-grounded read-only identifier lookups, then
   executes every reference path and two controlled mutations before task
   registration. The pinned screen leaves 36 executable candidates and freezes
   24 tasks / 48 pairs. An independent environment replay must verify every
   error, correction and final database hash before training is authorized.
   See [`V5_5_AUDIT_FIRST_HANDOFF.md`](V5_5_AUDIT_FIRST_HANDOFF.md).
-  The complete natural-conversation dose-response and sealed-test design is
-  frozen in
-  [`V5_5_FULL_EXPERIMENT_PLAN.md`](V5_5_FULL_EXPERIMENT_PLAN.md).
+  The repository now also implements natural-conversation counterfactual
+  construction, five exact recovery-dose arms, three-seed QLoRA, immutable
+  checkpoint registration, real τ² clean/error task-success evaluation,
+  task-cluster inference, and a one-host four-GPU controller. See
+  [`V5_5_FULL_EXPERIMENT_PLAN.md`](V5_5_FULL_EXPERIMENT_PLAN.md) and
+  [`V5_5_FULL_4GPU_HANDOFF.md`](V5_5_FULL_4GPU_HANDOFF.md).
 
 Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples
@@ -117,8 +120,9 @@ showed that shared-prefix counterfactual branching materially improves pair
 yield, but missed its task-coverage gate by one. V5.5 is the audit-first
 continuation: it has passed a local 48-pair construction and independent
 environment-replay integration test, but this is still data evidence rather
-than a model-quality result. The next scientific result requires the frozen
-three-arm SFT comparison and held-out end-to-end task-success evaluation.
+than a model-quality result. The complete code path for the frozen three-arm
+screen and five-arm follow-up is now present; the next scientific result
+requires actually running it and obtaining held-out end-to-end task success.
 
 ## Repository map
 
@@ -181,6 +185,13 @@ The label also records whether a user spoke before the corrective tool call. Thi
 - [x] Implement and test the V5.2 task-level, fixed-attempt data-pool protocol
 - [x] Stop V5.2 before training when generation/audit assumptions failed
 - [x] Implement and locally audit the V5.3 pilot-gated 78-task protocol
+- [x] Build and independently replay the V5.5 24-task/48-pair reference pool
+- [x] Implement V5.5 natural counterfactual pair construction and audit
+- [x] Implement exact R0/R25/R50/R75/R100 supervised-token schedules
+- [x] Implement V5.5 multi-seed QLoRA, registry and τ² task-success evaluator
+- [x] Implement task-cluster paired statistics and the four-GPU controller
+- [ ] Run the V5.5 three-arm reference-grounded diagnostic
+- [ ] Pass the natural 24-task/48-pair gate and run the V5.5 five-arm grid
 - [ ] Run the V5.3 24-task pilot and obtain a frozen GO/NO-GO decision
 - [ ] If and only if GO, run V5.3 formal generation and pass its 40/48 gate
 - [ ] Run the four one-seed 7B QLoRA screening arms plus untrained-base control

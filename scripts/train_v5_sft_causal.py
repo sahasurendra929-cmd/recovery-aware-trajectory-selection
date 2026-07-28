@@ -89,6 +89,10 @@ V5_3_LOW_SUPPORT_GATE_THRESHOLDS = {
 V5_3_LOW_SUPPORT_ARTIFACT_NAMESPACE = dict(
     low_support.ARTIFACT_NAMESPACE
 )
+V5_5_DESIGN_VERSION = "5.5-full"
+V5_5_DESIGN_PROTOCOL = "v5_5_full_recovery_dose_response_v1"
+V5_5_DATA_PROTOCOL = "v5_5_full_sft_data_v1"
+V5_5_TRAINING_SEEDS = (20260805, 20260806, 20260807)
 V5_3_12H_TASK_IDS = (
     "airline:1",
     "airline:11",
@@ -757,6 +761,18 @@ def validate_training_data_provenance(
 
     audit = read_json_object(data_audit_path, label="data audit")
     hashes = read_json_object(data_hashes_path, label="data hash manifest")
+    if audit.get("protocol") == V5_5_DATA_PROTOCOL:
+        return validate_v5_5_training_data_provenance(
+            arm=arm,
+            train_file=train_file,
+            validation_file=validation_file,
+            data_audit_path=data_audit_path,
+            data_hashes_path=data_hashes_path,
+            audit=audit,
+            hashes=hashes,
+            expected_train_sha256=expected_train_sha256,
+            expected_validation_sha256=expected_validation_sha256,
+        )
     if audit.get("status") != "PASS":
         raise RuntimeError("data audit status is not PASS")
     if audit.get("protocol") != DATA_AUDIT_PROTOCOL:
@@ -916,6 +932,162 @@ def validate_training_data_provenance(
         "dynamic_audits": dynamic_identities,
         "design_version": design_version,
         "design_provenance": design_provenance,
+        "official_test_used": False,
+        "official_test_sealed": True,
+    }
+
+
+def validate_v5_5_training_data_provenance(
+    *,
+    arm: str,
+    train_file: Path,
+    validation_file: Path,
+    data_audit_path: Path,
+    data_hashes_path: Path,
+    audit: dict[str, Any],
+    hashes: dict[str, Any],
+    expected_train_sha256: str,
+    expected_validation_sha256: str,
+) -> dict[str, Any]:
+    """Validate the standalone V5.5 five-dose data bundle.
+
+    V5.5 uses independently replayed counterfactual pairs instead of the V5.2
+    generation/validation dynamic-injection manifests.  It therefore has a
+    separate, smaller provenance graph and must never silently fall through to
+    the legacy Stage-1 validator.
+    """
+
+    if (
+        audit.get("status") != "PASS"
+        or audit.get("protocol") != V5_5_DATA_PROTOCOL
+        or audit.get("design_protocol") != V5_5_DESIGN_PROTOCOL
+        or audit.get("design_version") != V5_5_DESIGN_VERSION
+    ):
+        raise RuntimeError("V5.5 data audit protocol/design/status drift")
+    if (
+        audit.get("official_test_used") is not False
+        or audit.get("official_test_sealed") is not True
+        or audit.get("derived_validation_used_for_supervision") is not False
+        or audit.get("train_validation_source_overlap") != 0
+        or audit.get("training_mixture_basis") != "supervised_token_mass"
+        or audit.get("same_source_pair_exposure_across_arms") is not True
+        or audit.get("same_supervised_target_within_clean_recovery_pair")
+        is not True
+    ):
+        raise RuntimeError("V5.5 data audit leakage/budget guarantees drift")
+    labels = audit.get("label_guarantees")
+    if (
+        not isinstance(labels, dict)
+        or labels.get("failed_action_positive_labels") != 0
+        or labels.get("official_test_and_derived_validation_label_leakage") != 0
+        or labels.get("failed_call_and_result_are_context_only") is not True
+        or labels.get("post_error_successful_assistant_actions_only") is not True
+    ):
+        raise RuntimeError("V5.5 data audit label guarantees drift")
+    for field in (
+        "pair_manifest_sha256",
+        "pair_audit_sha256",
+        "pairs_jsonl_sha256",
+        "source_pairs_sha256",
+    ):
+        if not isinstance(audit.get(field), str) or SHA256_RE.fullmatch(
+            audit[field]
+        ) is None:
+            raise RuntimeError(f"V5.5 audit lacks valid {field}")
+
+    audit_sha = sha256_file(data_audit_path)
+    hashes_sha = sha256_file(data_hashes_path)
+    train_sha = sha256_file(train_file)
+    validation_sha = sha256_file(validation_file)
+    required = {
+        "audit.json": audit_sha,
+        f"arms/{arm}/train.jsonl": train_sha,
+        "validation_loss.jsonl": validation_sha,
+        "source_pairs.json": audit["source_pairs_sha256"],
+    }
+    for name, expected in required.items():
+        observed = hashes.get(name)
+        if observed != expected or not isinstance(observed, str):
+            raise RuntimeError(f"V5.5 hash binding drift for {name}")
+    if train_sha != expected_train_sha256:
+        raise RuntimeError(f"training data hash drift: {train_sha}")
+    if validation_sha != expected_validation_sha256:
+        raise RuntimeError(f"validation data hash drift: {validation_sha}")
+
+    arm_payload = (audit.get("arms") or {}).get(arm)
+    expected_ratios = {
+        "perfect_success": 0.0,
+        "repair_25": 0.25,
+        "repair_50": 0.50,
+        "repair_75": 0.75,
+        "repair_100": 1.0,
+    }
+    if arm not in expected_ratios or not isinstance(arm_payload, dict):
+        raise RuntimeError("V5.5 selected arm is absent from the data audit")
+    if (
+        arm_payload.get("sha256") != train_sha
+        or arm_payload.get("rows") != FORMAL_SCHEDULE_ROWS
+        or arm_payload.get("failed_action_label_messages") != 0
+        or abs(
+            float(
+                arm_payload.get(
+                    "realized_recovery_supervised_token_ratio", -1.0
+                )
+            )
+            - expected_ratios[arm]
+        )
+        > 1e-12
+    ):
+        raise RuntimeError("V5.5 selected arm audit drift")
+    validation_payload = audit.get("validation_loss")
+    if (
+        not isinstance(validation_payload, dict)
+        or validation_payload.get("rows") != 0
+        or validation_payload.get("sha256") != validation_sha
+        or validation_payload.get("source_split")
+        != "not_applicable_fixed_step_screen"
+        or validation_payload.get("used_for_checkpoint_selection") is not False
+        or validation_payload.get("validation_disabled_reason")
+        != "fixed_steps_v5_5"
+        or validation_file.stat().st_size != 0
+    ):
+        raise RuntimeError("V5.5 fixed-step validation contract drift")
+    input_authorization = audit.get("input_authorization")
+    if (
+        not isinstance(input_authorization, dict)
+        or input_authorization.get("pair_mode") not in {"reference", "natural"}
+        or input_authorization.get("scientific_claim_level")
+        not in {
+            "diagnostic_only",
+            "natural_counterfactual_training_candidate",
+        }
+    ):
+        raise RuntimeError("V5.5 input authorization/claim boundary drift")
+    return {
+        "data_audit_path": str(data_audit_path),
+        "data_audit_sha256": audit_sha,
+        "data_hashes_path": str(data_hashes_path),
+        "data_hashes_sha256": hashes_sha,
+        "train_file_sha256": train_sha,
+        "validation_file_sha256": validation_sha,
+        "dynamic_audits": {},
+        "design_version": V5_5_DESIGN_VERSION,
+        "design_provenance": {
+            "design_version": V5_5_DESIGN_VERSION,
+            "design_protocol": V5_5_DESIGN_PROTOCOL,
+            "data_protocol": V5_5_DATA_PROTOCOL,
+            "pair_mode": input_authorization["pair_mode"],
+            "scientific_claim_level": input_authorization[
+                "scientific_claim_level"
+            ],
+            "source_pairs": input_authorization["pairs"],
+            "source_tasks": input_authorization["tasks"],
+            "schedule_rows_per_arm": FORMAL_SCHEDULE_ROWS,
+            "training_mixture_basis": "supervised_token_mass",
+            "failed_action_positive_labels": 0,
+            "official_test_used": False,
+            "official_test_sealed": True,
+        },
         "official_test_used": False,
         "official_test_sealed": True,
     }
@@ -1636,6 +1808,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expected-validation-sha256", required=True)
     parser.add_argument("--data-audit", type=Path, required=True)
     parser.add_argument("--data-hashes", type=Path, required=True)
+    parser.add_argument(
+        "--training-seed",
+        type=int,
+        help=(
+            "Required for V5.5 formal replications; must be one of "
+            "20260805/20260806/20260807. Other designs retain their frozen seed."
+        ),
+    )
     parser.add_argument("--local-files-only", action="store_true")
     return parser.parse_args()
 
@@ -1701,15 +1881,27 @@ def main() -> None:
                 "low-support training output is outside its isolated root"
             )
         low_support.require_whole_run_source_lock(ROOT)
-    effective_seed = (
-        V5_3_LOW_SUPPORT_TRAINING_SEED
-        if data_provenance.get("design_version")
-        == V5_3_LOW_SUPPORT_DESIGN_VERSION
-        else V5_3_12H_TRAINING_SEED
-        if data_provenance.get("design_version")
-        == V5_3_12H_DESIGN_VERSION
-        else SEED
-    )
+    if data_provenance.get("design_version") == V5_5_DESIGN_VERSION:
+        if args.training_seed not in V5_5_TRAINING_SEEDS:
+            raise RuntimeError(
+                "V5.5 requires --training-seed in "
+                f"{V5_5_TRAINING_SEEDS}"
+            )
+        effective_seed = args.training_seed
+    else:
+        if args.training_seed is not None:
+            raise RuntimeError(
+                "--training-seed is reserved for the V5.5 replication grid"
+            )
+        effective_seed = (
+            V5_3_LOW_SUPPORT_TRAINING_SEED
+            if data_provenance.get("design_version")
+            == V5_3_LOW_SUPPORT_DESIGN_VERSION
+            else V5_3_12H_TRAINING_SEED
+            if data_provenance.get("design_version")
+            == V5_3_12H_DESIGN_VERSION
+            else SEED
+        )
     train_sha = data_provenance["train_file_sha256"]
     validation_sha = data_provenance["validation_file_sha256"]
     if args.output_dir.exists() and (
@@ -1773,7 +1965,13 @@ def main() -> None:
         in {
             V5_3_12H_DESIGN_VERSION,
             V5_3_LOW_SUPPORT_DESIGN_VERSION,
+            V5_5_DESIGN_VERSION,
         }
+    )
+    no_eval_reason = (
+        "fixed_steps_v5_5"
+        if data_provenance.get("design_version") == V5_5_DESIGN_VERSION
+        else "fixed_steps_exploratory"
     )
     if screen_no_eval:
         if args.validation_file.read_bytes() != b"":
@@ -1788,7 +1986,7 @@ def main() -> None:
             ),
             "validation_loss_source_examples": 0,
             "overlap": 0,
-            "validation_disabled_reason": "fixed_steps_exploratory",
+            "validation_disabled_reason": no_eval_reason,
         }
     else:
         validation_rows = read_jsonl(args.validation_file)
@@ -1832,7 +2030,9 @@ def main() -> None:
         formal_encoded,
         args.arm,
         recovery_mixture_basis=(
-            "row_mean_microbatch_equal_weight"
+            "supervised_token_mass"
+            if data_provenance.get("design_version") == V5_5_DESIGN_VERSION
+            else "row_mean_microbatch_equal_weight"
             if screen_no_eval
             else "supervised_token_mass"
         ),
@@ -2113,7 +2313,7 @@ def main() -> None:
         "environment": environment,
     }
     if screen_no_eval:
-        manifest["validation_disabled_reason"] = "fixed_steps_exploratory"
+        manifest["validation_disabled_reason"] = no_eval_reason
     (args.output_dir / "training_metrics.json").write_text(
         json.dumps(result.metrics, indent=2) + "\n",
         encoding="utf-8",

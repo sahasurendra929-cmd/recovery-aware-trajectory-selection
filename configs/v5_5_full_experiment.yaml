@@ -124,3 +124,34 @@ claim_boundary:
   reference_grounded_screen_is_not_paper_confirmation: true
   controlled_error_result_does_not_imply_natural_error_recovery: true
   final_claim_requires_sealed_test_task_success: true
+
+implementation:
+  controller: scripts/run_v5_5_full.py
+  natural_pair_builder_and_auditor: scripts/prepare_v5_5_natural_pairs.py
+  five_arm_data_builder: scripts/prepare_v5_5_full_sft.py
+  trainer: scripts/train_v5_sft_causal.py
+  checkpoint_registry_builder: scripts/build_v5_5_checkpoint_registry.py
+  end_to_end_evaluator: scripts/run_v5_5_end_to_end_eval.py
+  task_cluster_summarizer: scripts/summarize_v5_5_results.py
+  trainer_arm_mapping:
+    r0_perfect: perfect_success
+    r25: repair_25
+    r50: repair_50
+    r75: repair_75
+    r100_recovery: repair_100
+  schedule_rows_per_arm: 512
+  four_row_exact_dose_blocks: 128
+  formal_controller_modes:
+    reference-screen:
+      arms: [perfect_success, repair_50, repair_100]
+      training_seeds: [20260805]
+      claim_level: diagnostic_only
+    full:
+      arms:
+        [perfect_success, repair_25, repair_50, repair_75, repair_100]
+      training_seeds: [20260805, 20260806, 20260807]
+      claim_level: natural_counterfactual_training_candidate
+  validation_parallel_shards: 3
+  user_judge_gpu_count: 1
+  official_test_entrypoint_implemented: false
+  official_test_entrypoint_absence_is_intentional: true

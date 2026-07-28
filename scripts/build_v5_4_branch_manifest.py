@@ -15,10 +15,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-try:
-    import v5_4_pilot_protocol as protocol
-except ModuleNotFoundError:
+if __package__:
     from scripts import v5_4_pilot_protocol as protocol
+else:
+    import v5_4_pilot_protocol as protocol
 
 
 def _sha(value: Any) -> str:
