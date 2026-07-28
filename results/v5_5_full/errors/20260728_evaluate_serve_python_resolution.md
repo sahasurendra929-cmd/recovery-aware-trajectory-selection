@@ -49,3 +49,20 @@ Recovery: change both controller references to the unused loopback port
 `8201`, add a regression assertion covering the service/endpoint mapping, and
 rerun the unchanged evaluation design. This alters orchestration only; model,
 revision, checkpoint, task, seed, and claim level remain unchanged.
+
+## Retry 2: root filesystem exhaustion
+
+With the interpreter and port fixes applied, all four API servers reached
+engine startup and loaded the expected model configurations. The engines then
+failed with `OSError: [Errno 28] No space left on device`:
+
+- 7B+LoRA workers could not write Triton compilation artifacts below
+  `/root/.triton/cache`.
+- The 14B-AWQ worker could not complete its Hugging Face cache write.
+
+Filesystem inspection showed the 30 GiB root overlay at 100%, with
+`/root/.cache` consuming about 30 GiB. The persistent `/workspace` filesystem
+has ample capacity. Recovery is to preserve and relocate the model/compiler
+caches under `/workspace`, then restart with `HF_HOME` and
+`TRITON_CACHE_DIR` explicitly set there. No model or result data will be
+deleted.
