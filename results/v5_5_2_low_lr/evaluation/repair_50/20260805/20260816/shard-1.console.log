@@ -1,0 +1,1022 @@
+2026-07-28 21:11:00.509 | WARNING  | tau2.utils.utils:<module>:15 - No .env file found
+2026-07-28 21:11:00.513 | INFO     | tau2.utils.utils:<module>:28 - Using data directory from source: /workspace/repos/tau2-bench/data
+2026-07-28 21:12:43.447 | INFO     | tau2.utils.llm_utils:<module>:102 - LiteLLM: Cache is disabled
+2026-07-28 21:12:45.354 | DEBUG    | tau2.registry:<module>:281 - Registering default components...
+2026-07-28 21:12:45.662 | DEBUG    | tau2.registry:<module>:292 - Voice dependencies not installed, skipping voice user registration
+2026-07-28 21:12:45.663 | DEBUG    | tau2.registry:<module>:350 - Default components registered successfully. Registry info: {
+  "domains": [
+    "mock",
+    "airline",
+    "retail",
+    "telecom",
+    "telecom-workflow",
+    "banking_knowledge"
+  ],
+  "agents": [
+    "llm_agent",
+    "llm_agent_gt",
+    "llm_agent_solo",
+    "discrete_time_audio_native_agent"
+  ],
+  "users": [
+    "user_simulator",
+    "dummy_user"
+  ],
+  "task_sets": [
+    "mock",
+    "airline",
+    "retail",
+    "telecom_full",
+    "telecom_small",
+    "telecom",
+    "telecom-workflow",
+    "banking_knowledge"
+  ]
+}
+2026-07-28 21:12:46.635 | WARNING  | tau2.runner.batch:run_tasks:524 - Each trial will modify the seed for the agent
+
+2026-07-28 21:12:46.635 | WARNING  | tau2.runner.batch:run_tasks:526 - Each trial will modify the seed for the user
+
+2026-07-28 21:12:47.553 | INFO     | tau2.runner.checkpoint:try_resume:73 - Saving simulation batch to /workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_2_low_lr/evaluation/repair_50/20260805/20260816/shard-1/retail_clean.shard-001-of-003.json
+
+0/6 (trial 1/1). Running task 50, trial 1
+2026-07-28 21:12:47.940 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 50, Agent: v5_stage1_single_tool_agent, User: user_simulator
+
+2026-07-28 21:12:48.242 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1SingleToolAgent, user=UserSimulator
+
+2026-07-28 21:12:48.242 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:12:48.242 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+Status: 0/6 complete. Avg reward: N/A. 1 running: 50.0(30s)
+2026-07-28 21:13:18.650 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:20.930 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:23.306 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:26.345 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:27.712 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:27.946 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:28.788 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=50, reward=1.0
+
+2026-07-28 21:13:28.788 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 50, Reward: 1.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 50                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 39.95s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ✅ 1.0000 (DB: 1.0, NL_ASSERTION: 1.0)                               │
+│                                                                              │
+│ DB Check:✅ 1.0                                                              │
+│                                                                              │
+│ Action Checks:                                                               │
+│ - 0: agent transfer_to_human_agents [generic] ✅ 1.0                         │
+│                                                                              │
+│ Partial Action Reward: 1/1 (100.0%)                                          │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: {'note': 'No nl_assertions to evaluate'}                                 │
+│ communicate: {'note': 'No communicate_info to evaluate'}                     │
+│ action: None                                                                 │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+1/6 (trial 1/1). Running task 44, trial 1
+2026-07-28 21:13:29.253 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 44, Agent: v5_stage1_single_tool_agent, User: user_simulator
+
+2026-07-28 21:13:29.389 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1SingleToolAgent, user=UserSimulator
+
+2026-07-28 21:13:29.389 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:13:29.389 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:13:31.588 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:33.390 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:35.303 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:39.333 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:43.608 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:44.583 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:46.767 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 1/6 complete. Avg reward: 1.00 (N=1). 1 running: 44.0(19s)
+2026-07-28 21:13:49.643 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:50.754 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:13:55.483 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:01.413 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:03.027 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:05.621 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:05.977 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=44, reward=1.0
+
+2026-07-28 21:14:05.978 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 44, Reward: 1.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 44                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 33.75s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ✅ 1.0000 (DB: 1.0, NL_ASSERTION: 1.0)                               │
+│                                                                              │
+│ DB Check:✅ 1.0                                                              │
+│                                                                              │
+│ Action Checks:                                                               │
+│ - 0: agent find_user_id_by_name_zip [read] ❌ 0.0                            │
+│ - 1: agent get_order_details [read] ✅ 1.0                                   │
+│ - 2: agent get_product_details [read] ✅ 1.0                                 │
+│ - 3: agent calculate [generic] ❌ 0.0                                        │
+│ - 4: agent modify_pending_order_items [write] ✅ 1.0                         │
+│                                                                              │
+│ Partial Action Reward: 3/5 (60.0%)                                           │
+│   Read:  2/3 (66.7%)                                                         │
+│   Write: 1/1 (100.0%)                                                        │
+│                                                                              │
+│ Communicate Checks:                                                          │
+│ - 0: 17.99 ✅                                                                │
+│                                                                              │
+│ NL Assertions:                                                               │
+│ - 0: Agent should tell the user they will get back $17.99. ✅                │
+│         The assistant informed the user that the price difference of $17.99  │
+│ has been refunded to their gift card.                                        │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: None                                                                     │
+│ communicate: None                                                            │
+│ action: None                                                                 │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+2/6 (trial 1/1). Running task 91, trial 1
+2026-07-28 21:14:06.380 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 91, Agent: v5_stage1_single_tool_agent, User: user_simulator
+
+2026-07-28 21:14:06.865 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1SingleToolAgent, user=UserSimulator
+
+2026-07-28 21:14:06.865 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:14:06.865 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:14:09.529 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:12.039 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:13.805 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:16.522 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 2/6 complete. Avg reward: 1.00 (N=2). 1 running: 91.0(12s)
+2026-07-28 21:14:18.315 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:20.511 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:21.696 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:24.185 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:31.285 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:33.145 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:35.030 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:37.175 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:39.139 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:42.066 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:44.544 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:46.516 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 2/6 complete. Avg reward: 1.00 (N=2). 1 running: 91.0(42s)
+2026-07-28 21:14:48.861 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:50.885 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:53.081 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:55.635 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:14:56.344 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=91, reward=0.0
+
+2026-07-28 21:14:56.344 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 91, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 91                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 49.47s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.TOO_MANY_ERRORS                        │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 ()                                                         │
+│                                                                              │
+│ Additional Info:                                                             │
+│ note: Simulation terminated prematurely. Termination reason: too_many_errors │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+3/6 (trial 1/1). Running task 41, trial 1
+2026-07-28 21:14:56.999 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 41, Agent: v5_stage1_single_tool_agent, User: user_simulator
+
+2026-07-28 21:14:57.420 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1SingleToolAgent, user=UserSimulator
+
+2026-07-28 21:14:57.420 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:14:57.420 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:14:59.058 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:01.146 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:03.882 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:05.798 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:07.987 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:10.692 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:13.149 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:15.163 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:17.039 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 3/6 complete. Avg reward: 0.67 (N=3). 1 running: 41.0(21s)
+2026-07-28 21:15:18.879 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:22.972 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:27.241 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:29.361 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:33.876 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:38.505 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:42.399 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:43.260 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:15:44.498 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=41, reward=0.0
+
+2026-07-28 21:15:44.498 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 41, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 41                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 46.38s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 (DB: 0.0, NL_ASSERTION: 1.0)                               │
+│                                                                              │
+│ DB Check:❌ 0.0                                                              │
+│                                                                              │
+│ Action Checks:                                                               │
+│ - 0: agent find_user_id_by_name_zip [read] ✅ 1.0                            │
+│ - 1: agent get_user_details [read] ✅ 1.0                                    │
+│ - 2: agent get_order_details [read] ✅ 1.0                                   │
+│ - 3: agent get_order_details [read] ❌ 0.0                                   │
+│ - 4: agent modify_pending_order_address [write] ✅ 1.0                       │
+│ - 5: agent modify_pending_order_address [write] ❌ 0.0                       │
+│ - 6: agent modify_user_address [write] ✅ 1.0                                │
+│ - 7: agent get_product_details [read] ❌ 0.0                                 │
+│ - 8: agent get_order_details [read] ❌ 0.0                                   │
+│ - 9: agent modify_pending_order_items [write] ❌ 0.0                         │
+│                                                                              │
+│ Partial Action Reward: 5/10 (50.0%)                                          │
+│   Read:  3/6 (50.0%)                                                         │
+│   Write: 2/4 (50.0%)                                                         │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: {'note': 'No nl_assertions to evaluate'}                                 │
+│ communicate: {'note': 'No communicate_info to evaluate'}                     │
+│ action: None                                                                 │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+4/6 (trial 1/1). Running task 95, trial 1
+2026-07-28 21:15:44.637 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 95, Agent: v5_stage1_single_tool_agent, User: user_simulator
+
+2026-07-28 21:15:45.036 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1SingleToolAgent, user=UserSimulator
+
+2026-07-28 21:15:45.036 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:15:45.036 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:15:46.728 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 4/6 complete. Avg reward: 0.50 (N=4). 1 running: 95.0(4s)
+2026-07-28 21:15:49.355 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:00.963 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:02.797 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:04.658 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:06.492 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:08.504 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:10.862 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:12.724 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:14.916 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:16.977 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 4/6 complete. Avg reward: 0.50 (N=4). 1 running: 95.0(34s)
+2026-07-28 21:16:18.965 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:19.578 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=95, reward=0.0
+
+2026-07-28 21:16:19.578 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 95, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 95                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 34.54s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.TOO_MANY_ERRORS                        │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 ()                                                         │
+│                                                                              │
+│ Additional Info:                                                             │
+│ note: Simulation terminated prematurely. Termination reason: too_many_errors │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+5/6 (trial 1/1). Running task 20, trial 1
+2026-07-28 21:16:20.034 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 20, Agent: v5_stage1_single_tool_agent, User: user_simulator
+
+2026-07-28 21:16:20.797 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1SingleToolAgent, user=UserSimulator
+
+2026-07-28 21:16:20.797 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:16:20.797 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:16:22.381 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:24.345 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:27.345 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:29.356 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:31.664 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:33.092 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:35.591 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:37.676 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:39.697 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:41.901 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:44.940 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:46.269 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:48.336 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 5/6 complete. Avg reward: 0.40 (N=5). 1 running: 20.0(28s)
+2026-07-28 21:16:50.231 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:52.248 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:54.146 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:16:54.214 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=20, reward=0.0
+
+2026-07-28 21:16:54.214 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 20, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 20                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 33.42s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.TOO_MANY_ERRORS                        │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 ()                                                         │
+│                                                                              │
+│ Additional Info:                                                             │
+│ note: Simulation terminated prematurely. Termination reason: too_many_errors │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Successfully completed all simulations!
+To review the simulations, run: tau2 view
+2026-07-28 21:16:54.401 | WARNING  | tau2.runner.batch:run_tasks:524 - Each trial will modify the seed for the agent
+
+2026-07-28 21:16:54.401 | WARNING  | tau2.runner.batch:run_tasks:526 - Each trial will modify the seed for the user
+
+2026-07-28 21:16:54.697 | INFO     | tau2.runner.checkpoint:try_resume:73 - Saving simulation batch to /workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_2_low_lr/evaluation/repair_50/20260805/20260816/shard-1/retail_error.shard-001-of-003.json
+
+0/6 (trial 1/1). Running task 50, trial 1
+2026-07-28 21:16:55.042 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 50, Agent: v5_stage1_single_tool_fault_agent, User: user_simulator
+
+2026-07-28 21:16:56.478 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1FaultAgent, user=UserSimulator
+
+2026-07-28 21:16:56.478 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:16:56.479 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:16:57.887 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:00.969 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:04.692 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:06.149 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:06.635 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:07.981 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=50, reward=1.0
+
+2026-07-28 21:17:07.981 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 50, Reward: 1.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 50                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 10.24s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ✅ 1.0000 (DB: 1.0, NL_ASSERTION: 1.0)                               │
+│                                                                              │
+│ DB Check:✅ 1.0                                                              │
+│                                                                              │
+│ Action Checks:                                                               │
+│ - 0: agent transfer_to_human_agents [generic] ✅ 1.0                         │
+│                                                                              │
+│ Partial Action Reward: 1/1 (100.0%)                                          │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: {'note': 'No nl_assertions to evaluate'}                                 │
+│ communicate: {'note': 'No communicate_info to evaluate'}                     │
+│ action: None                                                                 │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+1/6 (trial 1/1). Running task 44, trial 1
+2026-07-28 21:17:08.173 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 44, Agent: v5_stage1_single_tool_fault_agent, User: user_simulator
+
+2026-07-28 21:17:08.309 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1FaultAgent, user=UserSimulator
+
+2026-07-28 21:17:08.309 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:17:08.309 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:17:10.522 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:13.040 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:15.165 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:18.377 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:20.319 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:24.563 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 1/6 complete. Avg reward: 1.00 (N=1). 1 running: 44.0(17s)
+2026-07-28 21:17:26.631 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:30.842 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:32.936 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:35.364 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:39.826 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:42.877 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:47.285 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:51.714 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:53.676 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:53.923 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 1/6 complete. Avg reward: 1.00 (N=1). 1 running: 44.0(47s)
+2026-07-28 21:17:56.250 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:17:56.322 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=44, reward=0.0
+
+2026-07-28 21:17:56.322 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 44, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 44                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 45.64s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 (DB: 0.0, NL_ASSERTION: 0.0)                               │
+│                                                                              │
+│ DB Check:❌ 0.0                                                              │
+│                                                                              │
+│ Action Checks:                                                               │
+│ - 0: agent find_user_id_by_name_zip [read] ✅ 1.0                            │
+│ - 1: agent get_order_details [read] ✅ 1.0                                   │
+│ - 2: agent get_product_details [read] ✅ 1.0                                 │
+│ - 3: agent calculate [generic] ❌ 0.0                                        │
+│ - 4: agent modify_pending_order_items [write] ❌ 0.0                         │
+│                                                                              │
+│ Partial Action Reward: 3/5 (60.0%)                                           │
+│   Read:  3/3 (100.0%)                                                        │
+│   Write: 0/1 (0.0%)                                                          │
+│                                                                              │
+│ Communicate Checks:                                                          │
+│ - 0: 17.99 ❌                                                                │
+│                                                                              │
+│ NL Assertions:                                                               │
+│ - 0: Agent should tell the user they will get back $17.99. ❌                │
+│         The conversation does not include any statement from the agent       │
+│ informing the user about the refund amount.                                  │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: None                                                                     │
+│ communicate: None                                                            │
+│ action: None                                                                 │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+2/6 (trial 1/1). Running task 91, trial 1
+2026-07-28 21:17:56.425 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 91, Agent: v5_stage1_single_tool_fault_agent, User: user_simulator
+
+2026-07-28 21:17:56.564 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1FaultAgent, user=UserSimulator
+
+2026-07-28 21:17:56.564 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:17:56.565 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:17:59.644 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:01.524 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:03.407 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:05.822 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:07.663 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:09.503 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:11.323 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:13.167 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:15.018 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:16.868 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:16.969 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=91, reward=0.0
+
+2026-07-28 21:18:16.969 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 91, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 91                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 20.40s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.TOO_MANY_ERRORS                        │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 ()                                                         │
+│                                                                              │
+│ Additional Info:                                                             │
+│ note: Simulation terminated prematurely. Termination reason: too_many_errors │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+3/6 (trial 1/1). Running task 41, trial 1
+2026-07-28 21:18:17.077 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 41, Agent: v5_stage1_single_tool_fault_agent, User: user_simulator
+
+2026-07-28 21:18:17.507 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1FaultAgent, user=UserSimulator
+
+2026-07-28 21:18:17.507 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:18:17.507 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:18:19.384 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:21.801 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:23.640 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:24.987 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 3/6 complete. Avg reward: 0.33 (N=3). 1 running: 41.0(8s)
+2026-07-28 21:18:27.451 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:29.355 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:31.335 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:33.408 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:35.564 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:38.021 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:40.561 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:40.685 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=41, reward=0.0
+
+2026-07-28 21:18:40.686 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 41, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 41                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 23.17s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.TOO_MANY_ERRORS                        │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 ()                                                         │
+│                                                                              │
+│ Additional Info:                                                             │
+│ note: Simulation terminated prematurely. Termination reason: too_many_errors │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+4/6 (trial 1/1). Running task 95, trial 1
+2026-07-28 21:18:40.812 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 95, Agent: v5_stage1_single_tool_fault_agent, User: user_simulator
+
+2026-07-28 21:18:40.938 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1FaultAgent, user=UserSimulator
+
+2026-07-28 21:18:40.938 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:18:40.938 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:18:42.953 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:45.332 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:47.409 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:49.240 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:51.321 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:53.230 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 4/6 complete. Avg reward: 0.25 (N=4). 1 running: 95.0(15s)
+2026-07-28 21:18:55.658 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:18:58.021 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:02.762 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:07.646 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:16.338 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:19.752 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:20.723 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 4/6 complete. Avg reward: 0.25 (N=4). 1 running: 95.0(45s)
+2026-07-28 21:19:27.025 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:28.411 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:37.283 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:38.850 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:42.906 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:46.971 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 4/6 complete. Avg reward: 0.25 (N=4). 1 running: 95.0(75s)
+2026-07-28 21:19:55.936 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:19:57.375 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:02.186 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:07.403 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:07.878 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:14.826 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:15.153 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=95, reward=0.0
+
+2026-07-28 21:20:15.154 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 95, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 95                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 87.00s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 (DB: 0.0, NL_ASSERTION: 0.0)                               │
+│                                                                              │
+│ DB Check:❌ 0.0                                                              │
+│                                                                              │
+│ Action Checks:                                                               │
+│ - 0: agent exchange_delivered_order_items [write] ❌ 0.0                     │
+│ - 1: agent exchange_delivered_order_items [write] ❌ 0.0                     │
+│                                                                              │
+│ Partial Action Reward: 0/2 (0.0%)                                            │
+│   Write: 0/2 (0.0%)                                                          │
+│                                                                              │
+│ Communicate Checks:                                                          │
+│ - 0: 167.87 ❌                                                               │
+│ - 1: 60.78 ❌                                                                │
+│ - 2: 107.09 ❌                                                               │
+│                                                                              │
+│ NL Assertions:                                                               │
+│ - 0: Agent should tell the user the price difference for one laptop exchange │
+│ is $167.87. ❌                                                               │
+│         The conversation does not provide the price difference for one       │
+│ laptop exchange. The assistant did not mention any specific price difference │
+│ for a single laptop exchange.                                                │
+│ - 1: Agent should tell the user the price difference for the other laptop    │
+│ exchange is $60.78 (a refund). ❌                                            │
+│         The conversation does not provide the price difference for the other │
+│ laptop exchange. The assistant did not mention any specific price difference │
+│ for the other laptop exchange.                                               │
+│ - 2: Agent should tell the user the total amount to pay today is $107.09. ❌ │
+│         The conversation does not provide the total amount to pay today. The │
+│ assistant mentioned the total amount to pay today is $2419.01, which does    │
+│ not match the expected outcome.                                              │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: None                                                                     │
+│ communicate: None                                                            │
+│ action: None                                                                 │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+5/6 (trial 1/1). Running task 20, trial 1
+2026-07-28 21:20:15.557 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: retail, Task: 20, Agent: v5_stage1_single_tool_fault_agent, User: user_simulator
+
+2026-07-28 21:20:15.666 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1FaultAgent, user=UserSimulator
+
+2026-07-28 21:20:15.666 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:20:15.666 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:20:17.460 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:19.544 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:22.399 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+Status: 5/6 complete. Avg reward: 0.20 (N=5). 1 running: 20.0(10s)
+2026-07-28 21:20:26.032 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:27.417 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:27.763 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:28.072 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=retail, task=20, reward=0.0
+
+2026-07-28 21:20:28.072 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: retail, Task: 20, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 20                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 12.12s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 (DB: 0.0, NL_ASSERTION: 1.0)                               │
+│                                                                              │
+│ DB Check:❌ 0.0                                                              │
+│                                                                              │
+│ Action Checks:                                                               │
+│ - 0: agent find_user_id_by_name_zip [read] ❌ 0.0                            │
+│ - 1: agent get_user_details [read] ❌ 0.0                                    │
+│ - 2: agent get_order_details [read] ❌ 0.0                                   │
+│ - 3: agent get_order_details [read] ❌ 0.0                                   │
+│ - 4: agent get_product_details [read] ❌ 0.0                                 │
+│ - 5: agent get_product_details [read] ❌ 0.0                                 │
+│ - 6: agent get_product_details [read] ❌ 0.0                                 │
+│ - 7: agent get_product_details [read] ❌ 0.0                                 │
+│ - 8: agent modify_pending_order_items [write] ❌ 0.0                         │
+│ - 9: agent get_order_details [read] ❌ 0.0                                   │
+│                                                                              │
+│ Partial Action Reward: 0/10 (0.0%)                                           │
+│   Read:  0/9 (0.0%)                                                          │
+│   Write: 0/1 (0.0%)                                                          │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: {'note': 'No nl_assertions to evaluate'}                                 │
+│ communicate: {'note': 'No communicate_info to evaluate'}                     │
+│ action: None                                                                 │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Successfully completed all simulations!
+To review the simulations, run: tau2 view
+2026-07-28 21:20:28.787 | WARNING  | tau2.runner.batch:run_tasks:524 - Each trial will modify the seed for the agent
+
+2026-07-28 21:20:28.788 | WARNING  | tau2.runner.batch:run_tasks:526 - Each trial will modify the seed for the user
+
+2026-07-28 21:20:29.363 | INFO     | tau2.runner.checkpoint:try_resume:73 - Saving simulation batch to /workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_2_low_lr/evaluation/repair_50/20260805/20260816/shard-1/airline_clean.shard-001-of-003.json
+
+0/1 (trial 1/1). Running task 46, trial 1
+2026-07-28 21:20:29.398 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: airline, Task: 46, Agent: v5_stage1_single_tool_agent, User: user_simulator
+
+2026-07-28 21:20:29.605 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1SingleToolAgent, user=UserSimulator
+
+2026-07-28 21:20:29.605 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:20:29.605 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:20:30.833 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:32.854 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:34.588 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:34.672 | WARNING  | tau2.domains.airline.tools:cancel_reservation:367 - Seats release not implemented for cancellation!!!
+
+2026-07-28 21:20:36.803 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:36.947 | INFO     | tau2.domains.airline.tools:update_reservation_passengers:713 - 0
+
+2026-07-28 21:20:36.947 | INFO     | tau2.domains.airline.tools:update_reservation_passengers:714 - 1
+
+2026-07-28 21:20:41.590 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:44.960 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:47.575 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:50.662 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:52.242 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:52.604 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:52.923 | WARNING  | tau2.domains.airline.tools:cancel_reservation:367 - Seats release not implemented for cancellation!!!
+
+2026-07-28 21:20:52.923 | INFO     | tau2.domains.airline.tools:update_reservation_passengers:713 - 0
+
+2026-07-28 21:20:52.923 | INFO     | tau2.domains.airline.tools:update_reservation_passengers:714 - 1
+
+2026-07-28 21:20:53.184 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=airline, task=46, reward=0.0
+
+2026-07-28 21:20:53.184 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: airline, Task: 46, Reward: 0.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 46                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 23.04s                                                             │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ❌ 0.0000 (COMMUNICATE: 1.0, DB: 0.0)                                │
+│                                                                              │
+│ DB Check:❌ 0.0                                                              │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: None                                                                     │
+│ communicate: {'note': 'No communicate_info to evaluate'}                     │
+│ action: {'note': 'No actions to evaluate'}                                   │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Successfully completed all simulations!
+To review the simulations, run: tau2 view
+2026-07-28 21:20:53.569 | WARNING  | tau2.runner.batch:run_tasks:524 - Each trial will modify the seed for the agent
+
+2026-07-28 21:20:53.569 | WARNING  | tau2.runner.batch:run_tasks:526 - Each trial will modify the seed for the user
+
+2026-07-28 21:20:54.148 | INFO     | tau2.runner.checkpoint:try_resume:73 - Saving simulation batch to /workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_2_low_lr/evaluation/repair_50/20260805/20260816/shard-1/airline_error.shard-001-of-003.json
+
+0/1 (trial 1/1). Running task 46, trial 1
+2026-07-28 21:20:54.177 | INFO     | tau2.runner.batch:run_single_task:387 - STARTING SIMULATION: Domain: airline, Task: 46, Agent: v5_stage1_single_tool_fault_agent, User: user_simulator
+
+2026-07-28 21:20:54.376 | INFO     | tau2.orchestrator.orchestrator:_validate_mode_compatibility:477 - Orchestrator initialized in HALF_DUPLEX mode (turn-based) with agent=Stage1FaultAgent, user=UserSimulator
+
+2026-07-28 21:20:54.376 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:20:54.376 | WARNING  | tau2.agent.base.llm_config:set_seed:47 - Seed is already set to 20260816, resetting it to 910424
+
+2026-07-28 21:20:55.616 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:57.907 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:59.338 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-r50-seed-20260805, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:20:59.802 | ERROR    | tau2.utils.llm_utils:get_response_cost:129 - This model isn't mapped yet. model=v55-user-judge, custom_llm_provider=openai. Add it here - https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json.
+
+2026-07-28 21:21:01.025 | INFO     | tau2.runner.simulation:run_simulation:87 - Simulation complete: domain=airline, task=46, reward=1.0
+
+2026-07-28 21:21:01.025 | INFO     | tau2.runner.batch:run_single_task:449 - FINISHED SIMULATION: Domain: airline, Task: 46, Reward: 1.0
+
+╭──────────────────────────── Simulation Overview ─────────────────────────────╮
+│ Task ID: 46                                                                  │
+│ Trial: 0                                                                     │
+│ Duration: 5.80s                                                              │
+│ Mode: half_duplex                                                            │
+│ Termination Reason: TerminationReason.USER_STOP                              │
+│ Agent Cost: $0.0000                                                          │
+│ User Cost: $0.0000                                                           │
+│ Reward: ✅ 1.0000 (COMMUNICATE: 1.0, DB: 1.0)                                │
+│                                                                              │
+│ DB Check:✅ 1.0                                                              │
+│                                                                              │
+│ Additional Info:                                                             │
+│ env: None                                                                    │
+│ nl: None                                                                     │
+│ communicate: {'note': 'No communicate_info to evaluate'}                     │
+│ action: {'note': 'No actions to evaluate'}                                   │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Successfully completed all simulations!
+To review the simulations, run: tau2 view
+{
+  "protocol": "v5_5_tau2_end_to_end_validation_v1",
+  "status": "PASS",
+  "arm": "repair_50",
+  "paper_arm": "r50",
+  "training_seed": 20260805,
+  "evaluation_seed": 20260816,
+  "rows": 14,
+  "metrics": {
+    "clean": {
+      "tasks": 7,
+      "task_successes": 2,
+      "task_success_rate": 0.2857142857142857,
+      "mean_official_reward": 0.2857142857142857,
+      "repeated_same_error_rate": 0.0,
+      "tool_calls_per_task": 9.142857142857142,
+      "tool_error_rate": 0.59375
+    },
+    "error": {
+      "tasks": 7,
+      "task_successes": 2,
+      "task_success_rate": 0.2857142857142857,
+      "mean_official_reward": 0.2857142857142857,
+      "repeated_same_error_rate": 0.14285714285714285,
+      "tool_calls_per_task": 8.285714285714286,
+      "tool_error_rate": 0.6206896551724138
+    },
+    "in_family": {
+      "tasks": 5,
+      "task_successes": 1,
+      "task_success_rate": 0.2,
+      "mean_official_reward": 0.2,
+      "repeated_same_error_rate": 0.2,
+      "tool_calls_per_task": 8.8,
+      "tool_error_rate": 0.5454545454545454
+    },
+    "heldout_tool_family": {
+      "tasks": 2,
+      "task_successes": 1,
+      "task_success_rate": 0.5,
+      "mean_official_reward": 0.5,
+      "repeated_same_error_rate": 0.0,
+      "tool_calls_per_task": 7.0,
+      "tool_error_rate": 0.8571428571428571
+    }
+  },
+  "claim_level": "diagnostic_only",
+  "official_test_used": false
+}
