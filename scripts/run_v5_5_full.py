@@ -62,6 +62,25 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
+def require_evaluation_inputs(args: argparse.Namespace) -> None:
+    required = {
+        "split_manifest": args.split_manifest,
+        "validation_manifest": args.validation_manifest,
+        "protocol_audit": args.protocol_audit,
+        "checkpoint_registry": args.registry,
+    }
+    missing = [
+        f"{label}={path}"
+        for label, path in required.items()
+        if not Path(path).is_file()
+    ]
+    if missing:
+        raise RuntimeError(
+            "missing evaluation inputs (checked before service startup): "
+            + ", ".join(missing)
+        )
+
+
 def git_value(*arguments: str, cwd: Path = ROOT) -> str:
     return subprocess.run(
         ["git", *arguments],
@@ -648,6 +667,7 @@ def evaluation_command(
 
 
 def phase_evaluate(args: argparse.Namespace) -> None:
+    require_evaluation_inputs(args)
     registry = read_json(args.registry)
     services = start_services(args, registry)
     arms, seeds = selected_grid(args.experiment_mode)

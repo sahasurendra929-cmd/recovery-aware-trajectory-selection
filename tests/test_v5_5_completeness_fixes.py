@@ -98,6 +98,32 @@ def test_service_readiness_allows_shared_storage_cold_start():
     assert controller.SERVICE_READY_TIMEOUT_SECONDS == 1800.0
 
 
+def test_evaluation_inputs_fail_before_service_start(tmp_path: Path):
+    args = SimpleNamespace(
+        split_manifest=tmp_path / "split.json",
+        validation_manifest=tmp_path / "validation.json",
+        protocol_audit=tmp_path / "audit.json",
+        registry=tmp_path / "registry.json",
+    )
+    for path in (
+        args.split_manifest,
+        args.validation_manifest,
+        args.protocol_audit,
+        args.registry,
+    ):
+        path.write_text("{}", encoding="utf-8")
+    controller.require_evaluation_inputs(args)
+
+    args.validation_manifest.unlink()
+    try:
+        controller.require_evaluation_inputs(args)
+    except RuntimeError as error:
+        assert "validation_manifest=" in str(error)
+        assert "before service startup" in str(error)
+    else:
+        raise AssertionError("missing validation manifest was accepted")
+
+
 def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
 
