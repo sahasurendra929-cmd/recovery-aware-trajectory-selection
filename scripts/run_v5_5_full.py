@@ -48,6 +48,7 @@ DEFAULT_BASE_REVISION = "a09a35458c702b33eeacc393d103063234e8bc28"
 DEFAULT_USER_JUDGE_MODEL = "Qwen/Qwen2.5-14B-Instruct-AWQ"
 DEFAULT_USER_JUDGE_REVISION = "539535859b135b0244c91f3e59816150c8056698"
 SCREEN_ARMS = ("perfect_success", "repair_50", "repair_100")
+BASE_DIAGNOSTIC_ARM = "base_control"
 FULL_ARMS = tuple(TRAINER_ARMS)
 
 
@@ -165,6 +166,8 @@ def gpu_inventory() -> list[dict[str, Any]]:
 def selected_grid(mode: str) -> tuple[tuple[str, ...], tuple[int, ...]]:
     if mode == "reference-screen":
         return SCREEN_ARMS, (full.TRAINING_SEEDS[0],)
+    if mode == "base-diagnostic":
+        return (BASE_DIAGNOSTIC_ARM,), (full.TRAINING_SEEDS[0],)
     if mode == "full":
         return FULL_ARMS, full.TRAINING_SEEDS
     raise RuntimeError(f"unsupported mode {mode}")
@@ -868,7 +871,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--experiment-mode",
-        choices=("reference-screen", "full"),
+        choices=("reference-screen", "base-diagnostic", "full"),
         default="reference-screen",
     )
     parser.add_argument("--source-commit", required=True)

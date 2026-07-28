@@ -7,7 +7,9 @@ from types import SimpleNamespace
 from scripts import build_v5_5_confirmation_freeze as freeze
 from scripts import prepare_v5_5_natural_pairs as natural
 from scripts import run_v5_5_full as controller
+from scripts import run_v5_5_end_to_end_eval as evaluator
 from scripts import train_v5_sft_causal as trainer
+from scripts import v5_5_full_protocol as full_protocol
 from scripts import v5_5_protocol as pair_protocol
 
 
@@ -98,6 +100,56 @@ def test_user_judge_port_avoids_managed_container_endpoint(tmp_path: Path):
 
 def test_service_readiness_allows_shared_storage_cold_start():
     assert controller.SERVICE_READY_TIMEOUT_SECONDS == 1800.0
+
+
+def test_base_diagnostic_grid_is_single_seed_and_does_not_train():
+    arms, seeds = controller.selected_grid("base-diagnostic")
+    assert arms == ("base_control",)
+    assert seeds == (full_protocol.TRAINING_SEEDS[0],)
+
+
+def test_base_diagnostic_uses_revision_pinned_registry_base(tmp_path: Path):
+    audit = tmp_path / "audit.json"
+    audit.write_text("{}\n", encoding="utf-8")
+    registry = tmp_path / "registry.json"
+    _write(
+        registry,
+        {
+            "protocol": evaluator.REGISTRY_PROTOCOL,
+            "design_protocol": full_protocol.PROTOCOL,
+            "design_version": full_protocol.DESIGN_VERSION,
+            "official_test_used": False,
+            "official_test_sealed": True,
+            "registered_arms": ["perfect_success"],
+            "registered_training_seeds": [20260805],
+            "entries": {},
+            "base_model": "Qwen/Qwen2.5-7B-Instruct",
+            "base_model_revision": "a" * 40,
+            "base_model_alias": "openai/v55-base",
+            "data": {
+                "pair_mode": "reference",
+                "claim_level": "diagnostic_only",
+                "audit_path": str(audit),
+                "audit_sha256": evaluator.sha256_file(audit),
+            },
+        },
+    )
+    loaded, entry = evaluator.load_registry(
+        registry,
+        arm="base_control",
+        training_seed=20260805,
+    )
+    assert loaded["base_model_alias"] == "openai/v55-base"
+    assert entry == {
+        "trainer_arm": "base_control",
+        "paper_arm": "base_unadapted",
+        "training_seed": 20260805,
+        "model_id": "openai/v55-base",
+        "base_model": "Qwen/Qwen2.5-7B-Instruct",
+        "base_model_revision": "a" * 40,
+        "checkpoint": None,
+        "diagnostic_only": True,
+    }
 
 
 def test_evaluation_inputs_fail_before_service_start(tmp_path: Path):

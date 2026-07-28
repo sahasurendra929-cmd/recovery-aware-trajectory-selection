@@ -42,6 +42,8 @@ except ModuleNotFoundError:
 
 PROTOCOL = "v5_5_tau2_end_to_end_validation_v1"
 CONDITIONS = ("clean", "error")
+BASE_DIAGNOSTIC_ARM = "base_control"
+PAPER_ARMS = {**TRAINER_ARMS, BASE_DIAGNOSTIC_ARM: "base_unadapted"}
 
 
 def sha256_file(path: Path) -> str:
@@ -116,18 +118,32 @@ def load_registry(
         or registry.get("official_test_sealed") is not True
     ):
         raise RuntimeError("V5.5 checkpoint registry protocol/test seal drift")
-    if arm not in registry.get("registered_arms", []):
-        raise RuntimeError(f"arm {arm!r} is not registered")
     if training_seed not in registry.get("registered_training_seeds", []):
         raise RuntimeError(f"training seed {training_seed} is not registered")
-    entry = (
-        (registry.get("entries") or {}).get(arm, {}).get(str(training_seed))
-    )
+    if arm == BASE_DIAGNOSTIC_ARM:
+        entry = {
+            "trainer_arm": BASE_DIAGNOSTIC_ARM,
+            "paper_arm": PAPER_ARMS[BASE_DIAGNOSTIC_ARM],
+            "training_seed": training_seed,
+            "model_id": registry.get("base_model_alias"),
+            "base_model": registry.get("base_model"),
+            "base_model_revision": registry.get("base_model_revision"),
+            "checkpoint": None,
+            "diagnostic_only": True,
+        }
+    else:
+        if arm not in registry.get("registered_arms", []):
+            raise RuntimeError(f"arm {arm!r} is not registered")
+        entry = (
+            (registry.get("entries") or {}).get(arm, {}).get(
+                str(training_seed)
+            )
+        )
     if not isinstance(entry, dict):
         raise RuntimeError(f"registry lacks {arm}/{training_seed}")
     if (
         entry.get("trainer_arm") != arm
-        or entry.get("paper_arm") != TRAINER_ARMS[arm]
+        or entry.get("paper_arm") != PAPER_ARMS[arm]
         or entry.get("training_seed") != training_seed
         or not str(entry.get("model_id", "")).startswith("openai/")
     ):
@@ -306,7 +322,7 @@ def extract_result_rows(
                 {
                     "protocol": PROTOCOL,
                     "arm": arm,
-                    "paper_arm": TRAINER_ARMS[arm],
+                    "paper_arm": PAPER_ARMS[arm],
                     "training_seed": training_seed,
                     "evaluation_seed": evaluation_seed,
                     "domain": domain,
@@ -385,7 +401,7 @@ def main() -> None:
     parser.add_argument("--protocol-audit", type=Path, required=True)
     parser.add_argument("--checkpoint-registry", type=Path, required=True)
     parser.add_argument("--evaluation-source-commit", required=True)
-    parser.add_argument("--arm", choices=sorted(TRAINER_ARMS), required=True)
+    parser.add_argument("--arm", choices=sorted(PAPER_ARMS), required=True)
     parser.add_argument("--training-seed", type=int, required=True)
     parser.add_argument(
         "--evaluation-seed",
@@ -572,7 +588,7 @@ def main() -> None:
         "protocol": PROTOCOL,
         "status": "PASS",
         "arm": args.arm,
-        "paper_arm": TRAINER_ARMS[args.arm],
+        "paper_arm": PAPER_ARMS[args.arm],
         "training_seed": args.training_seed,
         "evaluation_seed": args.evaluation_seed,
         "rows": len(result_rows),
