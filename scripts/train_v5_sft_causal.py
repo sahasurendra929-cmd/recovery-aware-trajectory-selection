@@ -1817,6 +1817,14 @@ def parse_args() -> argparse.Namespace:
             "20260805/20260806/20260807. Other designs retain their frozen seed."
         ),
     )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=FORMAL_LEARNING_RATE,
+        help=(
+            "Frozen V5.5 rate by default; V5.5.2 preregisters 1.25e-5."
+        ),
+    )
     parser.add_argument("--local-files-only", action="store_true")
     return parser.parse_args()
 
@@ -1828,6 +1836,11 @@ def main() -> None:
         raise RuntimeError("--expected-source-commit must be a full lowercase commit")
     if COMMIT_RE.fullmatch(args.model_revision) is None:
         raise RuntimeError("--model-revision must be a full lowercase model commit")
+    if args.learning_rate not in {FORMAL_LEARNING_RATE, 1.25e-5}:
+        raise RuntimeError(
+            "--learning-rate must be the frozen V5.5 value or the "
+            "preregistered V5.5.2 value"
+        )
     expected_train_sha = validate_sha256(
         args.expected_train_sha256, "--expected-train-sha256"
     )
@@ -2204,7 +2217,7 @@ def main() -> None:
         per_device_train_batch_size=FORMAL_BATCH_SIZE,
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=effective_grad_accum,
-        learning_rate=FORMAL_LEARNING_RATE,
+        learning_rate=args.learning_rate,
         lr_scheduler_type="cosine",
         warmup_ratio=0.03,
         weight_decay=0.0,
@@ -2301,7 +2314,7 @@ def main() -> None:
         "formal_grad_accum": FORMAL_GRAD_ACCUM,
         "effective_steps": effective_steps,
         "effective_grad_accum": effective_grad_accum,
-        "learning_rate": FORMAL_LEARNING_RATE,
+        "learning_rate": args.learning_rate,
         "train_file": str(args.train_file),
         "train_file_sha256": train_sha,
         "validation_file": str(args.validation_file),
