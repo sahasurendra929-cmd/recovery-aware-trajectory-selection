@@ -106,3 +106,21 @@ Recovery must retain the immutable training-source value and checkpoint/run
 manifest hashes while recording and validating the evaluation-source commit
 separately. The change must fail closed for uncommitted source changes and be
 covered by a regression test; it must not relax checkpoint identity checks.
+
+## Retry 5: missing frozen Stage-1 validation protocol artifacts
+
+The dual-source provenance check passed and the controller again reached four
+healthy services. All three initial shards then failed before API traffic with:
+
+```text
+FileNotFoundError: data/processed/v5_stage1_protocol/validation_manifest.json
+```
+
+Repository inspection confirmed that neither the default validation manifest
+nor its protocol audit had been generated. The controller accepts these paths
+as defaults but preflight/data phases did not build or verify them, delaying a
+deterministic missing-input failure until after the expensive service startup.
+
+Recovery is to run the repository's frozen Stage-1 manifest builder against
+the sealed split inputs, verify its audit and hashes, and add an early
+controller input-existence check so future runs fail before starting vLLM.
