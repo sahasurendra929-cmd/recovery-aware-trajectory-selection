@@ -670,6 +670,33 @@ def evaluation_command(
     return command, output
 
 
+def evaluation_batch_complete(outputs: list[Path]) -> bool:
+    for output in outputs:
+        rows_path = output / "rows.jsonl"
+        required = (
+            rows_path,
+            output / "metrics.json",
+            output / "run_contract.json",
+            output.parent / f"{output.name}.console.log",
+        )
+        if not all(path.is_file() for path in required):
+            return False
+        rows = [
+            json.loads(line)
+            for line in rows_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        if not rows:
+            return False
+        metrics = read_json(output / "metrics.json")
+        contract = read_json(output / "run_contract.json")
+        if metrics.get("official_test_used") is not False:
+            return False
+        if contract.get("official_test_used") is not False:
+            return False
+    return True
+
+
 def phase_evaluate(args: argparse.Namespace) -> None:
     require_evaluation_inputs(args)
     registry = read_json(args.registry)
@@ -679,15 +706,46 @@ def phase_evaluate(args: argparse.Namespace) -> None:
         for arm in arms:
             for training_seed in seeds:
                 for evaluation_seed in full.EVALUATION_SEEDS:
-                    running = []
-                    for shard in range(3):
-                        command, output = evaluation_command(
+                    planned = [
+                        evaluation_command(
                             args,
                             arm=arm,
                             training_seed=training_seed,
                             evaluation_seed=evaluation_seed,
                             shard=shard,
                         )
+                        for shard in range(3)
+                    ]
+                    outputs = [output for _, output in planned]
+                    if evaluation_batch_complete(outputs):
+                        print(
+                            json.dumps(
+                                {
+                                    "event": "EVAL_SKIP_COMPLETE",
+                                    "arm": arm,
+                                    "training_seed": training_seed,
+                                    "evaluation_seed": evaluation_seed,
+                                }
+                            ),
+                            flush=True,
+                        )
+                        continue
+                    existing = [
+                        path
+                        for output in outputs
+                        for path in (
+                            output,
+                            output.parent / f"{output.name}.console.log",
+                        )
+                        if path.exists()
+                    ]
+                    if existing:
+                        raise RuntimeError(
+                            "incomplete evaluation batch exists; archive it "
+                            f"before retry: {existing[0]}"
+                        )
+                    running = []
+                    for shard, (command, output) in enumerate(planned):
                         log = output.parent / f"{output.name}.console.log"
                         if log.exists():
                             raise RuntimeError(f"refusing to overwrite {log}")

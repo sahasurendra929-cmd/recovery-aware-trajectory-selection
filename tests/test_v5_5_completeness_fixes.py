@@ -127,6 +127,26 @@ def test_evaluation_inputs_fail_before_service_start(tmp_path: Path):
         raise AssertionError("missing validation manifest was accepted")
 
 
+def test_completed_evaluation_batch_requires_audited_outputs(tmp_path: Path):
+    outputs = [tmp_path / f"shard-{shard}" for shard in range(3)]
+    for output in outputs:
+        output.mkdir()
+        (output / "rows.jsonl").write_text(
+            json.dumps({"task_id": output.name}) + "\n",
+            encoding="utf-8",
+        )
+        _write(output / "metrics.json", {"official_test_used": False})
+        _write(output / "run_contract.json", {"official_test_used": False})
+        (output.parent / f"{output.name}.console.log").write_text(
+            "complete\n",
+            encoding="utf-8",
+        )
+    assert controller.evaluation_batch_complete(outputs)
+
+    (outputs[1] / "rows.jsonl").write_text("", encoding="utf-8")
+    assert not controller.evaluation_batch_complete(outputs)
+
+
 def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
 
