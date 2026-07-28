@@ -320,7 +320,7 @@ def extract_result_rows(
                         if tool_key is None
                         else "in_family"
                         if tool_key in training_fault_tools
-                        else "out_of_family"
+                        else "heldout_tool_family"
                     ),
                     "official_reward": official_reward,
                     "task_success": math.isclose(

@@ -213,7 +213,10 @@ apply the best V5.5 mixture to an objective comparison.
 ## 7. Evaluation
 
 Each checkpoint is evaluated on the same task IDs and evaluation seeds under
-four conditions.
+two executable conditions.  The controlled-error schedule is preregistered
+once and partitioned before evaluation into in-family and held-out-tool-family
+strata.  Natural agent errors are extracted from the clean condition as a
+diagnostic; they are not a third randomized intervention.
 
 ### 7.1 Clean
 
@@ -226,17 +229,18 @@ Insert an unseen wrong-identifier perturbation using a frozen task/location
 schedule. The primary metric is end-to-end task success, not next-call exact
 match.
 
-### 7.3 Controlled error, out-of-family
+### 7.3 Controlled error, held-out tool family
 
-Use held-out error families such as a wrong read-only tool with compatible
-schema or a stale identifier. This tests whether the model learned a recovery
-principle rather than one typo template.
+Use the same frozen wrong-identifier intervention on read-only tool families
+absent from the natural training pairs.  This tests transfer to unseen tool
+interfaces.  It does not claim transfer to a different error mechanism.
 
-### 7.4 Natural agent errors
+### 7.4 Natural agent errors extracted from clean runs
 
-Run without intervention and describe trajectories where the model itself
-makes a tool error. This is diagnostic because the set of naturally failing
-tasks differs by arm and cannot be treated as the same randomized intervention.
+The clean run has no external intervention. Describe trajectories where the
+model itself makes a tool error. This is diagnostic because the set of
+naturally failing tasks differs by arm and cannot be treated as the same
+randomized intervention.
 
 ### Metrics
 
@@ -265,7 +269,8 @@ Tool-call exact match may be reported only as a code diagnostic.
 - Uncertainty: 10,000-replicate task-cluster bootstrap, 95% CI.
 - Primary test: selected \(r^\*\) versus R0 on sealed-test in-family error
   success.
-- Clean analysis: five-percentage-point non-inferiority margin.
+- Clean analysis: five-percentage-point non-inferiority margin; an arm passes
+  only when the lower bound of its 95% task-bootstrap CI is at least -0.05.
 - Secondary arm/error-family tests: Holm correction.
 - Report every seed and task-level outcome; do not count multiple trajectories
   from one task as independent samples.
@@ -314,8 +319,9 @@ Open the 60-task official test once and compare only:
 - R0;
 - validation-selected \(r^\*\).
 
-Run clean, in-family and out-of-family conditions. The natural-error analysis
-remains diagnostic. Official-test access additionally requires the stronger
+Run clean and the frozen controlled-error schedule, reporting in-family and
+held-out-tool-family strata. The natural-error analysis remains diagnostic.
+Official-test access additionally requires the stronger
 30-task/60-pair natural-data target.
 
 ### Stage G — optional model-size replication
@@ -332,7 +338,7 @@ but is not required for the first course result.
 | only in-family error rises | model learned a narrow error template |
 | no arm beats R0 | audited recovery exposure is insufficient under this model/budget |
 | reference screen rises, natural study does not | gain is caused by the synthetic representation |
-| natural and out-of-family both rise | evidence for broader recovery behavior |
+| natural and held-out-tool-family both rise | evidence for broader recovery behavior |
 
 No outcome licenses the statement “the model learned reflection” without an
 additional mechanism analysis.

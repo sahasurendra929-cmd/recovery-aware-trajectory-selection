@@ -413,6 +413,10 @@ def service_command(
     registry: dict[str, Any],
     user_judge: bool,
 ) -> list[str]:
+    blackwell_safe = [
+        "--enforce-eager",
+        "--disable-log-requests",
+    ]
     if user_judge:
         return [
             str(args.serve_python),
@@ -434,6 +438,7 @@ def service_command(
             "0.92",
             "--generation-config",
             "vllm",
+            *blackwell_safe,
         ]
     modules = []
     for arm in registry["registered_arms"]:
@@ -472,6 +477,7 @@ def service_command(
         "0.90",
         "--generation-config",
         "vllm",
+        *blackwell_safe,
     ]
 
 
@@ -530,6 +536,9 @@ def start_services(
             )
             env = dict(os.environ)
             env["CUDA_VISIBLE_DEVICES"] = str(gpu)
+            # vLLM V1 has hung after the first token on the pinned Blackwell
+            # RTX PRO 4500 + AWQ stack.  V0/eager is the validated runtime.
+            env.setdefault("VLLM_USE_V1", "0")
             log_command(
                 args.results_root / "service_commands.jsonl",
                 command,
@@ -797,8 +806,11 @@ def parse_args() -> argparse.Namespace:
     parser.set_defaults(
         preflight_tests=[
             "tests/test_v5_5_protocol.py",
+            "tests/test_v5_5_manifest.py",
             "tests/test_v5_5_full_protocol.py",
             "tests/test_v5_5_full_sft_data.py",
+            "tests/test_v5_5_eval_and_summary.py",
+            "tests/test_v5_5_completeness_fixes.py",
             "tests/test_v5_sft_causal_train.py",
         ]
     )

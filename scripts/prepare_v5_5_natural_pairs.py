@@ -482,6 +482,22 @@ def build(
         "input_file_sha256": input_hashes,
         "candidate_simulations": len(candidates),
         "selected_candidate_tasks": len(selected),
+        # Preserve the independently selected clean source in the immutable
+        # manifest.  The auditor uses this copy, rather than pair-owned fields,
+        # to reconstruct and compare the complete supervised suffix.
+        "selected_sources": [
+            {
+                "task_identity": source["task_identity"],
+                "domain": source["domain"],
+                "task_id": source["task_id"],
+                "messages": source["messages"],
+                "calls": source["calls"],
+                "selected_message_index": source["selected_message_index"],
+                "action_index": source["action_index"],
+                "source_simulation_sha256": source["source_simulation_sha256"],
+            }
+            for source in selected
+        ],
         "built_tasks": len({pair["task_identity"] for pair in pairs}),
         "built_pairs": len(pairs),
         "pairs_per_task": PAIR_LIMIT_PER_TASK,
@@ -499,7 +515,43 @@ def build(
     return manifest
 
 
-def audit_pair_replay(pair: dict[str, Any], task: Any) -> dict[str, Any]:
+def manifest_source_checks(
+    pair: dict[str, Any], source: dict[str, Any]
+) -> dict[str, bool]:
+    message_index = source.get("selected_message_index")
+    if not isinstance(message_index, int) or message_index < 0:
+        return {"manifest_source_well_formed": False}
+    expected_prefix = source.get("messages", [])[:message_index]
+    expected_suffix = source.get("messages", [])[message_index:]
+    return {
+        "manifest_source_well_formed": True,
+        "pair_identity_matches_manifest_source": (
+            pair.get("task_identity") == source.get("task_identity")
+            and pair.get("domain") == source.get("domain")
+            and str(pair.get("task_id")) == str(source.get("task_id"))
+            and pair.get("source_simulation_sha256")
+            == source.get("source_simulation_sha256")
+        ),
+        "source_call_sequence_matches_manifest": (
+            pair.get("source_call_sequence") == source.get("calls")
+            and pair.get("selected_action_index") == source.get("action_index")
+        ),
+        "stored_clean_prefix_matches_manifest": (
+            pair.get("clean_prefix") == expected_prefix
+        ),
+        "stored_supervised_suffix_matches_manifest": (
+            pair.get("supervised_messages") == expected_suffix
+        ),
+        "stored_supervised_suffix_hash_matches_manifest": (
+            pair.get("supervised_suffix_sha256")
+            == protocol.semantic_sha256(expected_suffix)
+        ),
+    }
+
+
+def audit_pair_replay(
+    pair: dict[str, Any], task: Any, source: dict[str, Any]
+) -> dict[str, Any]:
     calls = pair.get("source_call_sequence")
     index = pair.get("selected_action_index")
     if not isinstance(calls, list) or not isinstance(index, int):
@@ -553,6 +605,7 @@ def audit_pair_replay(pair: dict[str, Any], task: Any) -> dict[str, Any]:
             == recovery_env.get_user_db_hash()
         ),
     }
+    checks.update(manifest_source_checks(pair, source))
     static_view = deepcopy(pair)
     static_view["independent_environment_replay_pass"] = True
     static = protocol.audit_pair(static_view)
@@ -577,10 +630,22 @@ def audit(
     ):
         raise RuntimeError("natural pair manifest/input binding drift")
     tasks = task_map({str(pair["domain"]) for pair in pairs})
+    raw_sources = manifest.get("selected_sources")
+    if not isinstance(raw_sources, list):
+        raise RuntimeError("natural pair manifest lacks immutable selected sources")
+    sources = {
+        str(source.get("task_identity")): source
+        for source in raw_sources
+        if isinstance(source, dict)
+    }
     failures = []
     accepted = []
     for pair in pairs:
-        checks = audit_pair_replay(pair, tasks[str(pair["task_identity"])])
+        identity = str(pair.get("task_identity"))
+        if identity not in tasks or identity not in sources:
+            checks = {"registered_manifest_source": False}
+        else:
+            checks = audit_pair_replay(pair, tasks[identity], sources[identity])
         failed = sorted(key for key, value in checks.items() if not value)
         if failed:
             failures.append({"pair_id": pair.get("pair_id"), "failed_checks": failed})

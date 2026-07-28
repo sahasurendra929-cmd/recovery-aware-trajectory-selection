@@ -681,7 +681,7 @@ def prepare(
     }
     write_json(output_dir / "audit.json", audit)
     hashes = {
-        str(path.relative_to(output_dir)): sha256_file(path)
+        path.relative_to(output_dir).as_posix(): sha256_file(path)
         for path in sorted(output_dir.rglob("*"))
         if path.is_file() and path.name != "hashes.json"
     }

@@ -70,8 +70,8 @@ evaluation:
   conditions:
     - clean
     - controlled_error_in_family
-    - controlled_error_out_of_family
-    - natural_agent_errors_diagnostic
+    - controlled_error_heldout_tool_family
+    - natural_agent_errors_extracted_from_clean_diagnostic
   primary_metric: tau2_end_to_end_task_success
   secondary_metrics:
     - recovery_success_given_error
@@ -88,6 +88,7 @@ statistics:
   confidence_level: 0.95
   alpha: 0.05
   clean_noninferiority_margin: 0.05
+  clean_noninferiority_decision: lower_95pct_task_bootstrap_ci_at_least_minus_0_05
   multiple_comparison_control: holm
 
 stage_gates:
@@ -127,12 +128,14 @@ claim_boundary:
 
 implementation:
   controller: scripts/run_v5_5_full.py
+  natural_raw_generator: scripts/generate_v5_5_natural_raw.py
   natural_pair_builder_and_auditor: scripts/prepare_v5_5_natural_pairs.py
   five_arm_data_builder: scripts/prepare_v5_5_full_sft.py
   trainer: scripts/train_v5_sft_causal.py
   checkpoint_registry_builder: scripts/build_v5_5_checkpoint_registry.py
   end_to_end_evaluator: scripts/run_v5_5_end_to_end_eval.py
   task_cluster_summarizer: scripts/summarize_v5_5_results.py
+  confirmation_freeze_builder: scripts/build_v5_5_confirmation_freeze.py
   trainer_arm_mapping:
     r0_perfect: perfect_success
     r25: repair_25
@@ -154,4 +157,5 @@ implementation:
   validation_parallel_shards: 3
   user_judge_gpu_count: 1
   official_test_entrypoint_implemented: false
-  official_test_entrypoint_absence_is_intentional: true
+  official_test_entrypoint_absence_is_intentional_until_human_approval: true
+  official_test_requires_confirmation_freeze: true

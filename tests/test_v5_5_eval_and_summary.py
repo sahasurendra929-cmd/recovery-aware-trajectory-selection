@@ -186,6 +186,7 @@ def test_grid_audit_and_task_cluster_summary():
     assert result["comparisons"]["repair_50"]["error_delta_vs_r0"] == 0.5
     assert result["selection"]["selected_arm"] == "repair_50"
     assert result["selection"]["positive_screen"] is True
+    assert result["comparisons"]["repair_50"]["clean_noninferior_ci95"] is True
     assert len(table) == 2
 
     rows.pop()

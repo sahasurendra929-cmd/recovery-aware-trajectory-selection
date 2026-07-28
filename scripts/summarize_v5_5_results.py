@@ -140,7 +140,7 @@ def audit_grid(
         if row["condition"] == "error" and (
             row.get("injected_fault_count") != 1
             or row.get("injected_fault_observed_as_error") is not True
-            or row.get("fault_scope") not in {"in_family", "out_of_family"}
+            or row.get("fault_scope") not in {"in_family", "heldout_tool_family"}
         ):
             raise RuntimeError(f"incomplete controlled-error evidence at {key}")
     missing = expected - observed
@@ -263,6 +263,17 @@ def summarize(
     table: list[dict[str, Any]] = []
     for arm in arms:
         clean = task_means(rows, arm=arm, condition="clean")
+        clean_rows = [
+            row for row in rows
+            if row["arm"] == arm and row["condition"] == "clean"
+        ]
+        natural_error_tasks: dict[str, bool] = {}
+        for row in clean_rows:
+            identity = f"{row['domain']}:{row['task_id']}"
+            natural_error_tasks[identity] = (
+                natural_error_tasks.get(identity, False)
+                or int(row.get("tool_errors") or 0) > 0
+            )
         error = task_means(
             rows,
             arm=arm,
@@ -273,7 +284,7 @@ def summarize(
             rows,
             arm=arm,
             condition="error",
-            fault_scope="out_of_family",
+            fault_scope="heldout_tool_family",
         )
         _, clean_delta = paired_values(clean, control_clean)
         _, error_delta = paired_values(error, control_error)
@@ -282,10 +293,17 @@ def summarize(
             "dose": ARM_DOSE[arm],
             "clean_tasks": len(clean),
             "clean_success": mean(list(clean.values())),
+            "natural_agent_error_run_rate_diagnostic": (
+                sum(int(row.get("tool_errors") or 0) > 0 for row in clean_rows)
+                / len(clean_rows)
+            ),
+            "natural_agent_error_task_rate_diagnostic": (
+                sum(natural_error_tasks.values()) / len(natural_error_tasks)
+            ),
             "controlled_error_in_family_tasks": len(error),
             "controlled_error_in_family_success": mean(list(error.values())),
-            "controlled_error_out_of_family_tasks": len(out_error),
-            "controlled_error_out_of_family_success": (
+            "controlled_error_heldout_tool_family_tasks": len(out_error),
+            "controlled_error_heldout_tool_family_success": (
                 mean(list(out_error.values())) if out_error else None
             ),
             "clean_delta_vs_r0": mean(clean_delta),
@@ -303,6 +321,10 @@ def summarize(
         }
         result["clean_noninferior_point_estimate"] = (
             result["clean_delta_vs_r0"] >= -full.CLEAN_NONINFERIORITY_MARGIN
+        )
+        result["clean_noninferior_ci95"] = (
+            result["clean_delta_ci95"][0]
+            >= -full.CLEAN_NONINFERIORITY_MARGIN
         )
         if arm != CONTROL_ARM:
             raw_p[arm] = sign_flip_pvalue(
@@ -325,7 +347,7 @@ def summarize(
         arm
         for arm in arms
         if arm != CONTROL_ARM
-        and comparisons[arm]["clean_noninferior_point_estimate"]
+        and comparisons[arm]["clean_noninferior_ci95"]
     ]
     selected = (
         max(
@@ -351,7 +373,8 @@ def summarize(
         "selected_paper_arm": TRAINER_ARMS[selected] if selected else None,
         "rule": (
             "maximize in-family error success after the frozen 5-point clean "
-            "non-inferiority filter; ties choose the lower recovery dose"
+            "non-inferiority 95% task-bootstrap-CI filter; ties choose the "
+            "lower recovery dose"
         ),
         "positive_screen": (
             selected is not None
@@ -374,8 +397,8 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "clean_success",
         "controlled_error_in_family_tasks",
         "controlled_error_in_family_success",
-        "controlled_error_out_of_family_tasks",
-        "controlled_error_out_of_family_success",
+        "controlled_error_heldout_tool_family_tasks",
+        "controlled_error_heldout_tool_family_success",
         "clean_delta_vs_r0",
         "clean_delta_ci95",
         "error_delta_vs_r0",

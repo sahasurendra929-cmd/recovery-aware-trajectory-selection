@@ -71,11 +71,25 @@ For the full natural study, first construct and independently audit natural
 pairs:
 
 ```bash
+"$SERVE_PY" scripts/generate_v5_5_natural_raw.py \
+  --tau2-root "$TAU2" \
+  --split-manifest artifacts/v5_stage0/manifests/split_manifest.json \
+  --generation-manifest /workspace/v5_5_protocol/generation_manifest.json \
+  --dynamic-audit /workspace/v5_5_protocol/generation_audit.json \
+  --output-dir /workspace/natural_raw \
+  --teacher-model Qwen/Qwen2.5-32B-Instruct-AWQ \
+  --teacher-revision 5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c \
+  --teacher-api-base http://127.0.0.1:8010/v1 \
+  --user-model Qwen/Qwen2.5-14B-Instruct-AWQ \
+  --user-revision 539535859b135b0244c91f3e59816150c8056698 \
+  --user-api-base http://127.0.0.1:8001/v1 \
+  --source-commit "$V55_COMMIT"
+
 "$SERVE_PY" scripts/prepare_v5_5_natural_pairs.py build \
   --tau2-root "$TAU2" \
   --split-manifest artifacts/v5_stage0/manifests/split_manifest.json \
-  --input retail=/workspace/natural_raw/retail.json \
-  --input airline=/workspace/natural_raw/airline.json \
+  --input retail=/workspace/natural_raw/retail_clean.json \
+  --input airline=/workspace/natural_raw/airline_clean.json \
   --output-dir /workspace/v5_5_natural
 
 "$SERVE_PY" scripts/prepare_v5_5_natural_pairs.py audit \
@@ -104,6 +118,10 @@ Only after that audit passes:
 The controller is fail-closed and does not resume into or overwrite a
 non-empty phase directory. Re-run only the failed phase after archiving its
 partial directory.
+
+On RTX PRO 4500 Blackwell the controller forces vLLM V0 and eager execution;
+this is the runtime that completed the V5.4 AWQ endpoints without the observed
+first-token V1 hang.
 
 ## Stage B — reference-grounded mechanism screen
 
@@ -198,7 +216,7 @@ For every checkpoint, evaluate:
 - all 21 validation task IDs;
 - clean;
 - controlled in-family error;
-- controlled out-of-family error;
+- controlled held-out-tool-family error;
 - all three frozen evaluation seeds.
 
 Store one terminal row per:
@@ -220,6 +238,12 @@ Before opening the official test, commit:
 - error schedules;
 - evaluation seeds;
 - primary and secondary estimands.
+
+Create the immutable pre-access artifact with
+`scripts/build_v5_5_confirmation_freeze.py`.  It fails unless the natural
+30-task/60-pair target and positive validation screen are both present.  The
+freeze still requires explicit human approval; it does not itself read any
+official-test task or result.
 
 Then evaluate only R0 and \(r^\*\) on all 60 sealed tasks. Do not retrain,
 change prompts or choose another checkpoint after any test result is visible.
