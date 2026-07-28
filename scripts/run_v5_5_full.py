@@ -713,7 +713,7 @@ def evaluation_batch_complete(
         ):
             return False
         if (
-            contract.get("status") != "PASS"
+            contract.get("status") != "COMPLETE"
             or contract.get("evaluation_source_commit")
             != evaluation_source_commit
             or contract.get("official_test_used") is not False

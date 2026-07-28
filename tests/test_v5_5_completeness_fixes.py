@@ -148,7 +148,11 @@ def test_completed_evaluation_batch_requires_audited_outputs(tmp_path: Path):
         _write(output / "metrics.json", {**common, "rows": 14})
         _write(
             output / "run_contract.json",
-            {**common, "evaluation_source_commit": source_commit},
+            {
+                **common,
+                "status": "COMPLETE",
+                "evaluation_source_commit": source_commit,
+            },
         )
         for domain in ("retail", "airline"):
             for condition in ("clean", "error"):
@@ -170,6 +174,16 @@ def test_completed_evaluation_batch_requires_audited_outputs(tmp_path: Path):
         "training_seed": 20260805,
         "evaluation_seed": 20260817,
     }
+    assert controller.evaluation_batch_complete(outputs, **kwargs)
+
+    contract = json.loads(
+        (outputs[0] / "run_contract.json").read_text(encoding="utf-8")
+    )
+    contract["status"] = "PASS"
+    _write(outputs[0] / "run_contract.json", contract)
+    assert not controller.evaluation_batch_complete(outputs, **kwargs)
+    contract["status"] = "COMPLETE"
+    _write(outputs[0] / "run_contract.json", contract)
     assert controller.evaluation_batch_complete(outputs, **kwargs)
 
     (outputs[1] / "rows.jsonl").write_text("", encoding="utf-8")
