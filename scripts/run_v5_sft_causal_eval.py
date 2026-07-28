@@ -1730,6 +1730,56 @@ def normalize_tool_only_message(message: Any) -> Any:
     return message
 
 
+def _is_context_window_error(exc: BaseException) -> bool:
+    """Recognize provider context errors without pinning a LiteLLM class."""
+
+    names = {cls.__name__ for cls in type(exc).__mro__}
+    text = str(exc)
+    return (
+        "ContextWindowExceededError" in names
+        or "ContextWindowExceededError" in text
+        or (
+            "maximum context length" in text
+            and "input tokens" in text
+        )
+    )
+
+
+def _message_audit_payload(message: Any) -> Any:
+    if hasattr(message, "model_dump"):
+        return message.model_dump(mode="json")
+    if hasattr(message, "dict"):
+        return message.dict()
+    return repr(message)
+
+
+def compact_oldest_complete_turn(messages: list[Any]) -> dict[str, Any]:
+    """Drop one oldest complete turn while retaining a user-led suffix."""
+
+    boundary = next(
+        (
+            index
+            for index, candidate in enumerate(messages[1:], start=1)
+            if getattr(candidate, "role", None) == "user"
+        ),
+        None,
+    )
+    if boundary is None:
+        raise RuntimeError(
+            "Cannot compact context without a second user-turn boundary"
+        )
+    removed = messages[:boundary]
+    del messages[:boundary]
+    return {
+        "strategy": "drop_oldest_complete_turn",
+        "removed_messages": len(removed),
+        "removed_sha256": [
+            _sha256_canonical_payload(_message_audit_payload(item))
+            for item in removed
+        ],
+    }
+
+
 def register_fault_agent() -> None:
     from tau2.agent.llm_agent import LLMAgent
     from tau2.data_model.message import AssistantMessage, ToolCall, UserMessage
@@ -1737,9 +1787,22 @@ def register_fault_agent() -> None:
 
     class Stage1SingleToolAgent(LLMAgent):
         def _generate_next_message(self, message, state):
-            return normalize_tool_only_message(
-                super()._generate_next_message(message, state)
-            )
+            history_length = len(state.messages)
+            try:
+                generated = super()._generate_next_message(message, state)
+            except Exception as exc:
+                if not _is_context_window_error(exc):
+                    raise
+                # LLMAgent appends the current input before calling the
+                # provider. Undo only that mutation, compact one old complete
+                # turn, then let LLMAgent append the current input once.
+                del state.messages[history_length:]
+                audit = compact_oldest_complete_turn(state.messages)
+                generated = super()._generate_next_message(message, state)
+                raw_data = dict(getattr(generated, "raw_data", None) or {})
+                raw_data["v5_context_compaction"] = audit
+                generated.raw_data = raw_data
+            return normalize_tool_only_message(generated)
 
     class Stage1FaultAgent(Stage1SingleToolAgent):
         def __init__(self, tools, domain_policy, task, llm, llm_args):

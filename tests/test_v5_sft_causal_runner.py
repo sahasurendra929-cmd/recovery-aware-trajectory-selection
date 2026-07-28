@@ -511,6 +511,46 @@ class V5SFTCausalRunnerTests(unittest.TestCase):
                     max_tokens=512,
                 )
 
+    def test_context_overflow_compacts_one_complete_oldest_turn(self):
+        messages = [
+            SimpleNamespace(role="user", content="old request"),
+            SimpleNamespace(role="assistant", content="old response"),
+            SimpleNamespace(role="tool", content="old tool result"),
+            SimpleNamespace(role="user", content="new request"),
+            SimpleNamespace(role="assistant", content="new response"),
+        ]
+        audit = MODULE.compact_oldest_complete_turn(messages)
+        self.assertEqual(
+            [(message.role, message.content) for message in messages],
+            [
+                ("user", "new request"),
+                ("assistant", "new response"),
+            ],
+        )
+        self.assertEqual(audit["strategy"], "drop_oldest_complete_turn")
+        self.assertEqual(audit["removed_messages"], 3)
+        self.assertEqual(len(audit["removed_sha256"]), 3)
+        for digest in audit["removed_sha256"]:
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+
+    def test_context_compaction_fails_closed_without_safe_boundary(self):
+        messages = [
+            SimpleNamespace(role="user", content="only request"),
+            SimpleNamespace(role="assistant", content="only response"),
+        ]
+        with self.assertRaisesRegex(RuntimeError, "second user-turn boundary"):
+            MODULE.compact_oldest_complete_turn(messages)
+        self.assertEqual(len(messages), 2)
+        self.assertTrue(
+            MODULE._is_context_window_error(
+                RuntimeError(
+                    "maximum context length is 32768 tokens; "
+                    "request has 33002 input tokens"
+                )
+            )
+        )
+        self.assertFalse(MODULE._is_context_window_error(RuntimeError("other")))
+
     def test_result_interface_rejects_unserialized_or_mixed_tool_actions(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "retail_clean.json"
