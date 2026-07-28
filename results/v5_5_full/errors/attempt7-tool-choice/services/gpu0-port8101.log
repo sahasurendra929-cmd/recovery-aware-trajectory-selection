@@ -1,0 +1,117 @@
+INFO 07-28 09:21:06 [__init__.py:216] Automatically detected platform cuda.
+WARNING 07-28 09:22:26 [__init__.py:1758] argument '--disable-log-requests' is deprecated and replaced with '--enable-log-requests'. This will be removed in v0.12.0.
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:22:26 [api_server.py:1896] vLLM API server version 0.10.2
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:22:26 [utils.py:328] non-default args: {'host': '127.0.0.1', 'port': 8101, 'lora_modules': [LoRAModulePath(name='v55-r0_perfect-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/perfect_success/20260805/checkpoint_final', base_model_name=None), LoRAModulePath(name='v55-r50-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_50/20260805/checkpoint_final', base_model_name=None), LoRAModulePath(name='v55-r100_recovery-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_100/20260805/checkpoint_final', base_model_name=None)], 'model': 'Qwen/Qwen2.5-7B-Instruct', 'revision': 'a09a35458c702b33eeacc393d103063234e8bc28', 'max_model_len': 32768, 'enforce_eager': True, 'served_model_name': ['v55-base'], 'generation_config': 'vllm', 'enable_lora': True, 'max_cpu_loras': 3}
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:26:08 [__init__.py:742] Resolved architecture: Qwen2ForCausalLM
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:26:08 [__init__.py:1815] Using max model len 32768
+[1;36m(APIServer pid=24880)[0;0m WARNING 07-28 09:26:32 [lora.py:92] `lora_extra_vocab_size` is deprecated and will be removed in v0.12.0. Additional vocabulary support for LoRA adapters is being phased out.
+[1;36m(APIServer pid=24880)[0;0m WARNING 07-28 09:26:33 [cuda.py:103] To see benefits of async output processing, enable CUDA graph. Since, enforce-eager is enabled, async output processor cannot be used
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:26:33 [__init__.py:3400] Cudagraph is disabled under eager mode
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:26:33 [api_server.py:296] Started engine process with PID 26783
+INFO 07-28 09:29:42 [__init__.py:216] Automatically detected platform cuda.
+INFO 07-28 09:30:43 [llm_engine.py:221] Initializing a V0 LLM engine (v0.10.2) with config: model='Qwen/Qwen2.5-7B-Instruct', speculative_config=None, tokenizer='Qwen/Qwen2.5-7B-Instruct', skip_tokenizer_init=False, tokenizer_mode=auto, revision=a09a35458c702b33eeacc393d103063234e8bc28, tokenizer_revision=a09a35458c702b33eeacc393d103063234e8bc28, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=32768, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=True, kv_cache_dtype=auto, device_config=cuda, decoding_config=DecodingConfig(backend='auto', disable_fallback=False, disable_any_whitespace=False, disable_additional_properties=False, reasoning_backend=''), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None), seed=None, served_model_name=v55-base, enable_prefix_caching=None, chunked_prefill_enabled=False, use_async_output_proc=False, pooler_config=None, compilation_config={"level":0,"debug_dump_path":"","cache_dir":"","backend":"","custom_ops":[],"splitting_ops":null,"use_inductor":true,"compile_sizes":[],"inductor_compile_config":{"enable_auto_functionalized_v2":false},"inductor_passes":{},"cudagraph_mode":0,"use_cudagraph":true,"cudagraph_num_of_warmups":0,"cudagraph_capture_sizes":[],"cudagraph_copy_inputs":false,"full_cuda_graph":false,"pass_config":{},"max_capture_size":0,"local_cache_dir":null}, use_cached_outputs=True, 
+INFO 07-28 09:31:17 [cuda.py:456] Using Flash Attention backend.
+[W728 09:31:18.165817770 ProcessGroupNCCL.cpp:981] Warning: TORCH_NCCL_AVOID_RECORD_STREAMS is the default now, this environment variable is thus deprecated. (function operator())
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+INFO 07-28 09:31:18 [parallel_state.py:1165] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, TP rank 0, EP rank 0
+INFO 07-28 09:31:18 [model_runner.py:1051] Starting to load model Qwen/Qwen2.5-7B-Instruct...
+INFO 07-28 09:31:19 [weight_utils.py:348] Using model weights format ['*.safetensors']
+INFO 07-28 09:31:20 [weight_utils.py:369] Time spent downloading weights for Qwen/Qwen2.5-7B-Instruct: 0.742459 seconds
+Loading safetensors checkpoint shards:   0% Completed | 0/4 [00:00<?, ?it/s]
+Loading safetensors checkpoint shards:  25% Completed | 1/4 [00:50<02:31, 50.45s/it]
+Loading safetensors checkpoint shards:  50% Completed | 2/4 [01:35<01:35, 47.57s/it]
+Loading safetensors checkpoint shards:  75% Completed | 3/4 [02:28<00:50, 50.01s/it]
+Loading safetensors checkpoint shards: 100% Completed | 4/4 [03:27<00:00, 53.29s/it]
+Loading safetensors checkpoint shards: 100% Completed | 4/4 [03:27<00:00, 51.89s/it]
+
+INFO 07-28 09:34:48 [default_loader.py:268] Loading weights took 207.68 seconds
+INFO 07-28 09:35:03 [punica_selector.py:19] Using PunicaWrapperGPU.
+INFO 07-28 09:35:04 [model_runner.py:1083] Model loading took 14.3257 GiB and 225.053081 seconds
+INFO 07-28 09:35:41 [worker.py:290] Memory profiling takes 36.83 seconds
+INFO 07-28 09:35:41 [worker.py:290] the current vLLM instance can use total_gpu_memory (31.37GiB) x gpu_memory_utilization (0.90) = 28.23GiB
+INFO 07-28 09:35:41 [worker.py:290] model weights take 14.33GiB; non_torch_memory takes 0.05GiB; PyTorch activation peak memory takes 4.35GiB; the rest of the memory reserved for KV Cache is 9.50GiB.
+INFO 07-28 09:35:41 [executor_base.py:114] # cuda blocks: 11122, # CPU blocks: 4681
+INFO 07-28 09:35:41 [executor_base.py:119] Maximum concurrency for 32768 tokens per request: 5.43x
+INFO 07-28 09:35:46 [worker.py:467] Free memory on device (31.12/31.37 GiB) on startup. Desired GPU memory utilization is (0.9, 28.23 GiB). Actual usage is 14.33 GiB for weight, 4.35 GiB for peak activation, 0.05 GiB for non-torch memory, and 0.0 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=10047503974` to fit into requested memory, or `--kv-cache-memory=13140023296` to fully utilize gpu memory. Current kv cache memory in use is 10204790374 bytes.
+INFO 07-28 09:35:46 [llm_engine.py:420] init engine (profile, create kv cache, warmup model) took 42.14 seconds
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:12 [api_server.py:1692] Supported_tasks: ['generate']
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:22 [serving_models.py:162] Loaded new LoRA adapter: name 'v55-r0_perfect-seed-20260805', path '/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/perfect_success/20260805/checkpoint_final'
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:32 [serving_models.py:162] Loaded new LoRA adapter: name 'v55-r50-seed-20260805', path '/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_50/20260805/checkpoint_final'
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:42 [serving_models.py:162] Loaded new LoRA adapter: name 'v55-r100_recovery-seed-20260805', path '/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_100/20260805/checkpoint_final'
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:42 [api_server.py:1971] Starting vLLM API server 0 on http://127.0.0.1:8101
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:42 [launcher.py:36] Available routes are:
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:42 [launcher.py:44] Route: /openapi.json, Methods: HEAD, GET
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:42 [launcher.py:44] Route: /docs, Methods: HEAD, GET
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:42 [launcher.py:44] Route: /docs/oauth2-redirect, Methods: HEAD, GET
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:42 [launcher.py:44] Route: /redoc, Methods: HEAD, GET
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:36:42 [launcher.py:44] Route: /metrics, Methods: GET
+[1;36m(APIServer pid=24880)[0;0m INFO:     Started server process [24880]
+[1;36m(APIServer pid=24880)[0;0m INFO:     Waiting for application startup.
+[1;36m(APIServer pid=24880)[0;0m INFO:     Application startup complete.
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:42484 - "GET /v1/models HTTP/1.1" 200 OK
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:34890 - "GET /v1/models HTTP/1.1" 200 OK
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:43528 - "GET /health HTTP/1.1" 200 OK
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:60134 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:60134 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:60134 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:60134 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:50802 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:59190 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:59190 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:59190 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:59190 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:59190 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:59190 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:59190 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:59190 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:41348 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:41348 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:41348 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m INFO:     127.0.0.1:41348 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+[1;36m(APIServer pid=24880)[0;0m WARNING 07-28 09:42:25 [launcher.py:98] port 8101 is used by process psutil.Process(pid=24880, name='python-v55serve', status='running') launched with command:
+[1;36m(APIServer pid=24880)[0;0m WARNING 07-28 09:42:25 [launcher.py:98] /workspace/venvs/v5_4_4500/bin/python-v55serve -m vllm.entrypoints.openai.api_server --model Qwen/Qwen2.5-7B-Instruct --revision a09a35458c702b33eeacc393d103063234e8bc28 --served-model-name v55-base --enable-lora --lora-modules v55-r0_perfect-seed-20260805=/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/perfect_success/20260805/checkpoint_final v55-r50-seed-20260805=/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_50/20260805/checkpoint_final v55-r100_recovery-seed-20260805=/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_100/20260805/checkpoint_final --max-loras 1 --max-cpu-loras 3 --max-lora-rank 16 --port 8101 --host 127.0.0.1 --max-model-len 32768 --gpu-memory-utilization 0.90 --generation-config vllm --enforce-eager --disable-log-requests
+[1;36m(APIServer pid=24880)[0;0m INFO 07-28 09:42:25 [launcher.py:101] Shutting down FastAPI HTTP server.
+Exception ignored in atexit callback: <function shutdown at 0x7129eb9f1da0>
+Traceback (most recent call last):
+  File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/ray/_private/client_mode_hook.py", line 110, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/ray/_private/worker.py", line 1170, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/ray/_private/worker.py", line 2105, in shutdown
+    from ray.dag.compiled_dag_node import _shutdown_all_compiled_dags
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1322, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1262, in _find_spec
+  File "<frozen importlib._bootstrap_external>", line 1528, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 1502, in _get_spec
+  File "<frozen importlib._bootstrap_external>", line 1601, in find_spec
+  File "<frozen importlib._bootstrap_external>", line 147, in _path_stat
+  File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/engine/multiprocessing/engine.py", line 446, in signal_handler
+    raise KeyboardInterrupt("MQLLMEngine terminated")
+KeyboardInterrupt: MQLLMEngine terminated
+[rank0]:[W728 09:42:26.676116023 ProcessGroupNCCL.cpp:1538] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[1;36m(APIServer pid=24880)[0;0m INFO:     Shutting down
+[1;36m(APIServer pid=24880)[0;0m INFO:     Waiting for application shutdown.
+[1;36m(APIServer pid=24880)[0;0m INFO:     Application shutdown complete.

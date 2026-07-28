@@ -1,0 +1,39 @@
+INFO 07-28 07:50:21 [__init__.py:216] Automatically detected platform cuda.
+WARNING 07-28 07:52:11 [__init__.py:1758] argument '--disable-log-requests' is deprecated and replaced with '--enable-log-requests'. This will be removed in v0.12.0.
+[1;36m(APIServer pid=15162)[0;0m INFO 07-28 07:52:11 [api_server.py:1896] vLLM API server version 0.10.2
+[1;36m(APIServer pid=15162)[0;0m INFO 07-28 07:52:11 [utils.py:328] non-default args: {'host': '127.0.0.1', 'port': 8201, 'model': 'Qwen/Qwen2.5-14B-Instruct-AWQ', 'revision': '539535859b135b0244c91f3e59816150c8056698', 'max_model_len': 32768, 'enforce_eager': True, 'served_model_name': ['v55-user-judge'], 'generation_config': 'vllm', 'gpu_memory_utilization': 0.92}
+[1;36m(APIServer pid=15162)[0;0m INFO 07-28 07:55:08 [__init__.py:742] Resolved architecture: Qwen2ForCausalLM
+[1;36m(APIServer pid=15162)[0;0m INFO 07-28 07:55:08 [__init__.py:1815] Using max model len 32768
+[1;36m(APIServer pid=15162)[0;0m WARNING 07-28 07:55:18 [_ipex_ops.py:16] Import error msg: No module named 'intel_extension_for_pytorch'
+[1;36m(APIServer pid=15162)[0;0m INFO 07-28 07:55:19 [awq_marlin.py:117] The model is convertible to awq_marlin during runtime. Using awq_marlin kernel.
+[1;36m(APIServer pid=15162)[0;0m WARNING 07-28 07:55:30 [cuda.py:103] To see benefits of async output processing, enable CUDA graph. Since, enforce-eager is enabled, async output processor cannot be used
+[1;36m(APIServer pid=15162)[0;0m INFO 07-28 07:55:33 [__init__.py:3400] Cudagraph is disabled under eager mode
+[1;36m(APIServer pid=15162)[0;0m INFO 07-28 07:55:33 [api_server.py:296] Started engine process with PID 17089
+INFO 07-28 08:00:33 [__init__.py:216] Automatically detected platform cuda.
+[1;36m(APIServer pid=15162)[0;0m Traceback (most recent call last):
+[1;36m(APIServer pid=15162)[0;0m   File "<frozen runpy>", line 198, in _run_module_as_main
+[1;36m(APIServer pid=15162)[0;0m   File "<frozen runpy>", line 88, in _run_code
+[1;36m(APIServer pid=15162)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 2011, in <module>
+[1;36m(APIServer pid=15162)[0;0m     uvloop.run(run_server(args))
+[1;36m(APIServer pid=15162)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+[1;36m(APIServer pid=15162)[0;0m     return __asyncio.run(
+[1;36m(APIServer pid=15162)[0;0m            ^^^^^^^^^^^^^^
+[1;36m(APIServer pid=15162)[0;0m   File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+[1;36m(APIServer pid=15162)[0;0m     return runner.run(main)
+[1;36m(APIServer pid=15162)[0;0m            ^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=15162)[0;0m   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+[1;36m(APIServer pid=15162)[0;0m     return self._loop.run_until_complete(task)
+[1;36m(APIServer pid=15162)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/loop.pyx", line 1512, in uvloop.loop.Loop.run_until_complete
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/loop.pyx", line 1505, in uvloop.loop.Loop.run_until_complete
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/loop.pyx", line 1379, in uvloop.loop.Loop.run_forever
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/loop.pyx", line 557, in uvloop.loop.Loop._run
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/handles/poll.pyx", line 216, in uvloop.loop.__on_uvpoll_event
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/cbhandles.pyx", line 83, in uvloop.loop.Handle._run
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/cbhandles.pyx", line 66, in uvloop.loop.Handle._run
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/loop.pyx", line 399, in uvloop.loop.Loop._read_from_self
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/loop.pyx", line 404, in uvloop.loop.Loop._invoke_signals
+[1;36m(APIServer pid=15162)[0;0m   File "uvloop/loop.pyx", line 379, in uvloop.loop.Loop._ceval_process_signals
+[1;36m(APIServer pid=15162)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 1919, in signal_handler
+[1;36m(APIServer pid=15162)[0;0m     raise KeyboardInterrupt("terminated")
+[1;36m(APIServer pid=15162)[0;0m KeyboardInterrupt: terminated

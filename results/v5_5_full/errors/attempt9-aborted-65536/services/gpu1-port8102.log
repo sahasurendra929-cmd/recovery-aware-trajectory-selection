@@ -1,0 +1,87 @@
+INFO 07-28 12:20:15 [__init__.py:216] Automatically detected platform cuda.
+WARNING 07-28 12:22:42 [__init__.py:1758] argument '--disable-log-requests' is deprecated and replaced with '--enable-log-requests'. This will be removed in v0.12.0.
+[1;36m(APIServer pid=37024)[0;0m INFO 07-28 12:22:42 [api_server.py:1896] vLLM API server version 0.10.2
+[1;36m(APIServer pid=37024)[0;0m INFO 07-28 12:22:42 [utils.py:328] non-default args: {'host': '127.0.0.1', 'port': 8102, 'lora_modules': [LoRAModulePath(name='v55-r0_perfect-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/perfect_success/20260805/checkpoint_final', base_model_name=None), LoRAModulePath(name='v55-r50-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_50/20260805/checkpoint_final', base_model_name=None), LoRAModulePath(name='v55-r100_recovery-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_100/20260805/checkpoint_final', base_model_name=None)], 'enable_auto_tool_choice': True, 'tool_call_parser': 'hermes', 'model': 'Qwen/Qwen2.5-7B-Instruct', 'revision': 'a09a35458c702b33eeacc393d103063234e8bc28', 'max_model_len': 65536, 'enforce_eager': True, 'served_model_name': ['v55-base'], 'generation_config': 'vllm', 'enable_lora': True, 'max_cpu_loras': 3}
+[1;36m(APIServer pid=37024)[0;0m Traceback (most recent call last):
+[1;36m(APIServer pid=37024)[0;0m   File "<frozen runpy>", line 198, in _run_module_as_main
+[1;36m(APIServer pid=37024)[0;0m   File "<frozen runpy>", line 88, in _run_code
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 2011, in <module>
+[1;36m(APIServer pid=37024)[0;0m     uvloop.run(run_server(args))
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+[1;36m(APIServer pid=37024)[0;0m     return __asyncio.run(
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+[1;36m(APIServer pid=37024)[0;0m     return runner.run(main)
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+[1;36m(APIServer pid=37024)[0;0m     return self._loop.run_until_complete(task)
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "uvloop/loop.pyx", line 1512, in uvloop.loop.Loop.run_until_complete
+[1;36m(APIServer pid=37024)[0;0m   File "uvloop/loop.pyx", line 1505, in uvloop.loop.Loop.run_until_complete
+[1;36m(APIServer pid=37024)[0;0m   File "uvloop/loop.pyx", line 1379, in uvloop.loop.Loop.run_forever
+[1;36m(APIServer pid=37024)[0;0m   File "uvloop/loop.pyx", line 557, in uvloop.loop.Loop._run
+[1;36m(APIServer pid=37024)[0;0m   File "uvloop/loop.pyx", line 476, in uvloop.loop.Loop._on_idle
+[1;36m(APIServer pid=37024)[0;0m   File "uvloop/cbhandles.pyx", line 83, in uvloop.loop.Handle._run
+[1;36m(APIServer pid=37024)[0;0m   File "uvloop/cbhandles.pyx", line 61, in uvloop.loop.Handle._run
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+[1;36m(APIServer pid=37024)[0;0m     return await main
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 1941, in run_server
+[1;36m(APIServer pid=37024)[0;0m     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 1961, in run_server_worker
+[1;36m(APIServer pid=37024)[0;0m     async with build_async_engine_client(
+[1;36m(APIServer pid=37024)[0;0m   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+[1;36m(APIServer pid=37024)[0;0m     return await anext(self.gen)
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 179, in build_async_engine_client
+[1;36m(APIServer pid=37024)[0;0m     async with build_async_engine_client_from_engine_args(
+[1;36m(APIServer pid=37024)[0;0m   File "/usr/lib/python3.12/contextlib.py", line 210, in __aenter__
+[1;36m(APIServer pid=37024)[0;0m     return await anext(self.gen)
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 205, in build_async_engine_client_from_engine_args
+[1;36m(APIServer pid=37024)[0;0m     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+[1;36m(APIServer pid=37024)[0;0m                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 1119, in create_engine_config
+[1;36m(APIServer pid=37024)[0;0m     model_config = self.create_model_config()
+[1;36m(APIServer pid=37024)[0;0m                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 963, in create_model_config
+[1;36m(APIServer pid=37024)[0;0m     return ModelConfig(
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+[1;36m(APIServer pid=37024)[0;0m     s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/config/__init__.py", line 648, in __post_init__
+[1;36m(APIServer pid=37024)[0;0m     is_generative_model = registry.is_text_generation_model(
+[1;36m(APIServer pid=37024)[0;0m                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/model_executor/models/registry.py", line 737, in is_text_generation_model
+[1;36m(APIServer pid=37024)[0;0m     model_cls, _ = self.inspect_model_cls(architectures, model_config)
+[1;36m(APIServer pid=37024)[0;0m                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/model_executor/models/registry.py", line 663, in inspect_model_cls
+[1;36m(APIServer pid=37024)[0;0m     model_info = self._try_inspect_model_cls(normalized_arch)
+[1;36m(APIServer pid=37024)[0;0m                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/model_executor/models/registry.py", line 537, in _try_inspect_model_cls
+[1;36m(APIServer pid=37024)[0;0m     return _try_inspect_model_cls(model_arch, self.models[model_arch])
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/model_executor/models/registry.py", line 447, in _try_inspect_model_cls
+[1;36m(APIServer pid=37024)[0;0m     return model.inspect_model_cls()
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/model_executor/models/registry.py", line 418, in inspect_model_cls
+[1;36m(APIServer pid=37024)[0;0m     return _run_in_subprocess(
+[1;36m(APIServer pid=37024)[0;0m            ^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/model_executor/models/registry.py", line 861, in _run_in_subprocess
+[1;36m(APIServer pid=37024)[0;0m     returned = subprocess.run(_SUBPROCESS_COMMAND,
+[1;36m(APIServer pid=37024)[0;0m                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/usr/lib/python3.12/subprocess.py", line 550, in run
+[1;36m(APIServer pid=37024)[0;0m     stdout, stderr = process.communicate(input, timeout=timeout)
+[1;36m(APIServer pid=37024)[0;0m                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/usr/lib/python3.12/subprocess.py", line 1209, in communicate
+[1;36m(APIServer pid=37024)[0;0m     stdout, stderr = self._communicate(input, endtime, timeout)
+[1;36m(APIServer pid=37024)[0;0m                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/usr/lib/python3.12/subprocess.py", line 2115, in _communicate
+[1;36m(APIServer pid=37024)[0;0m     ready = selector.select(timeout)
+[1;36m(APIServer pid=37024)[0;0m             ^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/usr/lib/python3.12/selectors.py", line 415, in select
+[1;36m(APIServer pid=37024)[0;0m     fd_event_list = self._selector.poll(timeout)
+[1;36m(APIServer pid=37024)[0;0m                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=37024)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 1919, in signal_handler
+[1;36m(APIServer pid=37024)[0;0m     raise KeyboardInterrupt("terminated")
+[1;36m(APIServer pid=37024)[0;0m KeyboardInterrupt: terminated

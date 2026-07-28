@@ -1,0 +1,126 @@
+{
+  "protocol": "v5_stage1_message_masked_sft_7b",
+  "source_commit": "c2266386f7f580a07f9f5f9aeffea3e38ea88347",
+  "arm": "repair_100",
+  "mode": "formal",
+  "objective": "message_masked_causal_language_model_cross_entropy",
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "model_revision": "a09a35458c702b33eeacc393d103063234e8bc28",
+  "quantization": {
+    "bits": 4,
+    "type": "nf4",
+    "double_quant": true,
+    "compute_dtype": "bfloat16"
+  },
+  "lora": {
+    "r": 16,
+    "alpha": 32,
+    "dropout": 0.0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ]
+  },
+  "seed": 20260805,
+  "max_sequence_tokens": 10240,
+  "truncation": false,
+  "formal_steps": 64,
+  "formal_batch_size": 1,
+  "formal_grad_accum": 8,
+  "effective_steps": 64,
+  "effective_grad_accum": 8,
+  "learning_rate": 0.0001,
+  "train_file": "/workspace/repos/recovery-aware-trajectory-selection-v55/data/processed/v5_5_full/arms/repair_100/train.jsonl",
+  "train_file_sha256": "22368cf93804c458860b0e373f191d2794f252e33c0daea933aeb24dc7b795f7",
+  "validation_file": "/workspace/repos/recovery-aware-trajectory-selection-v55/data/processed/v5_5_full/validation_loss.jsonl",
+  "validation_file_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "data_provenance": {
+    "data_audit_path": "/workspace/repos/recovery-aware-trajectory-selection-v55/data/processed/v5_5_full/audit.json",
+    "data_audit_sha256": "c404e43847d39489ca7261d9da8d3744fb6fd9d284e2751dd006ea8012b79ee9",
+    "data_hashes_path": "/workspace/repos/recovery-aware-trajectory-selection-v55/data/processed/v5_5_full/hashes.json",
+    "data_hashes_sha256": "901312546105316a7bb95eec90a7a2e39ff9d4c55d6602e90e5afcb6070e05f5",
+    "train_file_sha256": "22368cf93804c458860b0e373f191d2794f252e33c0daea933aeb24dc7b795f7",
+    "validation_file_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "dynamic_audits": {},
+    "design_version": "5.5-full",
+    "design_provenance": {
+      "design_version": "5.5-full",
+      "design_protocol": "v5_5_full_recovery_dose_response_v1",
+      "data_protocol": "v5_5_full_sft_data_v1",
+      "pair_mode": "reference",
+      "scientific_claim_level": "diagnostic_only",
+      "source_pairs": 48,
+      "source_tasks": 24,
+      "schedule_rows_per_arm": 512,
+      "training_mixture_basis": "supervised_token_mass",
+      "failed_action_positive_labels": 0,
+      "official_test_used": false,
+      "official_test_sealed": true
+    },
+    "official_test_used": false,
+    "official_test_sealed": true
+  },
+  "formal_schedule": {
+    "rows": 512,
+    "nonpad_tokens": 3743832,
+    "supervised_tokens": 73248,
+    "recovery_rows": 512,
+    "recovery_supervised_tokens": 73248,
+    "realized_recovery_supervised_token_ratio": 1.0,
+    "expected_recovery_supervised_token_ratio": 1.0,
+    "realized_recovery_row_ratio": 1.0,
+    "expected_recovery_row_ratio": null,
+    "recovery_mixture_basis": "supervised_token_mass",
+    "failed_action_context_messages": 512,
+    "failed_action_label_messages": 0,
+    "failed_action_label_tokens": 0,
+    "max_sequence_tokens": 10200,
+    "max_supervised_tokens": 361
+  },
+  "fit_partition": {
+    "train_source_examples": 48,
+    "validation_loss_source_examples": 0,
+    "overlap": 0,
+    "validation_disabled_reason": "fixed_steps_v5_5"
+  },
+  "effective_rows": 512,
+  "effective_validation_rows": 0,
+  "loss_audit": {
+    "finite": true,
+    "numeric_values_checked": 333,
+    "loss_values_checked": 66,
+    "grad_norm_values_checked": 64,
+    "validation_loss_values_checked": 0,
+    "final_train_loss": 0.03198537068419682,
+    "final_validation_loss": null
+  },
+  "held_out_test_accessed": false,
+  "checkpoint": {
+    "path": "/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_100/20260805/checkpoint_final",
+    "fingerprint": "c5bea467e1857eb2d8788560a88b816abc12f46233094b702ec5639a82b7e518",
+    "file_sha256": {
+      "adapter_config.json": "59d4b8a9634899395fcdd80525af4ab8f3b977d25c47059ca51fd7b097b47bb8",
+      "adapter_model.safetensors": "67ef584f09431f8c55d1e84da64a61a36c223f0fe5e7fff5b7eddc11d513d0db"
+    }
+  },
+  "environment": {
+    "python": "3.12.3 (main, Aug 14 2025, 17:47:21) [GCC 13.3.0]",
+    "platform": "Linux-6.8.0-101-generic-x86_64-with-glibc2.39",
+    "torch": "2.7.1+cu128",
+    "transformers": "4.52.4",
+    "cuda_runtime": "12.8",
+    "gpu": "NVIDIA RTX PRO 4500 Blackwell",
+    "gpu_memory_bytes": 33685569536,
+    "bf16": true,
+    "deterministic_algorithms_enabled": true,
+    "cublas_workspace_config": ":4096:8",
+    "peak_cuda_allocated_bytes": 20082537984,
+    "peak_cuda_reserved_bytes": 33023852544
+  },
+  "validation_disabled_reason": "fixed_steps_v5_5"
+}

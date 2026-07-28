@@ -1,0 +1,39 @@
+INFO 07-28 07:50:19 [__init__.py:216] Automatically detected platform cuda.
+WARNING 07-28 07:52:11 [__init__.py:1758] argument '--disable-log-requests' is deprecated and replaced with '--enable-log-requests'. This will be removed in v0.12.0.
+[1;36m(APIServer pid=15161)[0;0m INFO 07-28 07:52:11 [api_server.py:1896] vLLM API server version 0.10.2
+[1;36m(APIServer pid=15161)[0;0m INFO 07-28 07:52:11 [utils.py:328] non-default args: {'host': '127.0.0.1', 'port': 8103, 'lora_modules': [LoRAModulePath(name='v55-r0_perfect-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/perfect_success/20260805/checkpoint_final', base_model_name=None), LoRAModulePath(name='v55-r50-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_50/20260805/checkpoint_final', base_model_name=None), LoRAModulePath(name='v55-r100_recovery-seed-20260805', path='/workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/training/repair_100/20260805/checkpoint_final', base_model_name=None)], 'model': 'Qwen/Qwen2.5-7B-Instruct', 'revision': 'a09a35458c702b33eeacc393d103063234e8bc28', 'max_model_len': 32768, 'enforce_eager': True, 'served_model_name': ['v55-base'], 'generation_config': 'vllm', 'enable_lora': True, 'max_cpu_loras': 3}
+[1;36m(APIServer pid=15161)[0;0m INFO 07-28 07:55:08 [__init__.py:742] Resolved architecture: Qwen2ForCausalLM
+[1;36m(APIServer pid=15161)[0;0m INFO 07-28 07:55:08 [__init__.py:1815] Using max model len 32768
+[1;36m(APIServer pid=15161)[0;0m WARNING 07-28 07:55:16 [lora.py:92] `lora_extra_vocab_size` is deprecated and will be removed in v0.12.0. Additional vocabulary support for LoRA adapters is being phased out.
+[1;36m(APIServer pid=15161)[0;0m WARNING 07-28 07:55:16 [cuda.py:103] To see benefits of async output processing, enable CUDA graph. Since, enforce-eager is enabled, async output processor cannot be used
+[1;36m(APIServer pid=15161)[0;0m INFO 07-28 07:55:16 [__init__.py:3400] Cudagraph is disabled under eager mode
+[1;36m(APIServer pid=15161)[0;0m INFO 07-28 07:55:16 [api_server.py:296] Started engine process with PID 16891
+INFO 07-28 08:00:29 [__init__.py:216] Automatically detected platform cuda.
+INFO 07-28 08:01:25 [llm_engine.py:221] Initializing a V0 LLM engine (v0.10.2) with config: model='Qwen/Qwen2.5-7B-Instruct', speculative_config=None, tokenizer='Qwen/Qwen2.5-7B-Instruct', skip_tokenizer_init=False, tokenizer_mode=auto, revision=a09a35458c702b33eeacc393d103063234e8bc28, tokenizer_revision=a09a35458c702b33eeacc393d103063234e8bc28, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=32768, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=True, kv_cache_dtype=auto, device_config=cuda, decoding_config=DecodingConfig(backend='auto', disable_fallback=False, disable_any_whitespace=False, disable_additional_properties=False, reasoning_backend=''), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None), seed=None, served_model_name=v55-base, enable_prefix_caching=None, chunked_prefill_enabled=False, use_async_output_proc=False, pooler_config=None, compilation_config={"level":0,"debug_dump_path":"","cache_dir":"","backend":"","custom_ops":[],"splitting_ops":null,"use_inductor":true,"compile_sizes":[],"inductor_compile_config":{"enable_auto_functionalized_v2":false},"inductor_passes":{},"cudagraph_mode":0,"use_cudagraph":true,"cudagraph_num_of_warmups":0,"cudagraph_capture_sizes":[],"cudagraph_copy_inputs":false,"full_cuda_graph":false,"pass_config":{},"max_capture_size":0,"local_cache_dir":null}, use_cached_outputs=True, 
+[1;36m(APIServer pid=15161)[0;0m Traceback (most recent call last):
+[1;36m(APIServer pid=15161)[0;0m   File "<frozen runpy>", line 198, in _run_module_as_main
+[1;36m(APIServer pid=15161)[0;0m   File "<frozen runpy>", line 88, in _run_code
+[1;36m(APIServer pid=15161)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 2011, in <module>
+[1;36m(APIServer pid=15161)[0;0m     uvloop.run(run_server(args))
+[1;36m(APIServer pid=15161)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+[1;36m(APIServer pid=15161)[0;0m     return __asyncio.run(
+[1;36m(APIServer pid=15161)[0;0m            ^^^^^^^^^^^^^^
+[1;36m(APIServer pid=15161)[0;0m   File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+[1;36m(APIServer pid=15161)[0;0m     return runner.run(main)
+[1;36m(APIServer pid=15161)[0;0m            ^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=15161)[0;0m   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+[1;36m(APIServer pid=15161)[0;0m     return self._loop.run_until_complete(task)
+[1;36m(APIServer pid=15161)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/loop.pyx", line 1512, in uvloop.loop.Loop.run_until_complete
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/loop.pyx", line 1505, in uvloop.loop.Loop.run_until_complete
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/loop.pyx", line 1379, in uvloop.loop.Loop.run_forever
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/loop.pyx", line 557, in uvloop.loop.Loop._run
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/handles/poll.pyx", line 216, in uvloop.loop.__on_uvpoll_event
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/cbhandles.pyx", line 83, in uvloop.loop.Handle._run
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/cbhandles.pyx", line 66, in uvloop.loop.Handle._run
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/loop.pyx", line 399, in uvloop.loop.Loop._read_from_self
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/loop.pyx", line 404, in uvloop.loop.Loop._invoke_signals
+[1;36m(APIServer pid=15161)[0;0m   File "uvloop/loop.pyx", line 379, in uvloop.loop.Loop._ceval_process_signals
+[1;36m(APIServer pid=15161)[0;0m   File "/workspace/venvs/v5_4_4500/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 1919, in signal_handler
+[1;36m(APIServer pid=15161)[0;0m     raise KeyboardInterrupt("terminated")
+[1;36m(APIServer pid=15161)[0;0m KeyboardInterrupt: terminated
