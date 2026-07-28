@@ -1,0 +1,17 @@
+{"event": "PHASE_START", "phase": "train-smoke"}
+{"event": "TRAIN_START", "gpu": 0, "arm": "perfect_success", "seed": 20260805, "pid": 5707}
+{"event": "TRAIN_START", "gpu": 1, "arm": "repair_50", "seed": 20260805, "pid": 5708}
+{"event": "TRAIN_START", "gpu": 2, "arm": "repair_100", "seed": 20260805, "pid": 5709}
+Traceback (most recent call last):
+  File "/workspace/repos/recovery-aware-trajectory-selection-v55/scripts/run_v5_5_full.py", line 879, in <module>
+    main()
+  File "/workspace/repos/recovery-aware-trajectory-selection-v55/scripts/run_v5_5_full.py", line 864, in main
+    handlers[phase](args)
+  File "/workspace/repos/recovery-aware-trajectory-selection-v55/scripts/run_v5_5_full.py", line 856, in <lambda>
+    "train-smoke": lambda value: phase_train(value, smoke=True),
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/repos/recovery-aware-trajectory-selection-v55/scripts/run_v5_5_full.py", line 369, in phase_train
+    run_gpu_queue(
+  File "/workspace/repos/recovery-aware-trajectory-selection-v55/scripts/run_v5_5_full.py", line 321, in run_gpu_queue
+    raise RuntimeError(
+RuntimeError: perfect_success/20260805 failed with exit 1; see /workspace/repos/recovery-aware-trajectory-selection-v55/results/v5_5_full/smoke/perfect_success/20260805.console.log
