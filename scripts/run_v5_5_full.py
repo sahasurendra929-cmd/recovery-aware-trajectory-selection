@@ -32,6 +32,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+USER_JUDGE_PORT = 8201
+
 try:
     import v5_5_full_protocol as full
     from build_v5_5_checkpoint_registry import TRAINER_ARMS
@@ -514,7 +516,7 @@ def start_services(
         (0, 8101, False),
         (1, 8102, False),
         (2, 8103, False),
-        (3, 8001, True),
+        (3, USER_JUDGE_PORT, True),
     ]
     try:
         for gpu, port, user_judge in specifications:
@@ -625,7 +627,7 @@ def evaluation_command(
         "--agent-api-base",
         f"http://127.0.0.1:{8101 + shard}/v1",
         "--user-api-base",
-        "http://127.0.0.1:8001/v1",
+        f"http://127.0.0.1:{USER_JUDGE_PORT}/v1",
         "--output-dir",
         str(output),
         "--condition",

@@ -67,6 +67,28 @@ def test_blackwell_service_commands_force_vllm_eager():
         assert "--enforce-eager" in command
 
 
+def test_user_judge_port_avoids_managed_container_endpoint(tmp_path: Path):
+    args = SimpleNamespace(
+        results_root=tmp_path,
+        serve_python=Path("python"),
+        tau2_root=tmp_path / "tau2",
+        split_manifest=tmp_path / "split.json",
+        validation_manifest=tmp_path / "validation.json",
+        protocol_audit=tmp_path / "audit.json",
+        registry=tmp_path / "registry.json",
+    )
+    command, _ = controller.evaluation_command(
+        args,
+        arm="perfect_success",
+        training_seed=20260805,
+        evaluation_seed=20260805,
+        shard=0,
+    )
+    endpoint = command[command.index("--user-api-base") + 1]
+    assert controller.USER_JUDGE_PORT == 8201
+    assert endpoint == "http://127.0.0.1:8201/v1"
+
+
 def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
 
