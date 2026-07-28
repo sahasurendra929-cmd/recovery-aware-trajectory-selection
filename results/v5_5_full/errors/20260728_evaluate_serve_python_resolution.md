@@ -158,3 +158,22 @@ parsing required by Tau2. Recovery is to add
 user/judge Qwen 2.5 services, cover both command variants with a regression
 test, preserve retry 7 outputs, and rerun only after the controller has
 finished its normal service cleanup.
+
+## Retry 8: repair_50 evaluation exceeded the serving context limit
+
+The first five reference-screen batches completed, and the sixth batch reached
+`repair_50 / 20260817`. Shards 0 and 2 completed, but shard 1 task 95 failed
+twice after a long fault-condition trajectory:
+
+```text
+litellm.ContextWindowExceededError: This model's maximum context length is
+32768 tokens. However, your request has 33002 input tokens.
+```
+
+The failed simulation consequently had no messages and was rejected by the
+strict result-interface audit. The service command explicitly caps Qwen 2.5 at
+32768 tokens even though the observed protocol trajectory can exceed that
+limit. Recovery must preserve the frozen task, seed, max-step policy, and
+messages, increase the serving context capacity with a regression test, retain
+all completed batches, and rerun evaluation without regenerating data or
+training.
