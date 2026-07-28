@@ -34,7 +34,6 @@ from urllib.request import Request, urlopen
 
 USER_JUDGE_PORT = 8201
 SERVICE_READY_TIMEOUT_SECONDS = 1800.0
-SERVICE_MAX_MODEL_LEN = 65536
 
 try:
     import v5_5_full_protocol as full
@@ -459,7 +458,7 @@ def service_command(
             "--host",
             "127.0.0.1",
             "--max-model-len",
-            str(SERVICE_MAX_MODEL_LEN),
+            "32768",
             "--gpu-memory-utilization",
             "0.92",
             "--generation-config",
@@ -498,7 +497,7 @@ def service_command(
         "--host",
         "127.0.0.1",
         "--max-model-len",
-        str(SERVICE_MAX_MODEL_LEN),
+        "32768",
         "--gpu-memory-utilization",
         "0.90",
         "--generation-config",
