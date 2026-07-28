@@ -124,3 +124,17 @@ deterministic missing-input failure until after the expensive service startup.
 Recovery is to run the repository's frozen Stage-1 manifest builder against
 the sealed split inputs, verify its audit and hashes, and add an early
 controller input-existence check so future runs fail before starting vLLM.
+
+## Retry 6: required training interpreter omitted from controller invocation
+
+The Stage-1 artifacts and fail-fast regression tests passed, but the controller
+exited during argument parsing before starting any service:
+
+```text
+run_v5_5_full.py: error: the following arguments are required: --train-python
+```
+
+This is an invocation error, not a service or GPU failure. The exact recovery
+is to resubmit the unchanged evaluation command with
+`--train-python /root/v55-train/bin/python-v55`; no service restart is needed
+because retry 6 never launched a service.
