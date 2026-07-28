@@ -33,6 +33,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 USER_JUDGE_PORT = 8201
+SERVICE_READY_TIMEOUT_SECONDS = 1800.0
 
 try:
     import v5_5_full_protocol as full
@@ -483,7 +484,11 @@ def service_command(
     ]
 
 
-def wait_service(port: int, *, timeout: float = 900.0) -> list[str]:
+def wait_service(
+    port: int,
+    *,
+    timeout: float = SERVICE_READY_TIMEOUT_SECONDS,
+) -> list[str]:
     deadline = time.monotonic() + timeout
     url = f"http://127.0.0.1:{port}/v1/models"
     last_error = ""

@@ -89,6 +89,10 @@ def test_user_judge_port_avoids_managed_container_endpoint(tmp_path: Path):
     assert endpoint == "http://127.0.0.1:8201/v1"
 
 
+def test_service_readiness_allows_shared_storage_cold_start():
+    assert controller.SERVICE_READY_TIMEOUT_SECONDS == 1800.0
+
+
 def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
 

@@ -66,3 +66,21 @@ has ample capacity. Recovery is to preserve and relocate the model/compiler
 caches under `/workspace`, then restart with `HF_HOME` and
 `TRITON_CACHE_DIR` explicitly set there. No model or result data will be
 deleted.
+
+## Retry 3: service readiness timeout too short for shared storage
+
+After cache relocation, all four API servers and all four engine subprocesses
+started correctly. The three 7B engines reached V0 engine initialization and
+the 14B engine detected CUDA. At exactly the controller's 900-second readiness
+deadline, port 8101 had not started listening yet, so the controller raised:
+
+```text
+RuntimeError: service 8101 did not become ready: <urlopen error [Errno 111] Connection refused>
+```
+
+The controller then intentionally sent SIGTERM to every service; the trailing
+`KeyboardInterrupt: terminated` messages are cleanup effects, not independent
+engine failures. Startup is slow because Python modules and model cache live on
+the shared `/workspace` filesystem. Recovery is to increase the fail-closed
+readiness allowance from 900 to 1800 seconds while retaining the same health
+probe and all sealed experiment inputs.
