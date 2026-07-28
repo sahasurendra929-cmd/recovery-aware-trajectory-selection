@@ -384,6 +384,7 @@ def main() -> None:
     parser.add_argument("--validation-manifest", type=Path, required=True)
     parser.add_argument("--protocol-audit", type=Path, required=True)
     parser.add_argument("--checkpoint-registry", type=Path, required=True)
+    parser.add_argument("--evaluation-source-commit", required=True)
     parser.add_argument("--arm", choices=sorted(TRAINER_ARMS), required=True)
     parser.add_argument("--training-seed", type=int, required=True)
     parser.add_argument(
@@ -414,8 +415,11 @@ def main() -> None:
         arm=args.arm,
         training_seed=args.training_seed,
     )
-    if git_commit() != registry["source_commit"]:
-        raise RuntimeError("local source commit differs from checkpoint registry")
+    evaluation_source_commit = git_commit()
+    if evaluation_source_commit != args.evaluation_source_commit:
+        raise RuntimeError(
+            "local source commit differs from frozen evaluation source"
+        )
     legacy.require_clean_tracked_source()
     split_path = args.split_manifest.resolve()
     validation_path = args.validation_manifest.resolve()
@@ -463,6 +467,7 @@ def main() -> None:
         "status": "INCOMPLETE",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_commit": registry["source_commit"],
+        "evaluation_source_commit": evaluation_source_commit,
         "registry_path": str(registry_path),
         "registry_sha256": sha256_file(registry_path),
         "checkpoint_entry": entry,

@@ -76,6 +76,7 @@ def test_user_judge_port_avoids_managed_container_endpoint(tmp_path: Path):
         validation_manifest=tmp_path / "validation.json",
         protocol_audit=tmp_path / "audit.json",
         registry=tmp_path / "registry.json",
+        source_commit="f" * 40,
     )
     command, _ = controller.evaluation_command(
         args,
@@ -85,8 +86,12 @@ def test_user_judge_port_avoids_managed_container_endpoint(tmp_path: Path):
         shard=0,
     )
     endpoint = command[command.index("--user-api-base") + 1]
+    evaluation_source = command[
+        command.index("--evaluation-source-commit") + 1
+    ]
     assert controller.USER_JUDGE_PORT == 8201
     assert endpoint == "http://127.0.0.1:8201/v1"
+    assert evaluation_source == args.source_commit
 
 
 def test_service_readiness_allows_shared_storage_cold_start():

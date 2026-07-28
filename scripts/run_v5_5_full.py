@@ -623,6 +623,8 @@ def evaluation_command(
         str(args.protocol_audit),
         "--checkpoint-registry",
         str(args.registry),
+        "--evaluation-source-commit",
+        args.source_commit,
         "--arm",
         arm,
         "--training-seed",
