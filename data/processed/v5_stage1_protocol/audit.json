@@ -1,0 +1,92 @@
+{
+  "status": "PASS",
+  "protocol": "v5_multifamily_readonly_faults_v1",
+  "claim_scope": "multi_fault_family_post_fault_robustness_screen",
+  "family_level_inference": "descriptive_only",
+  "historical_split_sha256": "a9fa1d0bec1f9eca500b63745ee7d405b4fc168a6f56b54806f6dea5fa67524a",
+  "official_test_used": false,
+  "invalid_parameter_count": 104,
+  "invalid_parameters_unique": true,
+  "generation": {
+    "retail": {
+      "tasks": 59,
+      "fault_family_counts": {
+        "retail_missing_order_id": 15,
+        "retail_missing_product_id": 15,
+        "retail_missing_user_email": 15,
+        "retail_missing_user_id": 14
+      },
+      "tool_counts": {
+        "find_user_id_by_email": 15,
+        "get_order_details": 15,
+        "get_product_details": 15,
+        "get_user_details": 14
+      },
+      "on_reference_path": 22,
+      "fault_relevance_counts": {
+        "domain_plausible_fallback": 1,
+        "reference_path_or_operation_aligned": 58
+      }
+    },
+    "airline": {
+      "tasks": 24,
+      "fault_family_counts": {
+        "airline_missing_flight_number": 8,
+        "airline_missing_reservation_id": 8,
+        "airline_missing_user_id": 8
+      },
+      "tool_counts": {
+        "get_flight_status": 8,
+        "get_reservation_details": 8,
+        "get_user_details": 8
+      },
+      "on_reference_path": 10,
+      "fault_relevance_counts": {
+        "domain_plausible_fallback": 4,
+        "reference_path_or_operation_aligned": 20
+      }
+    }
+  },
+  "validation": {
+    "retail": {
+      "tasks": 15,
+      "fault_family_counts": {
+        "retail_missing_order_id": 3,
+        "retail_missing_product_id": 4,
+        "retail_missing_user_email": 4,
+        "retail_missing_user_id": 4
+      },
+      "tool_counts": {
+        "find_user_id_by_email": 4,
+        "get_order_details": 3,
+        "get_product_details": 4,
+        "get_user_details": 4
+      },
+      "on_reference_path": 5,
+      "fault_relevance_counts": {
+        "domain_plausible_fallback": 2,
+        "reference_path_or_operation_aligned": 13
+      }
+    },
+    "airline": {
+      "tasks": 6,
+      "fault_family_counts": {
+        "airline_missing_flight_number": 1,
+        "airline_missing_reservation_id": 2,
+        "airline_missing_user_id": 3
+      },
+      "tool_counts": {
+        "get_flight_status": 1,
+        "get_reservation_details": 2,
+        "get_user_details": 3
+      },
+      "on_reference_path": 4,
+      "fault_relevance_counts": {
+        "domain_plausible_fallback": 1,
+        "reference_path_or_operation_aligned": 5
+      }
+    }
+  },
+  "generation_manifest_sha256": "ee3be56623655badd8f1a43b3e219d8676d5342aa4f098e6fb5f66bc9ce14370",
+  "validation_manifest_sha256": "eb5a1b12cd0fb39c90641c0962c7eb7949cd580ecef78593a56785692d8b5116"
+}
