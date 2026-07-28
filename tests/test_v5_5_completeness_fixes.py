@@ -7,7 +7,13 @@ from types import SimpleNamespace
 from scripts import build_v5_5_confirmation_freeze as freeze
 from scripts import prepare_v5_5_natural_pairs as natural
 from scripts import run_v5_5_full as controller
+from scripts import train_v5_sft_causal as trainer
 from scripts import v5_5_protocol as pair_protocol
+
+
+def test_v5_5_context_capacity_covers_frozen_reference_rows():
+    assert trainer.MAX_SEQUENCE_TOKENS == 8192
+    assert trainer.V5_5_MAX_SEQUENCE_TOKENS == 10240
 
 
 def test_manifest_source_check_rejects_supervised_suffix_tampering():

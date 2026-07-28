@@ -35,6 +35,7 @@ except ModuleNotFoundError:
 MODEL = "Qwen/Qwen2.5-7B-Instruct"
 SEED = 20260722
 MAX_SEQUENCE_TOKENS = 8192
+V5_5_MAX_SEQUENCE_TOKENS = 10240
 FORMAL_STEPS = 64
 FORMAL_BATCH_SIZE = 1
 FORMAL_GRAD_ACCUM = 8
@@ -2010,11 +2011,17 @@ def main() -> None:
         raise RuntimeError("tokenizer has no usable pad token")
     tokenizer.padding_side = "right"
 
+    effective_max_sequence_tokens = (
+        V5_5_MAX_SEQUENCE_TOKENS
+        if data_provenance.get("design_version") == V5_5_DESIGN_VERSION
+        else MAX_SEQUENCE_TOKENS
+    )
     formal_encoded = encode_rows(
         tokenizer,
         train_rows,
         arm=args.arm,
         split="train",
+        max_seq_len=effective_max_sequence_tokens,
     )
     validation_encoded = (
         []
@@ -2024,6 +2031,7 @@ def main() -> None:
             validation_rows,
             arm=None,
             split="validation",
+            max_seq_len=effective_max_sequence_tokens,
         )
     )
     formal_arm_audit = arm_audit(
@@ -2286,7 +2294,7 @@ def main() -> None:
             ],
         },
         "seed": effective_seed,
-        "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+        "max_sequence_tokens": effective_max_sequence_tokens,
         "truncation": False,
         "formal_steps": FORMAL_STEPS,
         "formal_batch_size": FORMAL_BATCH_SIZE,
