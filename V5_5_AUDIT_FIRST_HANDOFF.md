@@ -163,6 +163,8 @@ The primary outcome is held-out end-to-end task success. Controlled recovery
 success, repeated-error rate, clean success and cost are secondary. The
 training adapter and end-to-end evaluator must be released as a separate
 frozen commit because the current V5.5 release is the data-construction gate.
+The complete preregistered continuation is documented in
+`V5_5_FULL_EXPERIMENT_PLAN.md`.
 
 ## Expected duration
 

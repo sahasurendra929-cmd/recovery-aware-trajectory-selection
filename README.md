@@ -83,6 +83,9 @@ validation. It does not claim an end-to-end agent improvement yet.
   24 tasks / 48 pairs. An independent environment replay must verify every
   error, correction and final database hash before training is authorized.
   See [`V5_5_AUDIT_FIRST_HANDOFF.md`](V5_5_AUDIT_FIRST_HANDOFF.md).
+  The complete natural-conversation dose-response and sealed-test design is
+  frozen in
+  [`V5_5_FULL_EXPERIMENT_PLAN.md`](V5_5_FULL_EXPERIMENT_PLAN.md).
 
 Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples

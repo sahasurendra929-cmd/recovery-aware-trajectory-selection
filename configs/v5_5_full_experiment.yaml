@@ -1,0 +1,126 @@
+protocol: v5_5_full_recovery_dose_response_v1
+design_version: 5.5-full
+research_question: >-
+  Under matched supervised-token and compute budgets, what fraction of
+  masked-failure recovery trajectories maximizes post-error end-to-end task
+  success without materially reducing clean task success?
+
+benchmark:
+  name: tau2
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  domains: [airline, retail]
+  inner_train_tasks: 83
+  derived_validation_tasks: 21
+  sealed_official_test_tasks: 60
+
+data:
+  reference_grounded_pilot:
+    protocol: v5_5_reference_grounded_counterfactual_recovery_v1
+    tasks: 24
+    pairs: 48
+    use: mechanism_and_pipeline_screen_only
+    natural_dialogue_claim: false
+  paper_training_pool:
+    source: successful_natural_tau2_conversations_with_counterfactual_branch
+    teacher: ground_truth_guided_strong_agent
+    shared_prefix_required: true
+    clean_future_hidden_from_recovery_generator: true
+    actual_tool_error_required: true
+    end_to_end_success_required: true
+    minimum_distinct_tasks_for_training: 24
+    minimum_pairs_for_training: 48
+    paper_target_distinct_tasks: 30
+    paper_target_pairs: 60
+    maximum_pairs_per_task: 2
+    official_test_used: false
+  label_policy:
+    failed_call: context_only
+    failed_tool_result: context_only
+    post_error_successful_assistant_actions: supervised
+    failed_action_positive_labels: 0
+
+models:
+  primary: Qwen/Qwen2.5-7B-Instruct
+  replication: Qwen/Qwen2.5-14B-Instruct
+  method: QLoRA SFT
+  dpo_ppo_trpo_eto_in_v5_5: false
+
+arms:
+  r0_perfect: {recovery_supervised_token_ratio: 0.00}
+  r25: {recovery_supervised_token_ratio: 0.25}
+  r50: {recovery_supervised_token_ratio: 0.50}
+  r75: {recovery_supervised_token_ratio: 0.75}
+  r100_recovery: {recovery_supervised_token_ratio: 1.00}
+
+budget_matching:
+  basis: supervised_token_mass
+  same_task_pool: true
+  same_total_supervised_tokens: true
+  same_optimizer_steps: true
+  same_nonpadding_token_tolerance: 0.01
+  same_learning_rate_and_lora_config: true
+  training_seeds: [20260805, 20260806, 20260807]
+
+evaluation:
+  development_split: derived_validation
+  development_tasks: 21
+  final_split: sealed_official_test
+  final_tasks: 60
+  evaluation_seeds: [20260815, 20260816, 20260817]
+  conditions:
+    - clean
+    - controlled_error_in_family
+    - controlled_error_out_of_family
+    - natural_agent_errors_diagnostic
+  primary_metric: tau2_end_to_end_task_success
+  secondary_metrics:
+    - recovery_success_given_error
+    - repeated_same_error_rate
+    - clean_task_success
+    - invalid_tool_call_rate
+    - tool_calls_per_success
+    - wall_time_and_gpu_hours
+
+statistics:
+  independent_unit: task_id
+  paired_comparison: true
+  cluster_bootstrap_replicates: 10000
+  confidence_level: 0.95
+  alpha: 0.05
+  clean_noninferiority_margin: 0.05
+  multiple_comparison_control: holm
+
+stage_gates:
+  reference_mechanism_screen:
+    arms: [r0_perfect, r50, r100_recovery]
+    training_seeds: 1
+    split: derived_validation
+    may_run_before_natural_pool: true
+    claim_level: diagnostic_only
+  natural_screen:
+    arms: [r0_perfect, r50, r100_recovery]
+    training_seeds: 1
+    minimum_natural_tasks: 24
+    minimum_natural_pairs: 48
+    positive_signal: >-
+      r50 or r100 recovery success exceeds r0 and r50 clean success is no
+      worse than r0 by more than 5 percentage points
+  dose_response:
+    arms: [r0_perfect, r25, r50, r75, r100_recovery]
+    training_seeds: 3
+    split: derived_validation
+  confirmation:
+    compare: [validation_selected_arm, r0_perfect]
+    split: sealed_official_test
+    test_access: once_after_selection_and_freeze
+    minimum_natural_tasks: 30
+    minimum_natural_pairs: 60
+  replication:
+    model: Qwen/Qwen2.5-14B-Instruct
+    arms: [r0_perfect, validation_selected_arm]
+    required_for_initial_course_result: false
+
+claim_boundary:
+  reference_grounded_screen_is_not_paper_confirmation: true
+  controlled_error_result_does_not_imply_natural_error_recovery: true
+  final_claim_requires_sealed_test_task_success: true
