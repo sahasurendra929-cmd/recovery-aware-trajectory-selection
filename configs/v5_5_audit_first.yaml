@@ -1,0 +1,52 @@
+protocol: v5_5_reference_grounded_counterfactual_recovery_v1
+design_version: "5.5"
+benchmark:
+  name: tau2
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  domains: [airline, retail]
+  split_manifest: data/processed/v5_stage0/split_manifest.json
+  official_test_used_for_construction: false
+selection:
+  seed: 20260805
+  structurally_eligible_tasks_expected: 45
+  executable_eligible_tasks_expected: 36
+  executable_domain_counts_expected:
+    airline: 12
+    retail: 24
+  registered_tasks: 24
+  minimum_tasks_per_domain: 6
+  pairs_per_task: 2
+  target_pairs: 48
+  eligibility: reference_action_has_unambiguous_read_only_identifier_lookup
+counterfactual:
+  error_type: schema_valid_nonexistent_identifier_typo
+  injection_count: 1
+  failed_call_is_context_only: true
+  failed_tool_result_is_context_only: true
+  supervision: complete_reference_action_suffix_after_actual_tool_error
+  clean_future_present_in_recovery_prompt: false
+audit_gate:
+  minimum_fully_paired_tasks: 16
+  minimum_audited_pairs: 32
+  minimum_domains: 2
+  actual_tool_error_required: true
+  correct_lookup_success_required: true
+  clean_and_recovery_end_state_match_required: true
+  zero_pair_audit_failures: true
+claim_boundary:
+  reference_actions_are_natural_dialogue: false
+  pass_authorizes_training_comparison_only: true
+  end_to_end_improvement_claim_requires_held_out_evaluation: true
+training_plan:
+  model: Qwen2.5-7B-Instruct
+  method: QLoRA SFT
+  arms:
+    - perfect_reference
+    - recovery_reference
+    - perfect_recovery_50_50
+  primary_metric: held_out_end_to_end_task_success
+  secondary_metrics:
+    - controlled_error_recovery_success
+    - repeated_error_rate
+    - clean_task_success
+    - pair_yield_per_gpu_hour

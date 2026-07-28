@@ -71,6 +71,18 @@ validation. It does not claim an end-to-end agent improvement yet.
   tolerance-aware four-arm matching, checkpoint provenance, full end-to-end
   result coverage, and recomputed summaries. See
   [`V5_3_SINGLE_HOST_HANDOFF.md`](V5_3_SINGLE_HOST_HANDOFF.md).
+- **v5.4 (completed data-feasibility pilot, no training):** replaces two
+  independent clean/error rollouts with a counterfactual branch from a shared
+  clean prefix. It produced 22 audited pairs over 13 tasks in two domains, but
+  stopped one task below the frozen 14-task coverage gate. The official test
+  was not used and training was not authorized.
+- **v5.5 (audit-first data release):** structurally screens the pinned
+  inner-train split for reference-grounded read-only identifier lookups, then
+  executes every reference path and two controlled mutations before task
+  registration. The pinned screen leaves 36 executable candidates and freezes
+  24 tasks / 48 pairs. An independent environment replay must verify every
+  error, correction and final database hash before training is authorized.
+  See [`V5_5_AUDIT_FIRST_HANDOFF.md`](V5_5_AUDIT_FIRST_HANDOFF.md).
 
 Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples
@@ -82,7 +94,7 @@ generation evaluator, while adding objective-aligned outcome annotations.
 In the first τ-bench historical-retail pilot, recovery enrichment changed the
 model's action prior but did **not** improve offline repair-call exact match.
 Distribution constraints reduced the overall damage but still produced no
-recovery gain. V4 therefore tests the narrower mechanism suggested by the
+recovery gain. V4 therefore tested the narrower mechanism suggested by the
 error analysis: failed calls should not remain positive SFT labels, and an
 observed successful repair should be preferred to replaying the failed call in
 the same post-error context.
@@ -97,7 +109,13 @@ training pool with the frozen generation stack. It does not establish whether
 post-fault supervision helps or harms. V5.2 exposed further implementation and
 attainability risks. V5.3 is the current preregistered continuation; it has not
 yet produced a positive scientific result, and formal generation is prohibited
-unless its train-only pilot returns `GO_FORMAL_GENERATION`.
+unless its train-only pilot returns `GO_FORMAL_GENERATION`. V5.4 subsequently
+showed that shared-prefix counterfactual branching materially improves pair
+yield, but missed its task-coverage gate by one. V5.5 is the audit-first
+continuation: it has passed a local 48-pair construction and independent
+environment-replay integration test, but this is still data evidence rather
+than a model-quality result. The next scientific result requires the frozen
+three-arm SFT comparison and held-out end-to-end task-success evaluation.
 
 ## Repository map
 
