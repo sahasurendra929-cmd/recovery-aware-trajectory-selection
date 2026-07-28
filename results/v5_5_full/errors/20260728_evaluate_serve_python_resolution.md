@@ -31,3 +31,21 @@ interpreter does not contain the vLLM environment.
    executable path. No data, checkpoint, registry, seed, or evaluation task
    selection will change.
 
+## Retry 1: fixed port collision
+
+After the serving interpreter fix, all four processes imported vLLM and
+detected CUDA. The user/judge process then failed before loading weights:
+
+```text
+OSError: [Errno 98] Address already in use
+```
+
+The container's managed nginx master process owns `0.0.0.0:8001`. It is part
+of the host runtime and must not be terminated. The V5.5 controller currently
+hard-codes `8001` both in its GPU 3 service specification and user/judge API
+endpoint.
+
+Recovery: change both controller references to the unused loopback port
+`8201`, add a regression assertion covering the service/endpoint mapping, and
+rerun the unchanged evaluation design. This alters orchestration only; model,
+revision, checkpoint, task, seed, and claim level remain unchanged.
