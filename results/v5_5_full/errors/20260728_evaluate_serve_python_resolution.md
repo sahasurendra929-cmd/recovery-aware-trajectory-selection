@@ -84,3 +84,25 @@ engine failures. Startup is slow because Python modules and model cache live on
 the shared `/workspace` filesystem. Recovery is to increase the fail-closed
 readiness allowance from 900 to 1800 seconds while retaining the same health
 probe and all sealed experiment inputs.
+
+## Retry 4: training-source and evaluation-source commit conflation
+
+All four services became healthy and the controller submitted the first three
+evaluation shards. Every shard failed before making an API request with:
+
+```text
+RuntimeError: local source commit differs from checkpoint registry
+```
+
+The checkpoint registry correctly records `c2266386...`, the source used to
+train and hash the registered adapters. Infrastructure fixes required for this
+host (serving interpreter, managed port, and readiness allowance) advanced the
+result branch to `42dffd4a...`. The evaluation runner currently requires the
+working-tree HEAD to equal the training registry's source commit, conflating
+two distinct provenance facts and making any audited post-training
+orchestration fix impossible.
+
+Recovery must retain the immutable training-source value and checkpoint/run
+manifest hashes while recording and validating the evaluation-source commit
+separately. The change must fail closed for uncommitted source changes and be
+covered by a regression test; it must not relax checkpoint identity checks.
