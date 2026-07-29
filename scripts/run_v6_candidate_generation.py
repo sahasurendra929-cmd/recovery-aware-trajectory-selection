@@ -64,6 +64,7 @@ CLEAN_AGENT_MODES = (
     "standard",
     "reference_guided",
     "deterministic_reference_replay",
+    "single_turn_user_reference_replay",
 )
 RECOVERY_CONTINUATION_MODES = (
     "fresh_teacher",
@@ -89,6 +90,7 @@ RUN_MAX_CONCURRENCY = 1
 RUN_MAX_RETRIES = 1
 RUN_RETRY_DELAY_SECONDS = 1.0
 RUN_HALLUCINATION_RETRIES = 0
+SINGLE_TURN_PREFIX_MAX_STEPS = 2
 VOLATILE_MESSAGE_FIELDS = {
     "timestamp",
     "turn_idx",
@@ -221,10 +223,27 @@ def semantic_generation_contract(
             REFERENCE_GUIDED_CLEAN_AGENT_NAME
             if clean_agent_mode == "reference_guided"
             else (
-                "deterministic_tau2_reference_replay"
-                if clean_agent_mode == "deterministic_reference_replay"
+                (
+                    "single_turn_user_then_deterministic_tau2_reference_replay"
+                    if clean_agent_mode
+                    == "single_turn_user_reference_replay"
+                    else "deterministic_tau2_reference_replay"
+                )
+                if clean_agent_mode
+                in (
+                    "deterministic_reference_replay",
+                    "single_turn_user_reference_replay",
+                )
                 else AGENT_NAME
             )
+        ),
+        "clean_prefix_max_steps": (
+            SINGLE_TURN_PREFIX_MAX_STEPS
+            if clean_agent_mode == "single_turn_user_reference_replay"
+            else args.max_steps
+        ),
+        "clean_prefix_stops_before_assistant_tool_action": (
+            clean_agent_mode == "single_turn_user_reference_replay"
         ),
         "recovery_continuation_mode": getattr(
             args, "recovery_continuation_mode", "fresh_teacher"
@@ -556,6 +575,7 @@ def text_run_config(
     domain: str,
     seed: int,
     agent_name: str = AGENT_NAME,
+    max_steps: int | None = None,
 ):
     from tau2.data_model.simulation import TextRunConfig
 
@@ -584,7 +604,7 @@ def text_run_config(
         llm_user=litellm_openai_model(args.user_model),
         llm_args_user=user_args,
         num_trials=RUN_NUM_TRIALS,
-        max_steps=args.max_steps,
+        max_steps=args.max_steps if max_steps is None else max_steps,
         max_errors=RUN_MAX_ERRORS,
         timeout=args.timeout,
         max_concurrency=RUN_MAX_CONCURRENCY,
@@ -607,6 +627,7 @@ def run_one(
     seed: int,
     save_dir: Path,
     agent_name: str = AGENT_NAME,
+    max_steps: int | None = None,
 ):
     from tau2.evaluator.evaluator import EvaluationType
     from tau2.runner.batch import run_single_task
@@ -614,7 +635,11 @@ def run_one(
     started = time.monotonic()
     simulation = run_single_task(
         text_run_config(
-            args, domain=domain, seed=seed, agent_name=agent_name
+            args,
+            domain=domain,
+            seed=seed,
+            agent_name=agent_name,
+            max_steps=max_steps,
         ),
         task,
         seed=seed,
@@ -767,6 +792,39 @@ def first_assistant_tool_index(values: Sequence[Mapping[str, Any]]) -> int | Non
     return None
 
 
+def single_turn_clean_prefix(
+    values: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Validate and freeze one assistant-greeting/user-response exchange."""
+
+    prefix = [deepcopy(dict(value)) for value in values]
+    if len(prefix) != SINGLE_TURN_PREFIX_MAX_STEPS:
+        raise V6GenerationError(
+            "single-turn clean prefix must contain exactly two messages"
+        )
+    if prefix[0].get("role") != "assistant":
+        raise V6GenerationError(
+            "single-turn clean prefix must start with the assistant greeting"
+        )
+    if prefix[0].get("tool_calls"):
+        raise V6GenerationError(
+            "single-turn assistant greeting must not contain a tool call"
+        )
+    if prefix[1].get("role") != "user":
+        raise V6GenerationError(
+            "single-turn clean prefix must end with the first user response"
+        )
+    if prefix[1].get("tool_calls"):
+        raise V6GenerationError(
+            "single-turn user response must not contain a tool call"
+        )
+    if any(row.get("role") == "tool" for row in prefix):
+        raise V6GenerationError(
+            "single-turn clean prefix must not contain a tool result"
+        )
+    return prefix
+
+
 def call_semantics(call: Mapping[str, Any]) -> tuple[str, str, str]:
     requestor = str(call.get("requestor", "assistant"))
     return (
@@ -852,6 +910,9 @@ def clean_rollout(
     attempts: list[dict[str, Any]] = []
     for attempt in range(args.clean_attempts):
         attempt_seed = seed + attempt
+        single_turn_mode = (
+            args.clean_agent_mode == "single_turn_user_reference_replay"
+        )
         simulation, seconds = run_one(
             args,
             task=task,
@@ -863,10 +924,23 @@ def clean_rollout(
                 if args.clean_agent_mode == "reference_guided"
                 else AGENT_NAME
             ),
+            max_steps=(
+                SINGLE_TURN_PREFIX_MAX_STEPS if single_turn_mode else None
+            ),
         )
         observed = messages(simulation)
         tool_index = first_assistant_tool_index(observed)
-        if (
+        if single_turn_mode:
+            prefix = single_turn_clean_prefix(observed)
+            simulation = deterministic_reference_clean_simulation(
+                simulation=simulation,
+                domain=domain,
+                task=task,
+                prefix=prefix,
+            )
+            observed = messages(simulation)
+            tool_index = first_assistant_tool_index(observed)
+        elif (
             args.clean_agent_mode == "deterministic_reference_replay"
             and tool_index is not None
         ):
