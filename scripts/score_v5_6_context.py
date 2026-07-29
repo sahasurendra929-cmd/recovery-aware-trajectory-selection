@@ -36,13 +36,41 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def token_ids(
+    tokenizer: Any,
+    messages: list[dict[str, Any]],
+    *,
+    tools: list[dict[str, Any]],
+    generation: bool,
+) -> list[int]:
+    """Render messages with the exact canonicalization used by training."""
+    canonical_messages = json.loads(v5.canonical(messages))
+    normalized = v5._template_messages(canonical_messages)
+    canonical_tools = json.loads(v5.canonical(tools))
+    value = tokenizer.apply_chat_template(
+        normalized,
+        tools=canonical_tools,
+        tokenize=True,
+        add_generation_prompt=generation,
+    )
+    if isinstance(value, dict):
+        value = value.get("input_ids")
+    if not isinstance(value, list) or any(type(token) is not int for token in value):
+        raise RuntimeError("tokenizer did not return a flat integer list")
+    return value
+
+
 def first_target_span(tokenizer: Any, row: dict[str, Any]) -> tuple[list[int], int, int]:
     """Render through the first repair action and return its exact token span."""
     index = data._first_label_index(row)
     messages = row["messages"]
     tools = row["metadata"]["tool_schemas"]
-    before = v5._token_ids(tokenizer, messages[:index], tools=tools, generation=True)
-    through = v5._token_ids(tokenizer, messages[: index + 1], tools=tools, generation=False)
+    before = token_ids(
+        tokenizer, messages[:index], tools=tools, generation=True
+    )
+    through = token_ids(
+        tokenizer, messages[: index + 1], tools=tools, generation=False
+    )
     if not before or len(before) >= len(through) or through[: len(before)] != before:
         raise RuntimeError(f"{row['id']}: non-prefix-stable repair target")
     return through, len(before), len(through)

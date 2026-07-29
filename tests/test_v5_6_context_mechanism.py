@@ -43,3 +43,18 @@ def test_context_summary_is_task_clustered():
     assert summary["independent_unit"] == "task_identity"
     assert summary["tasks"] == 2
     assert summary["mean_delta_context"] == 0.0
+
+
+def test_score_extracts_the_repair_span_with_training_canonicalization():
+    token = PrefixStableTokenizer()
+    source = v55.materialize_source_pairs(
+        [valid_pair(1), valid_pair(2)],
+        pair_mode="reference",
+        contexts=contexts.__wrapped__(),
+        tokenizer=token,
+        independent_replay_authorized=True,
+    )
+    token_ids, start, end = score.first_target_span(
+        token, source[0]["recovery"]
+    )
+    assert 0 < start < end <= len(token_ids)

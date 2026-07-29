@@ -1,0 +1,146 @@
+{
+  "arms": {
+    "perfect_success": {
+      "context_conditions": [
+        "clean"
+      ],
+      "failed_action_label_messages": 0,
+      "max_sequence_tokens": 10146,
+      "realized_recovery_supervised_token_ratio": 0.0,
+      "recovery_rows": 0,
+      "recovery_supervised_tokens": 0,
+      "rows": 512,
+      "sha256": "f478f1805f58d495ce6e9e66a256be6083b20e97faac0d860a4f8584c0454d80",
+      "supervised_tokens": 73248
+    },
+    "repair_25_shuffled": {
+      "context_conditions": [
+        "clean",
+        "shuffled"
+      ],
+      "failed_action_label_messages": 0,
+      "max_sequence_tokens": 10199,
+      "realized_recovery_supervised_token_ratio": 0.25,
+      "recovery_rows": 128,
+      "recovery_supervised_tokens": 18312,
+      "rows": 512,
+      "sha256": "81d3189804bffc8c523a621fcea65269b29a977f1c26222bdd95fb406d4d993d",
+      "supervised_tokens": 73248
+    },
+    "repair_25_true": {
+      "context_conditions": [
+        "clean",
+        "true"
+      ],
+      "failed_action_label_messages": 0,
+      "max_sequence_tokens": 10200,
+      "realized_recovery_supervised_token_ratio": 0.25,
+      "recovery_rows": 128,
+      "recovery_supervised_tokens": 18312,
+      "rows": 512,
+      "sha256": "d1051076dff2049269befea94a13dbf5b949164f19a6eaa40df1aeb775512446",
+      "supervised_tokens": 73248
+    }
+  },
+  "claim_boundary": {
+    "mechanism_score_is_not_end_to_end_task_success": true,
+    "reference_mode_is_diagnostic_only": true
+  },
+  "derived_validation_used_for_supervision": false,
+  "design_protocol": "v5_6_error_context_mechanism_v1",
+  "design_version": "5.6-context-mechanism",
+  "input_authorization": {
+    "domains": [
+      "airline",
+      "retail"
+    ],
+    "pair_mode": "reference",
+    "pairs": 48,
+    "scientific_claim_level": "diagnostic_only",
+    "tasks": 24
+  },
+  "label_guarantees": {
+    "failed_action_positive_labels": 0,
+    "failed_call_and_result_are_context_only": true,
+    "official_test_and_derived_validation_label_leakage": 0,
+    "post_error_successful_assistant_actions_only": true
+  },
+  "max_sequence_tokens": 10240,
+  "model_tokenizer": "Qwen/Qwen2.5-7B-Instruct",
+  "official_test_sealed": true,
+  "official_test_used": false,
+  "pair_audit_sha256": "af7f09a4b9d7d1075c7f700507be58944f51a3177e812f0abc32292aeee075f0",
+  "pair_manifest_sha256": "85ef232aa771df931a39da5edced16279553213f35bab183c40133f43e10f376",
+  "pair_mode": "reference",
+  "pairs_jsonl_sha256": "d4ac0e34efa9e63f6f5d057b4ac858a70e87a8cf22eef891799f6f5ace483293",
+  "protocol": "v5_6_error_context_sft_data_v1",
+  "same_source_pair_exposure_across_arms": true,
+  "same_supervised_target_within_clean_recovery_pair": true,
+  "schedule_seed": 20260805,
+  "shuffle_contract": {
+    "different_task": true,
+    "donor_map": {
+      "airline:12:counterfactual:1": "airline:49:counterfactual:2",
+      "airline:12:counterfactual:2": "airline:36:counterfactual:2",
+      "airline:27:counterfactual:1": "airline:43:counterfactual:2",
+      "airline:27:counterfactual:2": "airline:36:counterfactual:1",
+      "airline:33:counterfactual:1": "airline:27:counterfactual:1",
+      "airline:33:counterfactual:2": "airline:40:counterfactual:1",
+      "airline:36:counterfactual:1": "airline:33:counterfactual:2",
+      "airline:36:counterfactual:2": "airline:33:counterfactual:1",
+      "airline:38:counterfactual:1": "airline:49:counterfactual:1",
+      "airline:38:counterfactual:2": "airline:27:counterfactual:2",
+      "airline:40:counterfactual:1": "airline:38:counterfactual:1",
+      "airline:40:counterfactual:2": "airline:38:counterfactual:2",
+      "airline:43:counterfactual:1": "airline:47:counterfactual:2",
+      "airline:43:counterfactual:2": "airline:40:counterfactual:2",
+      "airline:47:counterfactual:1": "airline:12:counterfactual:1",
+      "airline:47:counterfactual:2": "airline:12:counterfactual:2",
+      "airline:49:counterfactual:1": "airline:47:counterfactual:1",
+      "airline:49:counterfactual:2": "airline:43:counterfactual:1",
+      "retail:10:counterfactual:1": "retail:52:counterfactual:1",
+      "retail:10:counterfactual:2": "retail:22:counterfactual:2",
+      "retail:11:counterfactual:1": "retail:43:counterfactual:1",
+      "retail:11:counterfactual:2": "retail:59:counterfactual:1",
+      "retail:14:counterfactual:1": "retail:10:counterfactual:2",
+      "retail:14:counterfactual:2": "retail:28:counterfactual:2",
+      "retail:15:counterfactual:1": "retail:8:counterfactual:1",
+      "retail:15:counterfactual:2": "retail:19:counterfactual:2",
+      "retail:19:counterfactual:1": "retail:28:counterfactual:1",
+      "retail:19:counterfactual:2": "retail:11:counterfactual:2",
+      "retail:21:counterfactual:1": "retail:14:counterfactual:1",
+      "retail:21:counterfactual:2": "retail:66:counterfactual:2",
+      "retail:22:counterfactual:1": "retail:21:counterfactual:2",
+      "retail:22:counterfactual:2": "retail:69:counterfactual:2",
+      "retail:28:counterfactual:1": "retail:15:counterfactual:2",
+      "retail:28:counterfactual:2": "retail:11:counterfactual:1",
+      "retail:43:counterfactual:1": "retail:15:counterfactual:1",
+      "retail:43:counterfactual:2": "retail:22:counterfactual:1",
+      "retail:52:counterfactual:1": "retail:7:counterfactual:1",
+      "retail:52:counterfactual:2": "retail:7:counterfactual:1",
+      "retail:59:counterfactual:1": "retail:7:counterfactual:2",
+      "retail:59:counterfactual:2": "retail:8:counterfactual:2",
+      "retail:66:counterfactual:1": "retail:14:counterfactual:2",
+      "retail:66:counterfactual:2": "retail:69:counterfactual:1",
+      "retail:69:counterfactual:1": "retail:10:counterfactual:1",
+      "retail:69:counterfactual:2": "retail:66:counterfactual:1",
+      "retail:7:counterfactual:1": "retail:59:counterfactual:2",
+      "retail:7:counterfactual:2": "retail:21:counterfactual:1",
+      "retail:8:counterfactual:1": "retail:43:counterfactual:2",
+      "retail:8:counterfactual:2": "retail:19:counterfactual:1"
+    },
+    "error_call_and_result_moved_together": true,
+    "within_domain": true
+  },
+  "source_pairs_sha256": "ab51b41711540262ae593fc3b36a50c4cce1f3d512b9f869d03f3abc25749645",
+  "status": "PASS",
+  "tokenizer_revision": "a09a35458c702b33eeacc393d103063234e8bc28",
+  "train_validation_source_overlap": 0,
+  "training_mixture_basis": "supervised_token_mass",
+  "validation_loss": {
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source_split": "not_applicable_fixed_step_screen",
+    "used_for_checkpoint_selection": false
+  }
+}

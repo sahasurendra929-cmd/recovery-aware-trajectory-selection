@@ -1,0 +1,120 @@
+{
+  "protocol": "v5_stage1_message_masked_sft_7b",
+  "source_commit": "809e1607fbbccc9331050895e006d9c70ed5d87c",
+  "arm": "perfect_success",
+  "mode": "formal",
+  "objective": "message_masked_causal_language_model_cross_entropy",
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "model_revision": "a09a35458c702b33eeacc393d103063234e8bc28",
+  "quantization": {
+    "bits": 4,
+    "type": "nf4",
+    "double_quant": true,
+    "compute_dtype": "bfloat16"
+  },
+  "lora": {
+    "r": 16,
+    "alpha": 32,
+    "dropout": 0.0,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ]
+  },
+  "seed": 20260805,
+  "max_sequence_tokens": 10240,
+  "truncation": false,
+  "formal_steps": 32,
+  "formal_batch_size": 1,
+  "formal_grad_accum": 8,
+  "effective_steps": 32,
+  "effective_grad_accum": 8,
+  "learning_rate": 1.25e-05,
+  "train_file": "/workspace/v5_6_context/repo/data/processed/v5_6_context/arms/perfect_success/train.jsonl",
+  "train_file_sha256": "f478f1805f58d495ce6e9e66a256be6083b20e97faac0d860a4f8584c0454d80",
+  "validation_file": "/workspace/v5_6_context/repo/data/processed/v5_6_context/validation_loss.jsonl",
+  "validation_file_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "data_provenance": {
+    "data_audit_path": "/workspace/v5_6_context/repo/data/processed/v5_6_context/audit.json",
+    "data_audit_sha256": "ffa00598763d483863ef49f488922ed5f7d62bd10ca4158b5c06db87191f077c",
+    "data_hashes_path": "/workspace/v5_6_context/repo/data/processed/v5_6_context/hashes.json",
+    "data_hashes_sha256": "6cc3445e52b1be067ba1683c88ec84833623dac90e31ccda25b132d32bce4daa",
+    "train_file_sha256": "f478f1805f58d495ce6e9e66a256be6083b20e97faac0d860a4f8584c0454d80",
+    "validation_file_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "dynamic_audits": {},
+    "design_version": "5.6-context-mechanism",
+    "design_provenance": {
+      "design_version": "5.6-context-mechanism",
+      "design_protocol": "v5_6_error_context_mechanism_v1",
+      "data_protocol": "v5_6_error_context_sft_data_v1",
+      "schedule_rows_per_arm": 512,
+      "training_mixture_basis": "supervised_token_mass",
+      "official_test_used": false
+    },
+    "official_test_used": false,
+    "official_test_sealed": true
+  },
+  "formal_schedule": {
+    "rows": 512,
+    "nonpad_tokens": 3716536,
+    "supervised_tokens": 73248,
+    "recovery_rows": 0,
+    "recovery_supervised_tokens": 0,
+    "realized_recovery_supervised_token_ratio": 0.0,
+    "expected_recovery_supervised_token_ratio": null,
+    "realized_recovery_row_ratio": 0.0,
+    "expected_recovery_row_ratio": 0.0,
+    "recovery_mixture_basis": "row_mean_microbatch_equal_weight",
+    "failed_action_context_messages": 0,
+    "failed_action_label_messages": 0,
+    "failed_action_label_tokens": 0,
+    "max_sequence_tokens": 10146,
+    "max_supervised_tokens": 361
+  },
+  "fit_partition": {
+    "train_source_examples": 48,
+    "validation_loss_source_examples": 0,
+    "overlap": 0,
+    "validation_disabled_reason": "fixed_steps_v5_6"
+  },
+  "effective_rows": 512,
+  "effective_validation_rows": 0,
+  "loss_audit": {
+    "finite": true,
+    "numeric_values_checked": 173,
+    "loss_values_checked": 34,
+    "grad_norm_values_checked": 32,
+    "validation_loss_values_checked": 0,
+    "final_train_loss": 0.11560271793860011,
+    "final_validation_loss": null
+  },
+  "held_out_test_accessed": false,
+  "checkpoint": {
+    "path": "/workspace/v5_6_context/repo/results/v5_6_context/training/perfect_success/20260805/checkpoint_final",
+    "fingerprint": "d9db8024387c13c2f3f81d32a5eefc61883fb993dbab69867cdc782f00b0ea11",
+    "file_sha256": {
+      "adapter_config.json": "57216525de8561cc05e6b8d7b5c302ad857ef12061a9ee712ee6f5dd09e80fa1",
+      "adapter_model.safetensors": "2916c54a4e5ae08302b4605b7cf5d48b53f252734ab018fd615d9e17cb6eef1c"
+    }
+  },
+  "environment": {
+    "python": "3.12.3 (main, Aug 14 2025, 17:47:21) [GCC 13.3.0]",
+    "platform": "Linux-6.8.0-101-generic-x86_64-with-glibc2.39",
+    "torch": "2.7.1+cu128",
+    "transformers": "4.52.4",
+    "cuda_runtime": "12.8",
+    "gpu": "NVIDIA RTX PRO 4500 Blackwell",
+    "gpu_memory_bytes": 33685569536,
+    "bf16": true,
+    "deterministic_algorithms_enabled": true,
+    "cublas_workspace_config": ":4096:8",
+    "peak_cuda_allocated_bytes": 20058639872,
+    "peak_cuda_reserved_bytes": 33007075328
+  },
+  "validation_disabled_reason": "fixed_steps_v5_6"
+}
