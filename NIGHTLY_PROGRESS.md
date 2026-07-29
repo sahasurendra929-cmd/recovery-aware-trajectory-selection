@@ -170,3 +170,14 @@ Pilot in a new versioned directory.
   and label audits passed.
 - Full evidence: `V6_8_DUAL_SMOKE_PASS_REPORT.md`.
 - Next: start the complete 24-task V6.8 Pilot in a fresh persistent session.
+
+## V6.8 full Pilot started
+
+- Dual-smoke report commit `22dfef8c50b3e429fe7636a09168bc1c575844f3`
+  was pushed and read back exactly from GitHub.
+- The original frozen V6 branch remained unchanged at
+  `9f620d438884270f3231101924ff9ef2f6cc5d09`.
+- Started the complete 24-task / 72-pair V6.8 Pilot in persistent session
+  `v68_pilot`, with unbuffered pane-level log capture.
+- Completion requires 24 task artifacts, atomic merged JSONL, and a PASS
+  generation receipt. Official test remains sealed.
