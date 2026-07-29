@@ -18,8 +18,10 @@ from typing import Any
 
 try:
     import v5_5_protocol as protocol
+    import v5_6_context_protocol as context_protocol
 except ModuleNotFoundError:
     from scripts import v5_5_protocol as protocol
+    from scripts import v5_6_context_protocol as context_protocol
 
 
 def configure_tau2(root: Path) -> None:
@@ -207,6 +209,7 @@ def build_pair(row: dict[str, Any], task: Any) -> dict[str, Any]:
         "task_identity": row["task_identity"],
         "domain": domain,
         "task_id": row["task_id"],
+        "source_split": row.get("source_split", "inner_train"),
         "mutation_variant": row["mutation_variant"],
         "identifier_key": row["identifier_key"],
         "task_context": task_context(task),
@@ -256,7 +259,7 @@ def main() -> None:
     args = parser.parse_args()
     configure_tau2(args.tau2_root)
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    if manifest.get("protocol") != protocol.PROTOCOL:
+    if manifest.get("protocol") not in {protocol.PROTOCOL, context_protocol.PROTOCOL}:
         raise protocol.V55ProtocolError("manifest protocol mismatch")
     if args.output.exists():
         raise RuntimeError(f"refusing to overwrite {args.output}")

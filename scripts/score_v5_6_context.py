@@ -94,6 +94,8 @@ def score(args: argparse.Namespace) -> list[dict[str, Any]]:
     pairs = v55.read_jsonl(args.pairs)
     if any(pair.get("official_test_used") is not False for pair in pairs):
         raise RuntimeError("scoring pairs must seal the official test")
+    if any(pair.get("source_split") != "derived_validation" for pair in pairs):
+        raise RuntimeError("V5.6 score pairs must be derived-validation-only")
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
     tokenizer = AutoTokenizer.from_pretrained(args.model, revision=args.model_revision, trust_remote_code=True, local_files_only=args.local_files_only)

@@ -1988,10 +1988,13 @@ def main() -> None:
                 "low-support training output is outside its isolated root"
             )
         low_support.require_whole_run_source_lock(ROOT)
-    if data_provenance.get("design_version") == V5_5_DESIGN_VERSION:
+    if data_provenance.get("design_version") in {
+        V5_5_DESIGN_VERSION,
+        V5_6_DESIGN_VERSION,
+    }:
         if args.training_seed not in V5_5_TRAINING_SEEDS:
             raise RuntimeError(
-                "V5.5 requires --training-seed in "
+                "V5.5/V5.6 requires --training-seed in "
                 f"{V5_5_TRAINING_SEEDS}"
             )
         effective_seed = args.training_seed
