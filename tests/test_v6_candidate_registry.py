@@ -35,6 +35,23 @@ def frozen_config() -> dict:
     }
 
 
+def test_config_contract_accepts_only_explicitly_frozen_designs():
+    v6 = frozen_config()
+    assert registry._config_contract(v6)["protocol"] == protocol.PROTOCOL
+
+    v6_1 = frozen_config()
+    v6_1["protocol"] = registry.V6_1_72B_TEACHER_PROTOCOL
+    assert (
+        registry._config_contract(v6_1)["protocol"]
+        == registry.V6_1_72B_TEACHER_PROTOCOL
+    )
+
+    unknown = frozen_config()
+    unknown["protocol"] = "v6_1_unregistered"
+    with expect_raises(registry.V6RegistryError, "explicitly frozen"):
+        registry._config_contract(unknown)
+
+
 def task(task_id: int, domain: str) -> dict:
     if domain == "retail":
         actions = [

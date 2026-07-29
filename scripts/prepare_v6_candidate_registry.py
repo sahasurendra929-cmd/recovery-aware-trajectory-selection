@@ -34,6 +34,10 @@ except ModuleNotFoundError:
 
 
 REGISTRY_PROTOCOL = "v6_candidate_pair_registry_v1"
+V6_1_72B_TEACHER_PROTOCOL = "v6_1_causal_recovery_selection_72b_teacher_v1"
+ALLOWED_DESIGN_PROTOCOLS = frozenset(
+    {protocol.PROTOCOL, V6_1_72B_TEACHER_PROTOCOL}
+)
 REGISTRY_VERSION = "1.0"
 PAIRS_PER_CHOICE_SET = 3
 STRUCTURAL_PAYLOAD_SHA256 = (
@@ -135,8 +139,8 @@ def _task_rank(identity: str) -> tuple[str, str]:
 
 def _config_contract(config: Mapping[str, Any]) -> dict[str, Any]:
     """Validate only preregistered facts used by this registry."""
-    if config.get("protocol") != protocol.PROTOCOL:
-        raise V6RegistryError("config protocol is not the frozen V6 protocol")
+    if config.get("protocol") not in ALLOWED_DESIGN_PROTOCOLS:
+        raise V6RegistryError("config protocol is not an explicitly frozen design")
     benchmark = config.get("benchmark")
     if not isinstance(benchmark, Mapping):
         raise V6RegistryError("config benchmark section is missing")
@@ -944,7 +948,7 @@ def build_registry(
     )
     registry: dict[str, Any] = {
         "protocol": REGISTRY_PROTOCOL,
-        "design_protocol": protocol.PROTOCOL,
+        "design_protocol": config_contract["protocol"],
         "design_version": protocol.DESIGN_VERSION,
         "registry_version": REGISTRY_VERSION,
         "registry_status": "STRUCTURALLY_FROZEN_RUNTIME_PREFLIGHT_REQUIRED",
