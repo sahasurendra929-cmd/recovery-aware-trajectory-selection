@@ -46,6 +46,10 @@ source "${VENV}/bin/activate"
 # standard Hugging Face HTTP path rather than failing before the V5.6 precheck.
 export HF_HUB_ENABLE_HF_TRANSFER=0
 python -m pip install --upgrade pip
+# The formal trainer rejects runtime drift.  RunPod's base images can expose a
+# newer system-site torch, so install the protocol-pinned CUDA 12.8 wheel in
+# the experiment venv before resolving the remaining dependencies.
+python -m pip install --index-url https://download.pytorch.org/whl/cu128 "torch==2.7.1+cu128"
 python -m pip install -r "${REPO}/requirements-gpu-v5-sft.txt"
 python -m pip install -e "${TAU2_ROOT}"
 cd "${REPO}"
