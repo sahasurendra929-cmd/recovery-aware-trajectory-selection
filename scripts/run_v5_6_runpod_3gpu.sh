@@ -33,10 +33,10 @@ git -C "${REPO}" checkout --detach "${SOURCE_COMMIT}"
 test "$(git -C "${REPO}" rev-parse HEAD)" = "${SOURCE_COMMIT}"
 
 if [[ ! -d "${TAU2_ROOT}/.git" ]]; then
-  git clone https://github.com/sierra-research/tau2-bench.git "${TAU2_ROOT}"
+  git clone --depth 1 --filter=blob:none https://github.com/sierra-research/tau2-bench.git "${TAU2_ROOT}"
 fi
-git -C "${TAU2_ROOT}" fetch origin
-git -C "${TAU2_ROOT}" checkout --detach fc0055dc4e0a316c3f83133267fbd6faaa770992
+git -C "${TAU2_ROOT}" fetch --depth 1 origin fc0055dc4e0a316c3f83133267fbd6faaa770992
+git -C "${TAU2_ROOT}" checkout --detach FETCH_HEAD
 git -C "${TAU2_ROOT}" submodule update --init --recursive
 
 python -m venv --system-site-packages "${VENV}"
