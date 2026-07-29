@@ -30,3 +30,19 @@ remote session. GPU model services remain healthy.
 
 Run the complete fixed 24-task Pilot, validate all 72 pairs and receipts, then
 perform token/hardness measurement and the preregistered Pilot gate audit.
+# 2026-07-30 — V6.4 Pilot NO-GO
+
+- Restored SSH access after the RunPod migration using the existing local
+  V6-specific key and the migrated TCP endpoint.
+- The persistent V6.4 Pilot exited `1`; no candidate-generation process
+  remains.
+- One of 24 task receipts completed (`airline:12`, 3 pairs / 6 branches,
+  all matched rewards `1.0`); atomic candidate JSONL was not emitted.
+- `airline:14` failed on the first pair because V6.4 forced reference action
+  index 1 and replayed only the strict tail, omitting required reference
+  action index 0.
+- Classified as a scientific/protocol construction defect. V6.4 is NO-GO;
+  official test remains sealed and training remains unauthorized.
+- Full decision and hashes: `V6_4_PILOT_NO_GO_REPORT.md`.
+- Next: preregister V6.5 with one change—forced action first, then all other
+  reference actions once in their original relative order.
