@@ -1690,6 +1690,7 @@ def forced_first_cell(
     domain: str,
     error_prompt: list[dict[str, Any]],
     forced_call: Mapping[str, Any],
+    forced_reference_action_index: int | None,
     continuation_seeds: Sequence[int],
     log_root: Path,
     cell_name: str,
@@ -1714,6 +1715,16 @@ def forced_first_cell(
                     task=task,
                     prompt=error_prompt,
                     forced_call=forced_call,
+                    **(
+                        {
+                            "forced_reference_action_index": (
+                                forced_reference_action_index
+                            )
+                        }
+                        if continuation_mode
+                        == "deterministic_reference_completion"
+                        else {}
+                    ),
                     completion_renderer=getattr(
                         args, "completion_renderer", "legacy_assertion_echo"
                     ),
@@ -1978,6 +1989,12 @@ def materialize_pair(
 
     first_call = corrective_call(registered_pair["branches"][0])
     second_call = corrective_call(registered_pair["branches"][1])
+    first_reference_index = (
+        registered_pair["branches"][0].get("corrective_action_spec") or {}
+    ).get("reference_action_index")
+    second_reference_index = (
+        registered_pair["branches"][1].get("corrective_action_spec") or {}
+    ).get("reference_action_index")
     if call_semantics(first_call) == call_semantics(second_call):
         raise V6GenerationError(
             f"{registered_pair['candidate_pair_id']}: two registered first "
@@ -1990,6 +2007,7 @@ def materialize_pair(
             domain=domain,
             error_prompt=observed_branches[0]["recovery_prompt"],
             forced_call=first_call,
+            forced_reference_action_index=first_reference_index,
             continuation_seeds=continuation_seeds,
             log_root=log_root,
             cell_name="q_e1_a1",
@@ -2000,6 +2018,7 @@ def materialize_pair(
             domain=domain,
             error_prompt=observed_branches[0]["recovery_prompt"],
             forced_call=second_call,
+            forced_reference_action_index=second_reference_index,
             continuation_seeds=continuation_seeds,
             log_root=log_root,
             cell_name="q_e1_a2",
@@ -2010,6 +2029,7 @@ def materialize_pair(
             domain=domain,
             error_prompt=observed_branches[1]["recovery_prompt"],
             forced_call=first_call,
+            forced_reference_action_index=first_reference_index,
             continuation_seeds=continuation_seeds,
             log_root=log_root,
             cell_name="q_e2_a1",
@@ -2020,6 +2040,7 @@ def materialize_pair(
             domain=domain,
             error_prompt=observed_branches[1]["recovery_prompt"],
             forced_call=second_call,
+            forced_reference_action_index=second_reference_index,
             continuation_seeds=continuation_seeds,
             log_root=log_root,
             cell_name="q_e2_a2",
