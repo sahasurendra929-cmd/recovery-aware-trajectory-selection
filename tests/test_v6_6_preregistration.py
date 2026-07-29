@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
+from scripts import prepare_v6_candidate_registry as registry
 from scripts import run_v6_candidate_generation as generation
 
 
@@ -41,6 +42,13 @@ def test_v6_6_preregistration_freezes_only_clean_prefix_delta():
     )
     delta = config["frozen_delta"]
     assert config["protocol"] == "v6_6_single_turn_user_reference_replay_v1"
+    assert config["protocol"] == registry.V6_6_SINGLE_TURN_CLEAN_PREFIX_PROTOCOL
+    assert config["protocol"] in registry.ALLOWED_DESIGN_PROTOCOLS
+    assert registry._config_contract(config)["official_test_checks"] == {
+        "used_false": True,
+        "sealed_true": True,
+        "content_not_exported": True,
+    }
     assert (
         delta["only_scientific_change"]
         == "single_turn_user_prefix_before_reference_clean_replay"
