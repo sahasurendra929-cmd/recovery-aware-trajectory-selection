@@ -23,18 +23,17 @@ V6.4 remain preserved NO-GO results and are not pooled.
 
 ## Running
 
-The complete fixed 24-task / 72-pair V6.5 Pilot is running in a persistent
-remote session. Seven task receipts have been written (all six airline Pilot
-tasks and `retail:1`), each with three candidate pairs. Intermediate audit
-shows clean and matched-recovery rewards of `1.0`, passing independent
-replays, shared sibling prefixes and environment snapshots, and no official
-test use. GPU model services remain healthy.
+V6.5 Pilot generation has stopped fail-closed at `retail:104`. Seven task
+receipts were written before the failure. Both preregistered clean attempts
+for the failing task received official reward `0.0`; no merged candidate
+JSONL or generation receipt was emitted. GPU model services remain healthy
+while the successor protocol is preregistered.
 
 ## Next
 
-Complete the remaining 17 fixed Pilot tasks, validate all 72 pairs and
-receipts, then perform token/hardness measurement and the preregistered Pilot
-gate audit.
+Preserve and publish the V6.5 NO-GO evidence, preregister one clean-prefix
+construction change as V6.6, then run a targeted smoke and restart the fixed
+Pilot in a new versioned directory.
 # 2026-07-30 — V6.4 Pilot NO-GO
 
 - Restored SSH access after the RunPod migration using the existing local
@@ -85,3 +84,14 @@ gate audit.
 - The persistent process is currently working on `retail:104`.
 - Intermediate receipt audit passes; this is not yet a stage-completion
   decision because the atomic merged generation receipt has not been emitted.
+
+## V6.5 Pilot NO-GO
+
+- Both frozen `retail:104` clean attempts ended at the 60-step budget with
+  official reward `0.0`.
+- The user simulator repeatedly supplied invented mnemonic order IDs rather
+  than one of the real order IDs returned by the environment.
+- The generator failed closed; official test remained sealed and no training
+  was authorized.
+- Full evidence and hashes: `V6_5_PILOT_NO_GO_REPORT.md`.
+- Next: preregister V6.6 before implementing or observing successor outcomes.
