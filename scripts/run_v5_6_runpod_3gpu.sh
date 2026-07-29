@@ -15,8 +15,16 @@ TAU2_ROOT="${TAU2_ROOT:-${REPO}/data/raw/tau2-bench}"
 VENV="${VENV:-${WORKSPACE}/venv}"
 RESULTS="${RESULTS:-${REPO}/results/v5_6_context}"
 STATUS_FILE="${STATUS_FILE:-${RESULTS}/ops/status}"
+RUN_LOG="${RUN_LOG:-${WORKSPACE}/v5_6_runpod_runner.log}"
 
 mkdir -p "${WORKSPACE}"
+# The RunPod console may recycle a container after a startup failure.  Keep a
+# durable, append-only transcript on the network volume so the next instance
+# can diagnose the precise command that failed without renting GPUs to repeat
+# the bootstrap blindly.
+exec > >(tee -a "${RUN_LOG}") 2>&1
+trap 'code=$?; printf "%s state=FAILED exit=%s command=%q\\n" "$(date -u +%FT%TZ)" "${code}" "${BASH_COMMAND}" >>"${WORKSPACE}/v5_6_runpod_failures.log"; exit "${code}"' ERR
+printf '%s state=BOOTSTRAP source=%s\n' "$(date -u +%FT%TZ)" "${SOURCE_COMMIT}"
 if [[ ! -d "${REPO}/.git" ]]; then
   git clone --depth 1 --branch "${BRANCH}" --single-branch "${REPO_URL}" "${REPO}"
 fi
