@@ -90,7 +90,10 @@ RUN_MAX_CONCURRENCY = 1
 RUN_MAX_RETRIES = 1
 RUN_RETRY_DELAY_SECONDS = 1.0
 RUN_HALLUCINATION_RETRIES = 0
-SINGLE_TURN_PREFIX_MAX_STEPS = 2
+# Tau2 treats ``max_steps`` as the largest zero-based step index.  Steps 0
+# and 1 therefore retain exactly the greeting and first user response.
+SINGLE_TURN_PREFIX_MAX_STEPS = 1
+SINGLE_TURN_PREFIX_MESSAGE_COUNT = 2
 VOLATILE_MESSAGE_FIELDS = {
     "timestamp",
     "turn_idx",
@@ -799,7 +802,7 @@ def single_turn_clean_prefix(
     """Validate and freeze one assistant-greeting/user-response exchange."""
 
     prefix = [deepcopy(dict(value)) for value in values]
-    if len(prefix) != SINGLE_TURN_PREFIX_MAX_STEPS:
+    if len(prefix) != SINGLE_TURN_PREFIX_MESSAGE_COUNT:
         raise V6GenerationError(
             "single-turn clean prefix must contain exactly two messages"
         )

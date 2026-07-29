@@ -116,7 +116,7 @@ def test_semantic_contract_binds_single_turn_budget_and_mode():
         design_protocol="v6_6_single_turn_user_reference_replay_v1",
     )
     assert contract["clean_agent_mode"] == "single_turn_user_reference_replay"
-    assert contract["clean_prefix_max_steps"] == 2
+    assert contract["clean_prefix_max_steps"] == 1
     assert contract["clean_prefix_stops_before_assistant_tool_action"] is True
     assert (
         contract["clean_agent_name"]
