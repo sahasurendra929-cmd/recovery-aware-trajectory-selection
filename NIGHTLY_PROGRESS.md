@@ -181,3 +181,16 @@ Pilot in a new versioned directory.
   `v68_pilot`, with unbuffered pane-level log capture.
 - Completion requires 24 task artifacts, atomic merged JSONL, and a PASS
   generation receipt. Official test remains sealed.
+
+## V6.8 Pilot NO-GO
+
+- Eleven tasks / 33 pairs completed with PASS task artifacts.
+- `retail:104` and `retail:16` both passed in the complete Pilot.
+- `retail:19` matched recovery passed its forced action, all seven action
+  checks, DB, and both communicate checks.
+- The final message literally contained both required refund/savings facts,
+  but the frozen judge rejected the awkward `directly: that ...` sentences.
+- No merged JSONL or generation receipt was emitted; official test remains
+  sealed and training unauthorized.
+- Full evidence: `V6_8_PILOT_NO_GO_REPORT.md`.
+- Next: preregister V6.9 with only leading-`that` grammar normalization.
