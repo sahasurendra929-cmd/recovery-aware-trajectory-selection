@@ -46,3 +46,17 @@ perform token/hardness measurement and the preregistered Pilot gate audit.
 - Full decision and hashes: `V6_4_PILOT_NO_GO_REPORT.md`.
 - Next: preregister V6.5 with one change—forced action first, then all other
   reference actions once in their original relative order.
+# 2026-07-30 — V6.5 smoke PASS
+
+- Preregistered V6.5 before observing new outcomes; the only scientific delta
+  is forced corrective action first followed by every other frozen reference
+  action exactly once in original relative order.
+- 97 V6 tests and 6 subtests passed.
+- Built a fresh V6.5 registry: 24 Pilot tasks / 72 Pilot pairs / 50 formal
+  tasks; official test sealed.
+- `airline:14` smoke passed: 3 pairs, 6 branches, 12 forced-first cells, and
+  36 repeated trials.
+- All matched and crossed trials had reward `1.0`; all independent replays and
+  label audits passed. This repairs the exact V6.4 missing-action failure.
+- Full evidence: `V6_5_SMOKE_PASS_REPORT.md`.
+- Next: complete fixed 24-task V6.5 Pilot in a fresh output directory.
