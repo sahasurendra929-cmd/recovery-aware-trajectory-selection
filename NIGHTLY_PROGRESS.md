@@ -125,3 +125,17 @@ Pilot in a new versioned directory.
   all independent replays and label audits passed.
 - Full evidence: `V6_7_SMOKE_PASS_REPORT.md`.
 - Next: start the complete 24-task V6.7 Pilot in a fresh persistent session.
+
+## V6.7 full Pilot started
+
+- Smoke report commit `71085d8887b0b93d8e221f278a1fcf2d930911a6`
+  was pushed and read back exactly from GitHub.
+- The original frozen V6 branch remained unchanged at
+  `9f620d438884270f3231101924ff9ef2f6cc5d09`.
+- Started the complete 24-task / 72-pair Pilot in persistent session
+  `v67_pilot`.
+- The process uses the frozen V6.7 registry, single-turn user prefix,
+  deterministic reference completion, natural direct renderer, and the
+  preregistered three continuation seeds.
+- Completion requires 24 task receipts plus an atomic merged JSONL and PASS
+  generation receipt. Official test remains sealed.
