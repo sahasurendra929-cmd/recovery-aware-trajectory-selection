@@ -18,9 +18,9 @@ STATUS_FILE="${STATUS_FILE:-${RESULTS}/ops/status}"
 
 mkdir -p "${WORKSPACE}"
 if [[ ! -d "${REPO}/.git" ]]; then
-  git clone --branch "${BRANCH}" --single-branch "${REPO_URL}" "${REPO}"
+  git clone --depth 1 --branch "${BRANCH}" --single-branch "${REPO_URL}" "${REPO}"
 fi
-git -C "${REPO}" fetch origin "${BRANCH}"
+git -C "${REPO}" fetch --depth 1 origin "${BRANCH}"
 git -C "${REPO}" checkout --detach "${SOURCE_COMMIT}"
 test "$(git -C "${REPO}" rev-parse HEAD)" = "${SOURCE_COMMIT}"
 
