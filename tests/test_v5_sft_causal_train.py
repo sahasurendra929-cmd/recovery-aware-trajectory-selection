@@ -586,6 +586,8 @@ class MessageMaskedSFTContractTests(unittest.TestCase):
                 "perfect_success",
                 "failure_raw",
                 "repair_25",
+                "repair_25_true",
+                "repair_25_shuffled",
                 "repair_50",
                 "repair_75",
                 "repair_100",

@@ -94,6 +94,9 @@ V5_5_DESIGN_VERSION = "5.5-full"
 V5_5_DESIGN_PROTOCOL = "v5_5_full_recovery_dose_response_v1"
 V5_5_DATA_PROTOCOL = "v5_5_full_sft_data_v1"
 V5_5_TRAINING_SEEDS = (20260805, 20260806, 20260807)
+V5_6_DESIGN_VERSION = "5.6-context-mechanism"
+V5_6_DESIGN_PROTOCOL = "v5_6_error_context_mechanism_v1"
+V5_6_DATA_PROTOCOL = "v5_6_error_context_sft_data_v1"
 V5_3_12H_TASK_IDS = (
     "airline:1",
     "airline:11",
@@ -158,11 +161,13 @@ ARM_TARGET_RECOVERY_RATIOS = {
     "perfect_success": 0.0,
     "failure_raw": 1.0,
     "repair_25": 0.25,
+    "repair_25_true": 0.25,
+    "repair_25_shuffled": 0.25,
     "repair_50": 0.50,
     "repair_75": 0.75,
     "repair_100": 1.0,
 }
-REPAIR_ARMS = {"repair_25", "repair_50", "repair_75", "repair_100"}
+REPAIR_ARMS = {"repair_25", "repair_25_true", "repair_25_shuffled", "repair_50", "repair_75", "repair_100"}
 ROW_KEYS = {"id", "messages", "label_mask", "metadata", "token_contract"}
 MESSAGE_ROLES = {"system", "user", "assistant", "tool"}
 
@@ -774,6 +779,18 @@ def validate_training_data_provenance(
             expected_train_sha256=expected_train_sha256,
             expected_validation_sha256=expected_validation_sha256,
         )
+    if audit.get("protocol") == V5_6_DATA_PROTOCOL:
+        return validate_v5_6_training_data_provenance(
+            arm=arm,
+            train_file=train_file,
+            validation_file=validation_file,
+            data_audit_path=data_audit_path,
+            data_hashes_path=data_hashes_path,
+            audit=audit,
+            hashes=hashes,
+            expected_train_sha256=expected_train_sha256,
+            expected_validation_sha256=expected_validation_sha256,
+        )
     if audit.get("status") != "PASS":
         raise RuntimeError("data audit status is not PASS")
     if audit.get("protocol") != DATA_AUDIT_PROTOCOL:
@@ -1091,6 +1108,68 @@ def validate_v5_5_training_data_provenance(
         },
         "official_test_used": False,
         "official_test_sealed": True,
+    }
+
+
+def validate_v5_6_training_data_provenance(
+    *, arm: str, train_file: Path, validation_file: Path,
+    data_audit_path: Path, data_hashes_path: Path, audit: dict[str, Any],
+    hashes: dict[str, Any], expected_train_sha256: str,
+    expected_validation_sha256: str,
+) -> dict[str, Any]:
+    """Bind V5.6's true-versus-shuffled context screen to its audit bundle."""
+    expected_arms = {"perfect_success": 0.0, "repair_25_true": 0.25, "repair_25_shuffled": 0.25}
+    if (
+        audit.get("status") != "PASS" or audit.get("protocol") != V5_6_DATA_PROTOCOL
+        or audit.get("design_protocol") != V5_6_DESIGN_PROTOCOL
+        or audit.get("design_version") != V5_6_DESIGN_VERSION
+        or audit.get("official_test_used") is not False
+        or audit.get("official_test_sealed") is not True
+        or audit.get("derived_validation_used_for_supervision") is not False
+        or audit.get("train_validation_source_overlap") != 0
+        or audit.get("training_mixture_basis") != "supervised_token_mass"
+        or audit.get("same_source_pair_exposure_across_arms") is not True
+        or arm not in expected_arms
+    ):
+        raise RuntimeError("V5.6 data audit protocol/leakage/arm drift")
+    labels = audit.get("label_guarantees")
+    shuffle = audit.get("shuffle_contract")
+    if (
+        not isinstance(labels, dict) or labels.get("failed_action_positive_labels") != 0
+        or labels.get("official_test_and_derived_validation_label_leakage") != 0
+        or labels.get("failed_call_and_result_are_context_only") is not True
+        or not isinstance(shuffle, dict) or shuffle.get("within_domain") is not True
+        or shuffle.get("different_task") is not True
+        or shuffle.get("error_call_and_result_moved_together") is not True
+    ):
+        raise RuntimeError("V5.6 label or shuffle contract drift")
+    audit_sha, hashes_sha = sha256_file(data_audit_path), sha256_file(data_hashes_path)
+    train_sha, validation_sha = sha256_file(train_file), sha256_file(validation_file)
+    required = {"audit.json": audit_sha, f"arms/{arm}/train.jsonl": train_sha,
+                "validation_loss.jsonl": validation_sha, "source_pairs.json": audit.get("source_pairs_sha256")}
+    if any(hashes.get(name) != value for name, value in required.items()):
+        raise RuntimeError("V5.6 hash binding drift")
+    if train_sha != expected_train_sha256 or validation_sha != expected_validation_sha256:
+        raise RuntimeError("V5.6 expected data hash drift")
+    arm_audit = (audit.get("arms") or {}).get(arm)
+    if (
+        not isinstance(arm_audit, dict) or arm_audit.get("sha256") != train_sha
+        or arm_audit.get("rows") != FORMAL_SCHEDULE_ROWS
+        or arm_audit.get("failed_action_label_messages") != 0
+        or abs(float(arm_audit.get("realized_recovery_supervised_token_ratio", -1)) - expected_arms[arm]) > 1e-12
+    ):
+        raise RuntimeError("V5.6 selected-arm audit drift")
+    if validation_file.stat().st_size != 0:
+        raise RuntimeError("V5.6 fixed-step screen forbids loss-validation rows")
+    return {
+        "data_audit_path": str(data_audit_path), "data_audit_sha256": audit_sha,
+        "data_hashes_path": str(data_hashes_path), "data_hashes_sha256": hashes_sha,
+        "train_file_sha256": train_sha, "validation_file_sha256": validation_sha,
+        "dynamic_audits": {}, "design_version": V5_6_DESIGN_VERSION,
+        "design_provenance": {"design_version": V5_6_DESIGN_VERSION, "design_protocol": V5_6_DESIGN_PROTOCOL,
+                              "data_protocol": V5_6_DATA_PROTOCOL, "schedule_rows_per_arm": FORMAL_SCHEDULE_ROWS,
+                              "training_mixture_basis": "supervised_token_mass", "official_test_used": False},
+        "official_test_used": False, "official_test_sealed": True,
     }
 
 

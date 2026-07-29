@@ -1,0 +1,60 @@
+protocol: v5_6_error_context_mechanism_v1
+design_version: "5.6-context-mechanism"
+research_question: >-
+  Does recovery supervision make the model use the matched tool-error result,
+  or does it only teach successful continuation imitation?
+
+benchmark:
+  name: tau2
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  training_split: inner_train
+  evaluation_split: derived_validation
+  official_test_used: false
+  official_test_sealed: true
+
+model:
+  base: Qwen/Qwen2.5-7B-Instruct
+  method: QLoRA_SFT
+  training_seeds: [20260805]
+  evaluation_seeds: [20260815, 20260816, 20260817]
+  learning_rate: 1.25e-5
+  optimizer_steps: 32
+
+arms:
+  perfect_success:
+    recovery_supervised_token_ratio: 0.00
+    error_context: absent
+  repair_25_true:
+    recovery_supervised_token_ratio: 0.25
+    error_context: matched_true_error
+  repair_25_shuffled:
+    recovery_supervised_token_ratio: 0.25
+    error_context: deterministic_cross_task_within_domain_error
+
+matching:
+  schedule_rows_per_arm: 512
+  four_row_blocks: 128
+  target_pair_exposure_identical_across_arms: true
+  supervised_targets_identical_within_block: true
+  supervised_token_mass_exact: true
+  failed_action_and_result_are_context_only: true
+  shuffle:
+    donor_domain_equals_target_domain: true
+    donor_task_differs_from_target_task: true
+    move_failed_call_and_tool_error_as_one_event: true
+    deterministic_seed: 20260805
+
+evaluation:
+  primary_metric: >-
+    mean_task[log p(correct_repair_action | true_error_context) -
+    log p(correct_repair_action | shuffled_error_context)]
+  target: first_successful_post_error_assistant_tool_call
+  paired_unit: task_identity
+  bootstrap_replicates: 10000
+  sign_flip_test: true
+  end_to_end_task_success: secondary_diagnostic_only
+
+interpretation:
+  true_beats_shuffled: evidence_error_context_has_learned_predictive_value
+  true_equals_shuffled: compatible_with_successful_suffix_imitation_without_error_use
+  no_broad_recovery_claim_without_separate_end_to_end_confirmation: true
