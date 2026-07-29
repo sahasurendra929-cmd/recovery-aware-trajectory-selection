@@ -75,6 +75,7 @@ COMPLETION_RENDERERS = (
     "legacy_assertion_echo",
     "natural_direct_v1",
     "explicit_user_direct_v2",
+    "explicit_user_direct_v3",
 )
 SFT_SYSTEM_INSTRUCTION = """\
 You are a customer service agent that helps the user according to the <policy> provided below.
@@ -492,6 +493,7 @@ def verify_registry(payload: Mapping[str, Any]) -> str:
         registry_contract.V6_6_SINGLE_TURN_CLEAN_PREFIX_PROTOCOL,
         registry_contract.V6_7_NATURAL_CLEAN_COMPLETION_PROTOCOL,
         registry_contract.V6_8_EXPLICIT_ASSERTION_RENDERER_PROTOCOL,
+        registry_contract.V6_9_COMPLEMENTIZER_NORMALIZATION_PROTOCOL,
     ):
         raise V6GenerationError("candidate registry design protocol drift")
     if (
@@ -912,7 +914,9 @@ def _ensure_terminal_punctuation(value: str) -> str:
     return value if value[-1] in ".!?" else value + "."
 
 
-def explicit_user_direct_assertion(assertion: str) -> str:
+def explicit_user_direct_assertion(
+    assertion: str, *, strip_leading_that: bool = False
+) -> str:
     """Render one frozen assertion as an explicit statement to the user."""
 
     value = assertion.strip()
@@ -920,6 +924,8 @@ def explicit_user_direct_assertion(assertion: str) -> str:
     provide_prefix = "Agent should provide "
     if value.startswith(tell_prefix):
         fact = value.removeprefix(tell_prefix).strip()
+        if strip_leading_that and fact.startswith("that "):
+            fact = fact.removeprefix("that ")
         if not fact:
             raise V6GenerationError("tell-user completion assertion is empty")
         rendered = f"I am telling you directly: {fact}"
@@ -959,6 +965,24 @@ def deterministic_completion_message(
             for value in communicate
         ]
         lines.extend(explicit_user_direct_assertion(value) for value in assertions)
+        if not lines:
+            lines = [
+                "I am confirming this directly to you: "
+                + _ensure_terminal_punctuation(fallback)
+            ]
+        content = "\n".join(dict.fromkeys(lines))
+    elif renderer == "explicit_user_direct_v3":
+        lines = [
+            _ensure_terminal_punctuation(
+                "I am providing the requested information directly to you: "
+                + value
+            )
+            for value in communicate
+        ]
+        lines.extend(
+            explicit_user_direct_assertion(value, strip_leading_that=True)
+            for value in assertions
+        )
         if not lines:
             lines = [
                 "I am confirming this directly to you: "
