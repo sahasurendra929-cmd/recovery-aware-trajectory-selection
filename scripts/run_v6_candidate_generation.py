@@ -1379,12 +1379,54 @@ def deterministic_reference_tail_simulation(
     return simulation, suffix, time.monotonic() - started
 
 
+def resolve_forced_reference_index(
+    actions: Sequence[Any],
+    forced_call: Mapping[str, Any],
+    *,
+    registered_index: int | None = None,
+) -> int:
+    """Resolve the already-registered reference slot without value ambiguity.
+
+    Some valid tau2 tasks repeat an identical read-only reference action.  The
+    outcome-independent registry freezes the source action index precisely so
+    runtime code does not need to re-identify that slot by call value.
+    """
+    if registered_index is not None:
+        if (
+            isinstance(registered_index, bool)
+            or not isinstance(registered_index, int)
+            or registered_index < 0
+            or registered_index >= len(actions)
+        ):
+            raise V6GenerationError(
+                "registered reference action index is out of range"
+            )
+        registered_call = actions[registered_index].model_dump(mode="json")
+        if call_semantics(registered_call) != call_semantics(forced_call):
+            raise V6GenerationError(
+                "registered reference action index does not match forced call"
+            )
+        return registered_index
+    matching_indices = [
+        index
+        for index, action in enumerate(actions)
+        if call_semantics(action.model_dump(mode="json"))
+        == call_semantics(forced_call)
+    ]
+    if len(matching_indices) != 1:
+        raise V6GenerationError(
+            "forced recovery action must match exactly one frozen reference action"
+        )
+    return matching_indices[0]
+
+
 def deterministic_reference_completion_simulation(
     *,
     domain: str,
     task: Any,
     prompt: Sequence[Mapping[str, Any]],
     forced_call: Mapping[str, Any],
+    forced_reference_action_index: int | None = None,
     completion_renderer: str = "legacy_assertion_echo",
 ) -> tuple[Any, list[dict[str, Any]], float]:
     """Force the correction, then execute every other reference action once.
@@ -1401,17 +1443,11 @@ def deterministic_reference_completion_simulation(
         raise V6GenerationError(
             "reference-completion recovery requires reference actions"
         )
-    matching_indices = [
-        index
-        for index, action in enumerate(criteria.actions)
-        if call_semantics(action.model_dump(mode="json"))
-        == call_semantics(forced_call)
-    ]
-    if len(matching_indices) != 1:
-        raise V6GenerationError(
-            "forced recovery action must match exactly one frozen reference action"
-        )
-    forced_index = matching_indices[0]
+    forced_index = resolve_forced_reference_index(
+        criteria.actions,
+        forced_call,
+        registered_index=forced_reference_action_index,
+    )
     started = time.monotonic()
     environment = initial_environment(domain, task, prompt)
     suffix: list[dict[str, Any]] = []
@@ -1502,6 +1538,15 @@ def matched_recovery(
             task=task,
             prompt=prompt,
             forced_call=reference_call,
+            **(
+                {
+                    "forced_reference_action_index": (
+                        branch_slot.get("corrective_action_spec") or {}
+                    ).get("reference_action_index")
+                }
+                if continuation_mode == "deterministic_reference_completion"
+                else {}
+            ),
             completion_renderer=getattr(
                 args, "completion_renderer", "legacy_assertion_echo"
             ),

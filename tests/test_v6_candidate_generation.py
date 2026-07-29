@@ -14,6 +14,70 @@ def digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+class FakeReferenceAction:
+    def __init__(self, call: dict) -> None:
+        self.call = deepcopy(call)
+
+    def model_dump(self, *, mode: str) -> dict:
+        assert mode == "json"
+        return deepcopy(self.call)
+
+
+def test_registered_reference_index_disambiguates_duplicate_calls():
+    duplicate = {
+        "id": "reference-duplicate",
+        "name": "get_order_details",
+        "arguments": {"order_id": "#W7449508"},
+        "requestor": "assistant",
+    }
+    actions = [
+        FakeReferenceAction(duplicate),
+        FakeReferenceAction(
+            {
+                "id": "other",
+                "name": "get_user_details",
+                "arguments": {"user_id": "u1"},
+                "requestor": "assistant",
+            }
+        ),
+        FakeReferenceAction({**duplicate, "id": "reference-duplicate-again"}),
+    ]
+
+    assert (
+        generation.resolve_forced_reference_index(
+            actions, duplicate, registered_index=2
+        )
+        == 2
+    )
+
+
+def test_registered_reference_index_still_validates_frozen_call_semantics():
+    actions = [
+        FakeReferenceAction(
+            {
+                "id": "registered",
+                "name": "get_order_details",
+                "arguments": {"order_id": "#W7449508"},
+                "requestor": "assistant",
+            }
+        )
+    ]
+    mismatched = {
+        "id": "forced",
+        "name": "get_order_details",
+        "arguments": {"order_id": "#DIFFERENT"},
+        "requestor": "assistant",
+    }
+
+    with unittest.TestCase().assertRaisesRegex(
+        generation.V6GenerationError,
+        "does not match forced call",
+    ):
+        generation.resolve_forced_reference_index(
+            actions, mismatched, registered_index=0
+        )
+
+
 def branch(pair_id: str, index: int) -> dict:
     return {
         "branch_id": f"{pair_id}:branch:{index + 1}",
