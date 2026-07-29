@@ -59,6 +59,8 @@ SEMANTIC_GENERATION_CONTRACT_PROTOCOL = (
     "v6_fresh_recovery_semantic_generation_contract_v1"
 )
 AGENT_NAME = "v6_fresh_recovery_agent"
+REFERENCE_GUIDED_CLEAN_AGENT_NAME = "llm_agent_gt"
+CLEAN_AGENT_MODES = ("standard", "reference_guided")
 SFT_SYSTEM_INSTRUCTION = """\
 You are a customer service agent that helps the user according to the <policy> provided below.
 In each turn you can either:
@@ -176,6 +178,7 @@ def semantic_generation_contract(
     effective_judge_api_base = (
         judge_api_base or args.judge_api_base or args.user_api_base
     )
+    clean_agent_mode = getattr(args, "clean_agent_mode", "standard")
     seeds = list(continuation_seeds)
     decoding = {
         "temperature": DECODING_TEMPERATURE,
@@ -204,6 +207,12 @@ def semantic_generation_contract(
         "design_protocol": design_protocol,
         "tau2_commit": protocol.TAU2_COMMIT,
         "agent_name": AGENT_NAME,
+        "clean_agent_mode": clean_agent_mode,
+        "clean_agent_name": (
+            REFERENCE_GUIDED_CLEAN_AGENT_NAME
+            if clean_agent_mode == "reference_guided"
+            else AGENT_NAME
+        ),
         "system_instruction_sha256": sha256(SFT_SYSTEM_INSTRUCTION),
         "teacher_model": args.teacher_model,
         "teacher_revision": args.teacher_revision,
@@ -351,6 +360,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-steps", type=int, default=60)
     parser.add_argument("--timeout", type=float, default=900.0)
     parser.add_argument("--clean-attempts", type=int, default=2)
+    parser.add_argument(
+        "--clean-agent-mode",
+        choices=CLEAN_AGENT_MODES,
+        default="standard",
+        help=(
+            "Agent used only to construct the successful clean source. "
+            "reference_guided uses tau2 evaluation actions and therefore "
+            "requires a separately versioned scientific protocol."
+        ),
+    )
     parser.add_argument("--recovery-attempts", type=int, default=2)
     parser.add_argument(
         "--continuation-seeds",
@@ -400,6 +419,7 @@ def verify_registry(payload: Mapping[str, Any]) -> str:
     if payload.get("design_protocol") not in (
         protocol.PROTOCOL,
         registry_contract.V6_1_72B_TEACHER_PROTOCOL,
+        registry_contract.V6_2_REFERENCE_GUIDED_CLEAN_PROTOCOL,
     ):
         raise V6GenerationError("candidate registry design protocol drift")
     if (
@@ -506,6 +526,7 @@ def text_run_config(
     *,
     domain: str,
     seed: int,
+    agent_name: str = AGENT_NAME,
 ):
     from tau2.data_model.simulation import TextRunConfig
 
@@ -527,7 +548,7 @@ def text_run_config(
     )
     return TextRunConfig(
         domain=domain,
-        agent=AGENT_NAME,
+        agent=agent_name,
         user="user_simulator",
         llm_agent=litellm_openai_model(args.teacher_model),
         llm_args_agent=teacher_args,
@@ -556,13 +577,16 @@ def run_one(
     domain: str,
     seed: int,
     save_dir: Path,
+    agent_name: str = AGENT_NAME,
 ):
     from tau2.evaluator.evaluator import EvaluationType
     from tau2.runner.batch import run_single_task
 
     started = time.monotonic()
     simulation = run_single_task(
-        text_run_config(args, domain=domain, seed=seed),
+        text_run_config(
+            args, domain=domain, seed=seed, agent_name=agent_name
+        ),
         task,
         seed=seed,
         evaluation_type=EvaluationType.ALL,
@@ -805,6 +829,11 @@ def clean_rollout(
             domain=domain,
             seed=attempt_seed,
             save_dir=log_root / f"clean-attempt-{attempt + 1:02d}",
+            agent_name=(
+                REFERENCE_GUIDED_CLEAN_AGENT_NAME
+                if args.clean_agent_mode == "reference_guided"
+                else AGENT_NAME
+            ),
         )
         observed = messages(simulation)
         tool_index = first_assistant_tool_index(observed)
