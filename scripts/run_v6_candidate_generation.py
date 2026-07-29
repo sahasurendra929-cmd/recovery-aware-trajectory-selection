@@ -74,6 +74,7 @@ RECOVERY_CONTINUATION_MODES = (
 COMPLETION_RENDERERS = (
     "legacy_assertion_echo",
     "natural_direct_v1",
+    "explicit_user_direct_v2",
 )
 SFT_SYSTEM_INSTRUCTION = """\
 You are a customer service agent that helps the user according to the <policy> provided below.
@@ -490,6 +491,7 @@ def verify_registry(payload: Mapping[str, Any]) -> str:
         registry_contract.V6_5_REFERENCE_COMPLETION_PROTOCOL,
         registry_contract.V6_6_SINGLE_TURN_CLEAN_PREFIX_PROTOCOL,
         registry_contract.V6_7_NATURAL_CLEAN_COMPLETION_PROTOCOL,
+        registry_contract.V6_8_EXPLICIT_ASSERTION_RENDERER_PROTOCOL,
     ):
         raise V6GenerationError("candidate registry design protocol drift")
     if (
@@ -903,6 +905,35 @@ def naturalize_completion_assertion(assertion: str) -> str:
     return _capitalize_sentence(rendered)
 
 
+def _ensure_terminal_punctuation(value: str) -> str:
+    value = value.strip()
+    if not value:
+        raise V6GenerationError("completion value is empty")
+    return value if value[-1] in ".!?" else value + "."
+
+
+def explicit_user_direct_assertion(assertion: str) -> str:
+    """Render one frozen assertion as an explicit statement to the user."""
+
+    value = assertion.strip()
+    tell_prefix = "Agent should tell the user "
+    provide_prefix = "Agent should provide "
+    if value.startswith(tell_prefix):
+        fact = value.removeprefix(tell_prefix).strip()
+        if not fact:
+            raise V6GenerationError("tell-user completion assertion is empty")
+        rendered = f"I am telling you directly: {fact}"
+    elif value.startswith(provide_prefix):
+        fact = value.removeprefix(provide_prefix).strip()
+        if not fact:
+            raise V6GenerationError("provide completion assertion is empty")
+        rendered = f"I am providing this directly to you: {fact}"
+    else:
+        direct = naturalize_completion_assertion(value)
+        rendered = f"I am confirming this directly to you: {direct}"
+    return _ensure_terminal_punctuation(rendered)
+
+
 def deterministic_completion_message(
     criteria: Any,
     *,
@@ -918,6 +949,21 @@ def deterministic_completion_message(
         lines = ["The requested work is complete."]
         lines.extend(f"Requested information: {value}." for value in communicate)
         lines.extend(naturalize_completion_assertion(value) for value in assertions)
+        content = "\n".join(dict.fromkeys(lines))
+    elif renderer == "explicit_user_direct_v2":
+        lines = [
+            _ensure_terminal_punctuation(
+                "I am providing the requested information directly to you: "
+                + value
+            )
+            for value in communicate
+        ]
+        lines.extend(explicit_user_direct_assertion(value) for value in assertions)
+        if not lines:
+            lines = [
+                "I am confirming this directly to you: "
+                + _ensure_terminal_punctuation(fallback)
+            ]
         content = "\n".join(dict.fromkeys(lines))
     else:
         raise V6GenerationError(f"unsupported completion renderer: {renderer}")
