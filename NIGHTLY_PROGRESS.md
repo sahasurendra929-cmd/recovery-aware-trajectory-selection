@@ -23,8 +23,8 @@ remain preserved NO-GO results and are not pooled.
 
 ## Running
 
-The complete fixed 24-task V6.4 Pilot is authorized next. GPU model services
-remain healthy.
+The complete fixed 24-task / 72-pair V6.4 Pilot is running in a persistent
+remote session. GPU model services remain healthy.
 
 ## Next
 
