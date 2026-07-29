@@ -1,0 +1,74 @@
+experiment_name: v6_8_causal_recovery_explicit_assertion_renderer
+protocol: v6_8_explicit_assertion_renderer_v1
+design_version: "6.8"
+supersedes:
+  protocol: v6_7_natural_clean_completion_v1
+  predecessor_result: PILOT_NO_GO
+  failure_task: "retail:16"
+  reason: >-
+    V6.7 action, DB, and communicate checks passed and the literal refund
+    statement was present, but the frozen judge misattributed it to tool output.
+  results_must_not_be_merged: true
+
+frozen_delta:
+  only_scientific_change: explicit_first_person_user_direct_renderer_v2
+  remove_generic_completion_boilerplate: true
+  communicate_info_explicitly_user_direct: true
+  nl_assertions_explicitly_user_direct: true
+  deterministic_rewrite_table: true
+  unknown_assertion_shape_fails_closed: true
+  same_renderer_for_clean_and_recovery_confirmation: true
+  task_ids_changed: false
+  registry_or_error_branches_changed: false
+  gates_changed: false
+  models_revisions_seeds_or_decoding_changed: false
+  clean_prefix_changed: false
+  deterministic_reference_actions_changed: false
+  deterministic_recovery_action_ordering_and_cells_changed: false
+  selectors_weights_training_or_evaluation_changed: false
+
+benchmark:
+  name: tau2
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  partition_sha256: c90255a2cf4100d8cf5b5fcf3e684144ed1a393fad1c214058146721c4ed6818
+  arm_train:
+    tasks: 70
+  official_test:
+    sealed: true
+    used_during_generation_scoring_selection_or_model_selection: false
+    ids_or_content_exported_to_generation_workers: false
+
+models:
+  trajectory_teacher:
+    model: Qwen/Qwen2.5-72B-Instruct-AWQ
+    revision: 698703eae6604af048a3d2f509995dc302088217
+  user_simulator_and_strict_judge:
+    model: Qwen/Qwen2.5-14B-Instruct-AWQ
+    revision: 539535859b135b0244c91f3e59816150c8056698
+  directional_screen_student:
+    model: Qwen/Qwen2.5-7B-Instruct
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+
+clean:
+  prefix_mode: single_turn_user_reference_replay
+  completion_renderer: explicit_user_direct_v2
+  official_reward_must_equal: 1.0
+  future_deleted_before_recovery: true
+
+recovery:
+  mode: deterministic_reference_completion
+  continuation_seeds: [20260806, 20260807, 20260808]
+
+selection:
+  full_proposed_weights: {causal: 0.50, hardness: 0.25, coverage: 0.25}
+  primary_contrast: full_proposed_minus_random_stratified
+  primary_metric: controlled_error_end_to_end_official_task_success
+  clean_noninferiority_margin: -0.05
+  task_cluster_bootstrap_replicates: 10000
+
+smoke:
+  tasks: ["retail:16", "retail:104"]
+  expected_candidate_pairs_per_task: 3
+  expected_branches_per_task: 6
+  require_all_replays: true
+  require_official_test_unused: true
