@@ -159,6 +159,7 @@ def semantic_generation_contract(
     judge_model: str | None = None,
     judge_revision: str | None = None,
     judge_api_base: str | None = None,
+    design_protocol: str = protocol.PROTOCOL,
 ) -> dict[str, Any]:
     """Return every parameter that can change generated task semantics.
 
@@ -200,6 +201,7 @@ def semantic_generation_contract(
     }
     return {
         "protocol": SEMANTIC_GENERATION_CONTRACT_PROTOCOL,
+        "design_protocol": design_protocol,
         "tau2_commit": protocol.TAU2_COMMIT,
         "agent_name": AGENT_NAME,
         "system_instruction_sha256": sha256(SFT_SYSTEM_INSTRUCTION),
@@ -251,6 +253,7 @@ def build_run_contract(
     semantic_contract_copy = deepcopy(dict(semantic_contract))
     return {
         "protocol": GENERATION_PROTOCOL,
+        "design_protocol": semantic_contract_copy["design_protocol"],
         "registry_file_sha256": registry_file_sha256,
         "registry_sha256": registry_sha256,
         "phase": args.phase,
@@ -394,7 +397,10 @@ def register_agent() -> None:
 def verify_registry(payload: Mapping[str, Any]) -> str:
     if payload.get("protocol") != registry_contract.REGISTRY_PROTOCOL:
         raise V6GenerationError("candidate registry protocol drift")
-    if payload.get("design_protocol") != protocol.PROTOCOL:
+    if payload.get("design_protocol") not in (
+        protocol.PROTOCOL,
+        registry_contract.V6_1_72B_TEACHER_PROTOCOL,
+    ):
         raise V6GenerationError("candidate registry design protocol drift")
     if (
         payload.get("selection_unit") != "candidate_pair"
@@ -1495,6 +1501,7 @@ def main() -> None:
         judge_model=judge_model,
         judge_revision=judge_revision,
         judge_api_base=judge_api_base,
+        design_protocol=str(registry["design_protocol"]),
     )
     run_contract = build_run_contract(
         args,

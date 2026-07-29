@@ -91,6 +91,34 @@ def registry() -> dict:
     return value
 
 
+def test_v6_1_registry_is_explicitly_accepted_and_bound_to_run_contract():
+    payload = registry()
+    payload["design_protocol"] = registry_contract.V6_1_72B_TEACHER_PROTOCOL
+    payload["registry_sha256"] = generation.sha256(
+        {key: value for key, value in payload.items() if key != "registry_sha256"}
+    )
+    generation.verify_registry(payload)
+
+    args = generation_args()
+    semantic = generation.semantic_generation_contract(
+        args,
+        continuation_seeds=[20260806, 20260807, 20260808],
+        design_protocol=payload["design_protocol"],
+    )
+    contract = generation.build_run_contract(
+        args,
+        registry_file_sha256="a" * 64,
+        registry_sha256=payload["registry_sha256"],
+        task_ids=["airline:2", "retail:1"],
+        semantic_contract=semantic,
+    )
+    assert contract["design_protocol"] == payload["design_protocol"]
+    assert (
+        contract["semantic_generation_contract"]["design_protocol"]
+        == payload["design_protocol"]
+    )
+
+
 def generation_args(**overrides) -> SimpleNamespace:
     values = {
         "phase": "pilot",
