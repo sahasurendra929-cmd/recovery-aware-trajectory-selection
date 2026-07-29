@@ -1,4 +1,5 @@
 from pathlib import Path
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -166,3 +167,10 @@ def test_generator_accepts_v6_6_registry_protocol():
     )
     payload["registry_sha256"] = generation.sha256(payload)
     assert generation.verify_registry(payload) == payload["registry_sha256"]
+
+
+def test_deterministic_clean_replay_replaces_premature_source_termination():
+    source = inspect.getsource(
+        generation.deterministic_reference_clean_simulation
+    )
+    assert '"termination_reason": TerminationReason.USER_STOP' in source

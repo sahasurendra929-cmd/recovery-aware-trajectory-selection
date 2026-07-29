@@ -1075,6 +1075,7 @@ def deterministic_reference_clean_simulation(
     confined to the clean future, which candidate construction deletes before
     generating any fresh recovery suffix.
     """
+    from tau2.data_model.simulation import TerminationReason
     from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
 
     criteria = task.evaluation_criteria
@@ -1108,7 +1109,15 @@ def deterministic_reference_clean_simulation(
         }
     )
     replayed = simulation.model_copy(
-        update={"messages": parse_messages(observed), "reward_info": None}
+        update={
+            "messages": parse_messages(observed),
+            "reward_info": None,
+            # A single-turn source intentionally ends at its max-step
+            # boundary.  The reconstructed deterministic replay, however,
+            # is a complete trajectory and must not inherit that premature
+            # source termination marker.
+            "termination_reason": TerminationReason.USER_STOP,
+        }
     )
     replayed.reward_info = evaluate_simulation(
         simulation=replayed,
