@@ -194,3 +194,19 @@ Pilot in a new versioned directory.
   sealed and training unauthorized.
 - Full evidence: `V6_8_PILOT_NO_GO_REPORT.md`.
 - Next: preregister V6.9 with only leading-`that` grammar normalization.
+
+## V6.9 triple targeted smoke PASS
+
+- V6.9 was preregistered before observing any V6.9 outcomes and changes only
+  one leading, case-sensitive `that ` after the frozen tell-user prefix.
+- A missing 70-task arm-train count in the copied registry config was repaired
+  before runtime outcomes; local and remote suites passed 155 tests plus 6
+  subtests.
+- Fresh registry: 24 Pilot tasks / 72 pairs and 50 formal tasks / 150 pairs;
+  official test remains sealed.
+- `retail:19`, `retail:16`, and `retail:104` all passed.
+- Combined coverage: 9 pairs, 18 branches, 36 forced-first cells, and 108
+  continuation trials. All task-success and replay checks passed; failed
+  positive labels were zero.
+- Full evidence: `V6_9_TRIPLE_SMOKE_PASS_REPORT.md`.
+- Next: push/read back this stage and start a fresh complete V6.9 Pilot.
