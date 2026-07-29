@@ -1108,7 +1108,7 @@ def clean_rollout(
             }
     raise V6GenerationError(
         f"{task_identity}: no successful clean rollout with an observed tool "
-        f"call; attempts={canonical_json(attempts)}"
+        f"call; attempts={canonical(attempts)}"
     )
 
 
