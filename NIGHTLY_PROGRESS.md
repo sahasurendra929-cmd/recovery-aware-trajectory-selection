@@ -95,3 +95,17 @@ Pilot in a new versioned directory.
   was authorized.
 - Full evidence and hashes: `V6_5_PILOT_NO_GO_REPORT.md`.
 - Next: preregister V6.6 before implementing or observing successor outcomes.
+
+## V6.6 targeted smoke NO-GO
+
+- V6.6 replaced the stochastic full-task clean source with exactly one user
+  turn followed by deterministic reference replay.
+- 106 V6 tests and 6 subtests passed after fixing three pre-outcome plumbing
+  defects.
+- On the valid `retail:104` smoke, DB, all five action checks, and the
+  communicate checker passed, but the strict NL assertion judge rejected the
+  meta-level completion text in both attempts.
+- Official reward was `0.0`; no V6.6 Pilot is authorized.
+- Full evidence: `V6_6_SMOKE_NO_GO_REPORT.md`.
+- Next: preregister V6.7 with only a direct-natural-language renderer for the
+  deleted clean completion message.
