@@ -4,8 +4,8 @@ Updated: 2026-07-30 (Asia/Shanghai)
 
 ## Current protocol
 
-V6.3 (`v6_3_deterministic_reference_clean_replay_v1`) is active. V6, V6.1,
-and V6.2 remain preserved candidate-supply NO-GO results and are not pooled.
+V6.4 (`v6_4_forced_correction_reference_tail_v1`) is active. V6 through V6.3
+remain preserved NO-GO results and are not pooled.
 
 ## Completed
 
@@ -17,17 +17,16 @@ and V6.2 remain preserved candidate-supply NO-GO results and are not pooled.
 - Registry contains 24 Pilot tasks / 72 Pilot pairs and 50 formal tasks /
   150 formal pairs.
 - Official test remains sealed and unused.
+- V6.4 `airline:12` smoke passed with 3/3 candidate pairs, 6/6 matched
+  recoveries, 12/12 forced-first cells, 36/36 repeated trials, and all replay
+  and label audits passing.
 
 ## Running
 
-The `airline:12` V6.3 smoke finished with exit code 1. Its deterministic clean
-replay passed, but both registered fresh recovery attempts received reward
-`0.0`; no candidate or task receipt was emitted. This is preserved as a V6.3
-recovery-supply NO-GO. GPU model services remain healthy while the separately
-versioned successor is prepared.
+The complete fixed 24-task V6.4 Pilot is authorized next. GPU model services
+remain healthy.
 
 ## Next
 
-Preregister V6.4 with a constrained/reference-completed recovery definition,
-test it before observing V6.4 outcomes, then run the same smoke and authorize
-the complete Pilot only if every receipt and audit passes.
+Run the complete fixed 24-task Pilot, validate all 72 pairs and receipts, then
+perform token/hardness measurement and the preregistered Pilot gate audit.
