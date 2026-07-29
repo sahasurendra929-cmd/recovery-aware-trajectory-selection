@@ -28,7 +28,10 @@ def prepare(tau2_root: Path, split_manifest: Path, output: Path) -> dict[str, An
     split = v55.load(split_manifest)
     candidates: list[dict[str, Any]] = []
     for domain in ("airline", "retail"):
-        allowed = {str(value) for value in split["domains"][domain]["derived_validation_ids"]}
+        # V5 Stage-0 records the derived-validation partition as
+        # ``validation_ids``.  It is derived solely from official-train tasks;
+        # the sealed official-test IDs remain explicitly excluded.
+        allowed = {str(value) for value in split["domains"][domain]["validation_ids"]}
         task_rows = {str(task["id"]): task for task in v55.load(tau2_root / "data" / "tau2" / "domains" / domain / "tasks.json")}
         for task_id in sorted(allowed):
             actions = ((task_rows[task_id].get("evaluation_criteria") or {}).get("actions") or [])
