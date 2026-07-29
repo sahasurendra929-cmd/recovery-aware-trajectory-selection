@@ -1491,6 +1491,11 @@ def matched_recovery(
             "attempt": 1,
             "seed": int(branch_slot["recovery_seed"]),
             "official_reward": reward(simulation),
+            "official_reward_info": (
+                simulation.reward_info.model_dump(mode="json")
+                if getattr(simulation, "reward_info", None) is not None
+                else None
+            ),
             "wall_seconds": seconds,
             "first_action": deepcopy(first[1]) if first is not None else None,
             "first_action_matched": matched,
@@ -1499,7 +1504,8 @@ def matched_recovery(
         if reward(simulation) != 1.0 or not matched:
             raise V6GenerationError(
                 f"{branch_slot.get('branch_id')}: {continuation_mode} "
-                "did not produce a successful matched recovery"
+                "did not produce a successful matched recovery; "
+                f"attempt={canonical(attempt)}"
             )
         mask = successful_assistant_labels(
             suffix, include_text=True, reject_failed_tools=True
