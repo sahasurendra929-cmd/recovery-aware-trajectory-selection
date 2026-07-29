@@ -89,6 +89,15 @@ validation. It does not claim an end-to-end agent improvement yet.
   task-cluster inference, and a one-host four-GPU controller. See
   [`V5_5_FULL_EXPERIMENT_PLAN.md`](V5_5_FULL_EXPERIMENT_PLAN.md) and
   [`V5_5_FULL_4GPU_HANDOFF.md`](V5_5_FULL_4GPU_HANDOFF.md).
+- **v6 (code-only directional-screen release):** makes data selection, rather
+  than data generation, the scientific intervention. It constructs
+  shared-prefix sibling error pairs, audits real state-preserving errors and
+  fresh successful recoveries, measures forced-first causal necessity and
+  frozen-base hardness, then compares matched `flawless_only`,
+  `random_stratified`, and `full_proposed` 7B SFT arms. The 24-task Pilot must
+  pass preregistered identifiability and data-volume gates before training.
+  No V6 model result is claimed in this branch. See
+  [`V6_DIRECTIONAL_SCREEN_HANDOFF.md`](V6_DIRECTIONAL_SCREEN_HANDOFF.md).
 
 Never compare or merge v1.1 with v2/v3/v4 outputs. V3 may be paired only with the
 audited V2 `random_success` result because those two share the frozen examples
@@ -190,6 +199,11 @@ The label also records whether a user spoke before the corrective tool call. Thi
 - [x] Implement exact R0/R25/R50/R75/R100 supervised-token schedules
 - [x] Implement V5.5 multi-seed QLoRA, registry and τ² task-success evaluator
 - [x] Implement task-cluster paired statistics and the four-GPU controller
+- [x] Implement the V6 causal-recovery registry, generation, audit, scoring,
+      selector, SFT materialization, and directional 7B QLoRA training code
+- [ ] Run the V6 24-task Pilot and pass its 12-task/48-pair identifiability gate
+- [ ] Train the three one-seed V6 directional-screen arms
+- [ ] Freeze V6 checkpoints and run three-seed paired end-to-end evaluation
 - [ ] Run the V5.5 three-arm reference-grounded diagnostic
 - [ ] Pass the natural 24-task/48-pair gate and run the V5.5 five-arm grid
 - [ ] Run the V5.3 24-task pilot and obtain a frozen GO/NO-GO decision
