@@ -109,3 +109,19 @@ Pilot in a new versioned directory.
 - Full evidence: `V6_6_SMOKE_NO_GO_REPORT.md`.
 - Next: preregister V6.7 with only a direct-natural-language renderer for the
   deleted clean completion message.
+
+## V6.7 targeted smoke PASS
+
+- Implemented the preregistered natural direct completion renderer at source
+  commit `6921a3f82f7c1bfc350ee4200ced72899328ffdd`.
+- Local and remote code-only suites passed: 136 tests and 6 subtests.
+- Rebuilt the runtime environment on Pod-local storage after the migrated
+  shared-volume environment failed binary-library and import checks.
+- Built a fresh registry with 24 Pilot tasks / 72 Pilot pairs and 50 formal
+  tasks / 150 formal pairs; official test remains sealed.
+- `retail:104` smoke passed: 3 pairs, 6 branches, 12 forced-first cells, and
+  36 continuation trials.
+- Every clean, matched-recovery, cell, and trial task-success value was 1.0;
+  all independent replays and label audits passed.
+- Full evidence: `V6_7_SMOKE_PASS_REPORT.md`.
+- Next: start the complete 24-task V6.7 Pilot in a fresh persistent session.
