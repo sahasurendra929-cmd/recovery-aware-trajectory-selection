@@ -1062,6 +1062,11 @@ def clean_rollout(
                 "attempt": attempt + 1,
                 "seed": attempt_seed,
                 "official_reward": reward(simulation),
+                "official_reward_info": (
+                    simulation.reward_info.model_dump(mode="json")
+                    if getattr(simulation, "reward_info", None) is not None
+                    else None
+                ),
                 "first_assistant_tool_index": tool_index,
                 "wall_seconds": seconds,
             }
@@ -1102,7 +1107,8 @@ def clean_rollout(
                 "official_test_used": False,
             }
     raise V6GenerationError(
-        f"{task_identity}: no successful clean rollout with an observed tool call"
+        f"{task_identity}: no successful clean rollout with an observed tool "
+        f"call; attempts={canonical_json(attempts)}"
     )
 
 
