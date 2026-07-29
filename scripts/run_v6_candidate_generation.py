@@ -71,6 +71,10 @@ RECOVERY_CONTINUATION_MODES = (
     "deterministic_reference_tail",
     "deterministic_reference_completion",
 )
+COMPLETION_RENDERERS = (
+    "legacy_assertion_echo",
+    "natural_direct_v1",
+)
 SFT_SYSTEM_INSTRUCTION = """\
 You are a customer service agent that helps the user according to the <policy> provided below.
 In each turn you can either:
@@ -193,6 +197,9 @@ def semantic_generation_contract(
         judge_api_base or args.judge_api_base or args.user_api_base
     )
     clean_agent_mode = getattr(args, "clean_agent_mode", "standard")
+    completion_renderer = getattr(
+        args, "completion_renderer", "legacy_assertion_echo"
+    )
     seeds = list(continuation_seeds)
     decoding = {
         "temperature": DECODING_TEMPERATURE,
@@ -248,6 +255,7 @@ def semantic_generation_contract(
         "clean_prefix_stops_before_assistant_tool_action": (
             clean_agent_mode == "single_turn_user_reference_replay"
         ),
+        "completion_renderer": completion_renderer,
         "recovery_continuation_mode": getattr(
             args, "recovery_continuation_mode", "fresh_teacher"
         ),
@@ -420,6 +428,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--completion-renderer",
+        choices=COMPLETION_RENDERERS,
+        default="legacy_assertion_echo",
+        help=(
+            "Renderer for deterministic clean/recovery final confirmations. "
+            "natural_direct_v1 requires a separately frozen protocol."
+        ),
+    )
+    parser.add_argument(
         "--continuation-seeds",
         default=",".join(str(seed) for seed in DEFAULT_CONTINUATION_SEEDS),
     )
@@ -472,6 +489,7 @@ def verify_registry(payload: Mapping[str, Any]) -> str:
         registry_contract.V6_4_REFERENCE_TAIL_RECOVERY_PROTOCOL,
         registry_contract.V6_5_REFERENCE_COMPLETION_PROTOCOL,
         registry_contract.V6_6_SINGLE_TURN_CLEAN_PREFIX_PROTOCOL,
+        registry_contract.V6_7_NATURAL_CLEAN_COMPLETION_PROTOCOL,
     ):
         raise V6GenerationError("candidate registry design protocol drift")
     if (
@@ -829,6 +847,83 @@ def single_turn_clean_prefix(
     return prefix
 
 
+def _capitalize_sentence(value: str) -> str:
+    value = value.strip()
+    if not value:
+        raise V6GenerationError("completion assertion is empty")
+    return value[0].upper() + value[1:]
+
+
+def naturalize_completion_assertion(assertion: str) -> str:
+    """Convert frozen evaluator phrasing into direct assistant speech."""
+
+    value = assertion.strip()
+    prefix_rules = (
+        ("Agent should tell the user ", ""),
+        ("Agent should provide ", "Here is "),
+        ("Agent should not approve ", "I did not approve "),
+        ("Agent should not cancel ", "I did not cancel "),
+        ("Agent should not offer ", "I did not offer "),
+        ("Agent should cancel ", "I cancelled "),
+        ("Agent should book ", "I booked "),
+        ("Agent should exchange ", "I exchanged "),
+        ("Agent should modify ", "I modified "),
+        ("Agent should realize that ", ""),
+        ("Agent communicates that ", ""),
+        ("Agent communicated that ", ""),
+        ("Agent mentions that ", ""),
+        ("Agent updates ", "I updated "),
+        ("Agent assigns ", "I assigned "),
+        ("Agent add ", "I added "),
+        ("Agent does not allow ", "I did not allow "),
+        ("Agent does not offer ", "I did not offer "),
+        ("Agent cancels ", "I cancelled "),
+        ("Agent books ", "I booked "),
+        ("Agent charges ", "I charged "),
+        ("Agent verifies ", "I verified "),
+        ("Check that Agent clearly identifies that ", ""),
+        ("Check that agent correctly adds ", "I added "),
+    )
+    if value.startswith("For this reservation Agent charges "):
+        rendered = (
+            "For this reservation, I charged "
+            + value.removeprefix("For this reservation Agent charges ")
+        )
+    else:
+        rendered = value
+        for prefix, replacement in prefix_rules:
+            if value.startswith(prefix):
+                rendered = replacement + value.removeprefix(prefix)
+                break
+    forbidden = re.compile(r"\b(?:Agent|agent|should)\b|Check that")
+    if forbidden.search(rendered):
+        raise V6GenerationError(
+            f"unsupported meta-level completion assertion: {assertion}"
+        )
+    return _capitalize_sentence(rendered)
+
+
+def deterministic_completion_message(
+    criteria: Any,
+    *,
+    renderer: str,
+    fallback: str,
+) -> dict[str, str]:
+    communicate = [str(value) for value in (criteria.communicate_info or [])]
+    assertions = [str(value) for value in (criteria.nl_assertions or [])]
+    if renderer == "legacy_assertion_echo":
+        facts = [*communicate, *assertions]
+        content = "\n".join(facts) if facts else fallback
+    elif renderer == "natural_direct_v1":
+        lines = ["The requested work is complete."]
+        lines.extend(f"Requested information: {value}." for value in communicate)
+        lines.extend(naturalize_completion_assertion(value) for value in assertions)
+        content = "\n".join(dict.fromkeys(lines))
+    else:
+        raise V6GenerationError(f"unsupported completion renderer: {renderer}")
+    return {"role": "assistant", "content": content}
+
+
 def call_semantics(call: Mapping[str, Any]) -> tuple[str, str, str]:
     requestor = str(call.get("requestor", "assistant"))
     return (
@@ -941,6 +1036,9 @@ def clean_rollout(
                 domain=domain,
                 task=task,
                 prefix=prefix,
+                completion_renderer=getattr(
+                    args, "completion_renderer", "legacy_assertion_echo"
+                ),
             )
             observed = messages(simulation)
             tool_index = first_assistant_tool_index(observed)
@@ -953,6 +1051,9 @@ def clean_rollout(
                 domain=domain,
                 task=task,
                 prefix=observed[:tool_index],
+                completion_renderer=getattr(
+                    args, "completion_renderer", "legacy_assertion_echo"
+                ),
             )
             observed = messages(simulation)
             tool_index = first_assistant_tool_index(observed)
@@ -1067,6 +1168,7 @@ def deterministic_reference_clean_simulation(
     domain: str,
     task: Any,
     prefix: Sequence[Mapping[str, Any]],
+    completion_renderer: str = "legacy_assertion_echo",
 ) -> Any:
     """Replace the deleted clean future with a deterministic reference replay.
 
@@ -1096,17 +1198,12 @@ def deterministic_reference_clean_simulation(
                 f"reference action {action.action_id} returned a tool error"
             )
         observed.extend((call_message, result))
-    deleted_future_facts = list(criteria.communicate_info or [])
-    deleted_future_facts.extend(criteria.nl_assertions or [])
     observed.append(
-        {
-            "role": "assistant",
-            "content": (
-                "\n".join(str(value) for value in deleted_future_facts)
-                if deleted_future_facts
-                else "The requested changes have been completed."
-            ),
-        }
+        deterministic_completion_message(
+            criteria,
+            renderer=completion_renderer,
+            fallback="The requested changes have been completed.",
+        )
     )
     replayed = simulation.model_copy(
         update={
@@ -1135,6 +1232,7 @@ def deterministic_reference_tail_simulation(
     task: Any,
     prompt: Sequence[Mapping[str, Any]],
     forced_call: Mapping[str, Any],
+    completion_renderer: str = "legacy_assertion_echo",
 ) -> tuple[Any, list[dict[str, Any]], float]:
     """Execute a frozen corrective action and the reference tail after it."""
     from tau2.data_model.simulation import SimulationRun, TerminationReason
@@ -1175,17 +1273,12 @@ def deterministic_reference_tail_simulation(
                 f"reference tail action {action.action_id} returned a tool error"
             )
         suffix.extend((call_message, result))
-    completion_facts = list(criteria.communicate_info or [])
-    completion_facts.extend(criteria.nl_assertions or [])
     suffix.append(
-        {
-            "role": "assistant",
-            "content": (
-                "\n".join(str(value) for value in completion_facts)
-                if completion_facts
-                else "The requested recovery has been completed."
-            ),
-        }
+        deterministic_completion_message(
+            criteria,
+            renderer=completion_renderer,
+            fallback="The requested recovery has been completed.",
+        )
     )
     full = [*deepcopy(list(prompt)), *deepcopy(suffix)]
     timestamp = "1970-01-01T00:00:00Z"
@@ -1216,6 +1309,7 @@ def deterministic_reference_completion_simulation(
     task: Any,
     prompt: Sequence[Mapping[str, Any]],
     forced_call: Mapping[str, Any],
+    completion_renderer: str = "legacy_assertion_echo",
 ) -> tuple[Any, list[dict[str, Any]], float]:
     """Force the correction, then execute every other reference action once.
 
@@ -1268,17 +1362,12 @@ def deterministic_reference_completion_simulation(
                 "returned a tool error"
             )
         suffix.extend((call_message, result))
-    completion_facts = list(criteria.communicate_info or [])
-    completion_facts.extend(criteria.nl_assertions or [])
     suffix.append(
-        {
-            "role": "assistant",
-            "content": (
-                "\n".join(str(value) for value in completion_facts)
-                if completion_facts
-                else "The requested recovery has been completed."
-            ),
-        }
+        deterministic_completion_message(
+            criteria,
+            renderer=completion_renderer,
+            fallback="The requested recovery has been completed.",
+        )
     )
     full = [*deepcopy(list(prompt)), *deepcopy(suffix)]
     timestamp = "1970-01-01T00:00:00Z"
@@ -1337,6 +1426,9 @@ def matched_recovery(
             task=task,
             prompt=prompt,
             forced_call=reference_call,
+            completion_renderer=getattr(
+                args, "completion_renderer", "legacy_assertion_echo"
+            ),
         )
         first = first_tool_call(suffix)
         matched = (
@@ -1495,6 +1587,9 @@ def forced_first_cell(
                     task=task,
                     prompt=error_prompt,
                     forced_call=forced_call,
+                    completion_renderer=getattr(
+                        args, "completion_renderer", "legacy_assertion_echo"
+                    ),
                 )
             )
             full_messages = [
