@@ -57,9 +57,11 @@ python scripts/prepare_v5_6_context_mechanism.py \
   --pair-mode reference \
   --tokenizer-revision "${BASE_REVISION}" \
   --output-dir "${REPO}/data/processed/v5_6_context"
+# The raw/processed Stage-0 tree is intentionally untracked; the committed
+# audit artifact is the immutable split authority for this screen.
 python scripts/prepare_v5_6_validation_manifest.py \
   --tau2-root "${TAU2_ROOT}" \
-  --split-manifest data/processed/v5_stage0/split_manifest.json \
+  --split-manifest artifacts/v5_stage0/manifests/split_manifest.json \
   --output "${RESULTS}/validation_manifest.json"
 python scripts/run_v5_5_reference_pairs.py \
   --tau2-root "${TAU2_ROOT}" \
