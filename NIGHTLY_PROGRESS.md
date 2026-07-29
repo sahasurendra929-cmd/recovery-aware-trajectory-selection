@@ -139,3 +139,19 @@ Pilot in a new versioned directory.
   preregistered three continuation seeds.
 - Completion requires 24 task receipts plus an atomic merged JSONL and PASS
   generation receipt. Official test remains sealed.
+
+## V6.7 Pilot NO-GO
+
+- Ten of 24 tasks and 30 of 72 candidate pairs completed with PASS task
+  artifacts before the generator failed closed at `retail:16`.
+- The prior blocker `retail:104` passed in the complete Pilot with all clean,
+  matched, cell, trial, replay, and label checks passing.
+- For `retail:16`, all nine reference actions, DB, and communicate checks
+  passed, and the assistant explicitly stated the correct total refund.
+- The frozen 14B NL judge nevertheless rejected the statement twice, so both
+  clean official rewards were 0.0.
+- No atomic merged JSONL or generation receipt was emitted. Official test
+  remains sealed and training remains unauthorized.
+- Full evidence: `V6_7_PILOT_NO_GO_REPORT.md`.
+- Next: preregister a separately versioned V6.8 explicit assertion renderer,
+  then run targeted `retail:16` and `retail:104` smokes before a fresh Pilot.
