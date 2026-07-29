@@ -126,3 +126,43 @@ def test_semantic_contract_binds_single_turn_budget_and_mode():
         "deterministic_reference_completion"
     )
     assert contract["gold_clean_future_visible"] is False
+
+
+def test_generator_accepts_v6_6_registry_protocol():
+    payload = {
+        "protocol": registry.REGISTRY_PROTOCOL,
+        "design_protocol": registry.V6_6_SINGLE_TURN_CLEAN_PREFIX_PROTOCOL,
+        "selection_unit": "candidate_pair",
+        "grouping_unit": "choice_set",
+        "official_test_used": False,
+        "official_test_sealed": True,
+        "official_test_task_content_exported": False,
+        "official_test_identity_overlap_count": 0,
+        "structural_eligibility_sha256": (
+            generation.protocol.STRUCTURAL_ELIGIBILITY_SHA256
+        ),
+        "phase_registry": {
+            "pilot": {"task_ids": ["retail:104"]},
+            "formal": {"task_ids": ["retail:104"]},
+        },
+        "candidate_pairs": [
+            {
+                "candidate_pair_id": "v6:pilot:retail:104:pair:1",
+                "choice_set_id": "v6:pilot:retail:104:choice",
+                "phase": "pilot",
+                "partition": "arm_train",
+                "task_identity": "retail:104",
+                "domain": "retail",
+                "task_id": "104",
+                "prefix_sha256": "a" * 64,
+                "environment_snapshot_sha256": "b" * 64,
+                "branches": [{}, {}],
+                "official_test_used": False,
+            }
+        ],
+    }
+    payload["candidate_pairs"][0]["candidate_pair_sha256"] = generation.sha256(
+        payload["candidate_pairs"][0]
+    )
+    payload["registry_sha256"] = generation.sha256(payload)
+    assert generation.verify_registry(payload) == payload["registry_sha256"]

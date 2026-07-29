@@ -468,6 +468,7 @@ def verify_registry(payload: Mapping[str, Any]) -> str:
         registry_contract.V6_3_DETERMINISTIC_CLEAN_REPLAY_PROTOCOL,
         registry_contract.V6_4_REFERENCE_TAIL_RECOVERY_PROTOCOL,
         registry_contract.V6_5_REFERENCE_COMPLETION_PROTOCOL,
+        registry_contract.V6_6_SINGLE_TURN_CLEAN_PREFIX_PROTOCOL,
     ):
         raise V6GenerationError("candidate registry design protocol drift")
     if (
