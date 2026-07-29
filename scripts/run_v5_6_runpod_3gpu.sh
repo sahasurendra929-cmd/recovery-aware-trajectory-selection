@@ -17,9 +17,19 @@ RESULTS="${RESULTS:-${REPO}/results/v5_6_context}"
 STATUS_FILE="${STATUS_FILE:-${RESULTS}/ops/status}"
 RUN_LOG="${RUN_LOG:-${WORKSPACE}/v5_6_runpod_runner.log}"
 GPU_COUNT="${GPU_COUNT:-3}"
+RUN_PHASE="${RUN_PHASE:-all}"
+REBUILD_FAILED_ATTEMPT="${REBUILD_FAILED_ATTEMPT:-0}"
 
 if [[ "${GPU_COUNT}" != "1" && "${GPU_COUNT}" != "3" ]]; then
   echo "GPU_COUNT must be 1 or 3; got ${GPU_COUNT}" >&2
+  exit 2
+fi
+if [[ "${RUN_PHASE}" != "all" && "${RUN_PHASE}" != "preflight" && "${RUN_PHASE}" != "train" ]]; then
+  echo "RUN_PHASE must be all, preflight, or train; got ${RUN_PHASE}" >&2
+  exit 2
+fi
+if [[ "${REBUILD_FAILED_ATTEMPT}" != "0" && "${REBUILD_FAILED_ATTEMPT}" != "1" ]]; then
+  echo "REBUILD_FAILED_ATTEMPT must be 0 or 1; got ${REBUILD_FAILED_ATTEMPT}" >&2
   exit 2
 fi
 
@@ -31,6 +41,23 @@ mkdir -p "${WORKSPACE}"
 exec > >(tee -a "${RUN_LOG}") 2>&1
 trap 'code=$?; printf "%s state=FAILED exit=%s command=%q\\n" "$(date -u +%FT%TZ)" "${code}" "${BASH_COMMAND}" >>"${WORKSPACE}/v5_6_runpod_failures.log"; exit "${code}"' ERR
 printf '%s state=BOOTSTRAP source=%s\n' "$(date -u +%FT%TZ)" "${SOURCE_COMMIT}"
+STAGE="BOOTSTRAP"
+record_status() {
+  mkdir -p "$(dirname "${STATUS_FILE}")"
+  printf '%s state=%s source=%s phase=%s gpu_count=%s\n' \
+    "$(date -u +%FT%TZ)" "$1" "${SOURCE_COMMIT}" "${RUN_PHASE}" "${GPU_COUNT}" >"${STATUS_FILE}"
+}
+on_error() {
+  local code="$?"
+  printf '%s state=FAILED stage=%s exit=%s command=%q\n' \
+    "$(date -u +%FT%TZ)" "${STAGE}" "${code}" "${BASH_COMMAND}" \
+    >>"${WORKSPACE}/v5_6_runpod_failures.log"
+  if [[ -d "${REPO}" ]]; then
+    record_status "FAILED"
+  fi
+  exit "${code}"
+}
+trap on_error ERR
 if [[ ! -d "${REPO}/.git" ]]; then
   git clone --depth 1 --branch "${BRANCH}" --single-branch "${REPO_URL}" "${REPO}"
 fi
@@ -61,29 +88,88 @@ python -m pip install -r "${REPO}/requirements-gpu-v5-sft.txt"
 python -m pip install -e "${TAU2_ROOT}"
 cd "${REPO}"
 mkdir -p "${RESULTS}/ops"
-printf '%s state=PREPARING source=%s\n' "$(date -u +%FT%TZ)" "${SOURCE_COMMIT}" >"${STATUS_FILE}"
-
-python -m pytest -q tests/test_v5_6_context_mechanism.py tests/test_v5_sft_causal_train.py
-python scripts/prepare_v5_6_context_mechanism.py \
-  --tau2-root "${TAU2_ROOT}" \
-  --pairs artifacts/v5_5/pairs.jsonl \
-  --pair-audit artifacts/v5_5/audit.json \
-  --pair-manifest artifacts/v5_5/manifest.json \
-  --pair-mode reference \
-  --tokenizer-revision "${BASE_REVISION}" \
-  --output-dir "${REPO}/data/processed/v5_6_context"
-# The raw/processed Stage-0 tree is intentionally untracked; the committed
-# audit artifact is the immutable split authority for this screen.
-python scripts/prepare_v5_6_validation_manifest.py \
-  --tau2-root "${TAU2_ROOT}" \
-  --split-manifest artifacts/v5_stage0/manifests/split_manifest.json \
-  --output "${RESULTS}/validation_manifest.json"
-python scripts/run_v5_5_reference_pairs.py \
-  --tau2-root "${TAU2_ROOT}" \
-  --manifest "${RESULTS}/validation_manifest.json" \
-  --output "${RESULTS}/validation_pairs.jsonl"
-
 DATA_ROOT="${REPO}/data/processed/v5_6_context"
+PREFLIGHT_RECEIPT="${RESULTS}/ops/preflight_receipt.json"
+
+if [[ "${RUN_PHASE}" != "train" ]]; then
+  STAGE="PREPARING"
+  record_status "PREPARING"
+  if [[ -e "${DATA_ROOT}" || -e "${RESULTS}/training" || -e "${RESULTS}/scores" ]]; then
+    if [[ "${REBUILD_FAILED_ATTEMPT}" != "1" ]]; then
+      echo "V5.6 artifacts already exist; inspect them or rerun with REBUILD_FAILED_ATTEMPT=1" >&2
+      exit 2
+    fi
+    # These are fixed V5.6 generated paths, never caller-provided targets.
+    # Rebuild remains opt-in so a failed attempt cannot be silently erased.
+    rm -rf "${REPO}/data/processed/v5_6_context" "${REPO}/results/v5_6_context"
+    mkdir -p "${RESULTS}/ops"
+  fi
+
+  python -m pytest -q tests/test_v5_6_context_mechanism.py tests/test_v5_sft_causal_train.py
+  python scripts/prepare_v5_6_context_mechanism.py \
+    --tau2-root "${TAU2_ROOT}" \
+    --pairs artifacts/v5_5/pairs.jsonl \
+    --pair-audit artifacts/v5_5/audit.json \
+    --pair-manifest artifacts/v5_5/manifest.json \
+    --pair-mode reference \
+    --tokenizer-revision "${BASE_REVISION}" \
+    --output-dir "${DATA_ROOT}"
+  # The raw/processed Stage-0 tree is intentionally untracked; the committed
+  # audit artifact is the immutable split authority for this screen.
+  python scripts/prepare_v5_6_validation_manifest.py \
+    --tau2-root "${TAU2_ROOT}" \
+    --split-manifest artifacts/v5_stage0/manifests/split_manifest.json \
+    --output "${RESULTS}/validation_manifest.json"
+  python scripts/run_v5_5_reference_pairs.py \
+    --tau2-root "${TAU2_ROOT}" \
+    --manifest "${RESULTS}/validation_manifest.json" \
+    --output "${RESULTS}/validation_pairs.jsonl"
+  python - "${PREFLIGHT_RECEIPT}" "${SOURCE_COMMIT}" "${BASE_REVISION}" "${DATA_ROOT}" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+receipt_path = Path(sys.argv[1])
+source_commit, model_revision = sys.argv[2:4]
+data_root = Path(sys.argv[4])
+receipt = {
+    "status": "PASS",
+    "source_commit": source_commit,
+    "model_revision": model_revision,
+    "data_audit_sha256": hashlib.sha256((data_root / "audit.json").read_bytes()).hexdigest(),
+    "data_hashes_sha256": hashlib.sha256((data_root / "hashes.json").read_bytes()).hexdigest(),
+}
+receipt_path.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+  record_status "PREFLIGHT_COMPLETE"
+fi
+
+if [[ "${RUN_PHASE}" == "preflight" ]]; then
+  printf '%s action=START_TRAIN_PHASE receipt=%s\n' "$(date -u +%FT%TZ)" "${PREFLIGHT_RECEIPT}" >>"${STATUS_FILE}"
+  exit 0
+fi
+
+STAGE="VERIFYING_PREFLIGHT"
+python - "${PREFLIGHT_RECEIPT}" "${SOURCE_COMMIT}" "${BASE_REVISION}" "${DATA_ROOT}" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+receipt_path = Path(sys.argv[1])
+source_commit, model_revision = sys.argv[2:4]
+data_root = Path(sys.argv[4])
+expected = {
+    "status": "PASS",
+    "source_commit": source_commit,
+    "model_revision": model_revision,
+    "data_audit_sha256": hashlib.sha256((data_root / "audit.json").read_bytes()).hexdigest(),
+    "data_hashes_sha256": hashlib.sha256((data_root / "hashes.json").read_bytes()).hexdigest(),
+}
+if json.loads(receipt_path.read_text(encoding="utf-8")) != expected:
+    raise SystemExit("preflight receipt is missing, stale, or does not match the checked-out source/data")
+PY
 VALIDATION_SHA="$(sha256sum "${DATA_ROOT}/validation_loss.jsonl" | awk '{print $1}')"
 run_train() {
   local gpu="$1" arm="$2"
@@ -97,7 +183,8 @@ run_train() {
     --data-hashes "${DATA_ROOT}/hashes.json" --training-seed 20260805 \
     --learning-rate 1.25e-5 --formal-steps 32 >"${RESULTS}/training/${arm}.console.log" 2>&1
 }
-printf '%s state=TRAINING gpu_count=%s\n' "$(date -u +%FT%TZ)" "${GPU_COUNT}" >"${STATUS_FILE}"
+STAGE="TRAINING"
+record_status "TRAINING"
 mkdir -p "${RESULTS}/training"
 if [[ "${GPU_COUNT}" == "3" ]]; then
   run_train 0 perfect_success & p0=$!
@@ -120,7 +207,8 @@ run_score() {
   python scripts/score_v5_6_context.py --score-jsonl "${RESULTS}/scores/${arm}.jsonl" \
     --output "${RESULTS}/scores/${arm}.summary.json"
 }
-printf '%s state=SCORING gpu_count=%s\n' "$(date -u +%FT%TZ)" "${GPU_COUNT}" >"${STATUS_FILE}"
+STAGE="SCORING"
+record_status "SCORING"
 mkdir -p "${RESULTS}/scores"
 if [[ "${GPU_COUNT}" == "3" ]]; then
   run_score 0 perfect_success & p0=$!
@@ -132,4 +220,6 @@ else
   run_score 0 repair_25_true
   run_score 0 repair_25_shuffled
 fi
-printf '%s state=COMPLETE action=TERMINATE_POD\n' "$(date -u +%FT%TZ)" >"${STATUS_FILE}"
+STAGE="COMPLETE"
+record_status "COMPLETE"
+printf '%s action=TERMINATE_POD\n' "$(date -u +%FT%TZ)" >>"${STATUS_FILE}"
