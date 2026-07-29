@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# One-Pod, three-GPU V5.6 executor.  The three SFT arms and their subsequent
-# score jobs are always launched together, keeping every rented GPU occupied.
-# The caller terminates the Pod after this script writes COMPLETE.
+# V5.6 executor.  With three GPUs the arms run concurrently; with one GPU
+# they run sequentially so constrained hosts never rent an idle accelerator.
+# The scientific schedule, fixed seeds, and scoring inputs are identical.
 
 REPO_URL="${REPO_URL:-https://github.com/sahasurendra929-cmd/recovery-aware-trajectory-selection.git}"
 BRANCH="${BRANCH:-codex/v5.6-error-context-mechanism}"
@@ -16,6 +16,12 @@ VENV="${VENV:-${WORKSPACE}/venv}"
 RESULTS="${RESULTS:-${REPO}/results/v5_6_context}"
 STATUS_FILE="${STATUS_FILE:-${RESULTS}/ops/status}"
 RUN_LOG="${RUN_LOG:-${WORKSPACE}/v5_6_runpod_runner.log}"
+GPU_COUNT="${GPU_COUNT:-3}"
+
+if [[ "${GPU_COUNT}" != "1" && "${GPU_COUNT}" != "3" ]]; then
+  echo "GPU_COUNT must be 1 or 3; got ${GPU_COUNT}" >&2
+  exit 2
+fi
 
 mkdir -p "${WORKSPACE}"
 # The RunPod console may recycle a container after a startup failure.  Keep a
@@ -91,12 +97,18 @@ run_train() {
     --data-hashes "${DATA_ROOT}/hashes.json" --training-seed 20260805 \
     --learning-rate 1.25e-5 --formal-steps 32 >"${RESULTS}/training/${arm}.console.log" 2>&1
 }
-printf '%s state=TRAINING gpus=0,1,2\n' "$(date -u +%FT%TZ)" >"${STATUS_FILE}"
+printf '%s state=TRAINING gpu_count=%s\n' "$(date -u +%FT%TZ)" "${GPU_COUNT}" >"${STATUS_FILE}"
 mkdir -p "${RESULTS}/training"
-run_train 0 perfect_success & p0=$!
-run_train 1 repair_25_true & p1=$!
-run_train 2 repair_25_shuffled & p2=$!
-wait "${p0}" "${p1}" "${p2}"
+if [[ "${GPU_COUNT}" == "3" ]]; then
+  run_train 0 perfect_success & p0=$!
+  run_train 1 repair_25_true & p1=$!
+  run_train 2 repair_25_shuffled & p2=$!
+  wait "${p0}" "${p1}" "${p2}"
+else
+  run_train 0 perfect_success
+  run_train 0 repair_25_true
+  run_train 0 repair_25_shuffled
+fi
 
 run_score() {
   local gpu="$1" arm="$2"
@@ -108,10 +120,16 @@ run_score() {
   python scripts/score_v5_6_context.py --score-jsonl "${RESULTS}/scores/${arm}.jsonl" \
     --output "${RESULTS}/scores/${arm}.summary.json"
 }
-printf '%s state=SCORING gpus=0,1,2\n' "$(date -u +%FT%TZ)" >"${STATUS_FILE}"
+printf '%s state=SCORING gpu_count=%s\n' "$(date -u +%FT%TZ)" "${GPU_COUNT}" >"${STATUS_FILE}"
 mkdir -p "${RESULTS}/scores"
-run_score 0 perfect_success & p0=$!
-run_score 1 repair_25_true & p1=$!
-run_score 2 repair_25_shuffled & p2=$!
-wait "${p0}" "${p1}" "${p2}"
+if [[ "${GPU_COUNT}" == "3" ]]; then
+  run_score 0 perfect_success & p0=$!
+  run_score 1 repair_25_true & p1=$!
+  run_score 2 repair_25_shuffled & p2=$!
+  wait "${p0}" "${p1}" "${p2}"
+else
+  run_score 0 perfect_success
+  run_score 0 repair_25_true
+  run_score 0 repair_25_shuffled
+fi
 printf '%s state=COMPLETE action=TERMINATE_POD\n' "$(date -u +%FT%TZ)" >"${STATUS_FILE}"
