@@ -41,6 +41,10 @@ git -C "${TAU2_ROOT}" submodule update --init --recursive
 
 python -m venv --system-site-packages "${VENV}"
 source "${VENV}/bin/activate"
+# Some RunPod images export this flag globally, but the optional hf_transfer
+# package is not part of the pinned environment.  Keep model downloads on the
+# standard Hugging Face HTTP path rather than failing before the V5.6 precheck.
+export HF_HUB_ENABLE_HF_TRANSFER=0
 python -m pip install --upgrade pip
 python -m pip install -r "${REPO}/requirements-gpu-v5-sft.txt"
 python -m pip install -e "${TAU2_ROOT}"
