@@ -20,14 +20,14 @@ and V6.2 remain preserved candidate-supply NO-GO results and are not pooled.
 
 ## Running
 
-The `airline:12` V6.3 smoke is running in a persistent remote session.
-Its deterministic clean replay has already executed successfully and the
-generator has advanced into fresh recovery rollout generation. GPU model
-services remain healthy.
+The `airline:12` V6.3 smoke finished with exit code 1. Its deterministic clean
+replay passed, but both registered fresh recovery attempts received reward
+`0.0`; no candidate or task receipt was emitted. This is preserved as a V6.3
+recovery-supply NO-GO. GPU model services remain healthy while the separately
+versioned successor is prepared.
 
 ## Next
 
-Validate the smoke task receipt, pair count, replay hashes, matched/crossed
-cells, and exit status. If it passes, publish a smoke report and begin the
-complete 24-task Pilot. If it fails, preserve the evidence and repair only an
-identified implementation fault without changing the frozen V6.3 contract.
+Preregister V6.4 with a constrained/reference-completed recovery definition,
+test it before observing V6.4 outcomes, then run the same smoke and authorize
+the complete Pilot only if every receipt and audit passes.
