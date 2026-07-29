@@ -1,0 +1,50 @@
+experiment_name: v6_5_causal_recovery_reference_completion
+protocol: v6_5_forced_correction_reference_completion_v1
+design_version: "6.5"
+supersedes:
+  protocol: v6_4_forced_correction_reference_tail_v1
+  reason: >-
+    V6.4 omitted required frozen reference actions that preceded the forced
+    corrective action. Airline task 14 therefore failed candidate generation.
+  results_must_not_be_merged: true
+frozen_delta:
+  only_scientific_change: forced_correction_plus_all_other_reference_actions_once
+  forced_action_first: true
+  remaining_reference_actions:
+    inclusion: every_frozen_reference_action_except_the_forced_action
+    multiplicity: exactly_once
+    ordering: original_relative_order_among_remaining_actions
+  task_ids_changed: false
+  gates_changed: false
+  selectors_or_weights_changed: false
+  student_changed: false
+  user_simulator_or_judge_changed: false
+  seeds_changed: false
+  training_or_evaluation_changed: false
+  official_test_sealed: true
+benchmark:
+  name: tau2-bench
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  arm_train:
+    tasks: 70
+  official_test:
+    sealed: true
+    used_during_generation_scoring_selection_or_model_selection: false
+    ids_or_content_exported_to_generation_workers: false
+selectors:
+  full_proposed:
+    weights:
+      causal: 0.50
+      hardness: 0.25
+      coverage: 0.25
+training_and_evaluation:
+  directional_screen_arms:
+    - flawless_only
+    - random_stratified_seed_20260806
+    - full_proposed
+  training_seeds: [20260722]
+  evaluation_seeds: [20260722, 20260723, 20260724]
+  primary_metric: controlled_error_end_to_end_official_task_success
+  independent_unit: task_id
+  clean_noninferiority_margin: -0.05
+  task_cluster_bootstrap_replicates: 10000
