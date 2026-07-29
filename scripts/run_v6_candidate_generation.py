@@ -65,6 +65,7 @@ CLEAN_AGENT_MODES = (
     "reference_guided",
     "deterministic_reference_replay",
 )
+RECOVERY_CONTINUATION_MODES = ("fresh_teacher", "deterministic_reference_tail")
 SFT_SYSTEM_INSTRUCTION = """\
 You are a customer service agent that helps the user according to the <policy> provided below.
 In each turn you can either:
@@ -220,6 +221,9 @@ def semantic_generation_contract(
                 if clean_agent_mode == "deterministic_reference_replay"
                 else AGENT_NAME
             )
+        ),
+        "recovery_continuation_mode": getattr(
+            args, "recovery_continuation_mode", "fresh_teacher"
         ),
         "system_instruction_sha256": sha256(SFT_SYSTEM_INSTRUCTION),
         "teacher_model": args.teacher_model,
@@ -380,6 +384,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--recovery-attempts", type=int, default=2)
     parser.add_argument(
+        "--recovery-continuation-mode",
+        choices=RECOVERY_CONTINUATION_MODES,
+        default="fresh_teacher",
+        help=(
+            "Continuation after the frozen corrective action. "
+            "deterministic_reference_tail requires a separately versioned "
+            "scientific protocol."
+        ),
+    )
+    parser.add_argument(
         "--continuation-seeds",
         default=",".join(str(seed) for seed in DEFAULT_CONTINUATION_SEEDS),
     )
@@ -429,6 +443,7 @@ def verify_registry(payload: Mapping[str, Any]) -> str:
         registry_contract.V6_1_72B_TEACHER_PROTOCOL,
         registry_contract.V6_2_REFERENCE_GUIDED_CLEAN_PROTOCOL,
         registry_contract.V6_3_DETERMINISTIC_CLEAN_REPLAY_PROTOCOL,
+        registry_contract.V6_4_REFERENCE_TAIL_RECOVERY_PROTOCOL,
     ):
         raise V6GenerationError("candidate registry design protocol drift")
     if (
@@ -1022,6 +1037,87 @@ def deterministic_reference_clean_simulation(
     return replayed
 
 
+def deterministic_reference_tail_simulation(
+    *,
+    domain: str,
+    task: Any,
+    prompt: Sequence[Mapping[str, Any]],
+    forced_call: Mapping[str, Any],
+) -> tuple[Any, list[dict[str, Any]], float]:
+    """Execute a frozen corrective action and the reference tail after it."""
+    from tau2.data_model.simulation import SimulationRun, TerminationReason
+    from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
+
+    criteria = task.evaluation_criteria
+    if criteria is None or not criteria.actions:
+        raise V6GenerationError("reference-tail recovery requires reference actions")
+    matching_indices = [
+        index
+        for index, action in enumerate(criteria.actions)
+        if call_semantics(action.model_dump(mode="json"))
+        == call_semantics(forced_call)
+    ]
+    if len(matching_indices) != 1:
+        raise V6GenerationError(
+            "forced recovery action must match exactly one frozen reference action"
+        )
+    started = time.monotonic()
+    environment = initial_environment(domain, task, prompt)
+    suffix: list[dict[str, Any]] = []
+    forced_message, forced_result = execute_call(environment, forced_call)
+    if forced_result.get("error") is True:
+        raise V6GenerationError("frozen corrective action returned a tool error")
+    suffix.extend((forced_message, forced_result))
+    for offset, action in enumerate(
+        criteria.actions[matching_indices[0] + 1 :], start=1
+    ):
+        call = {
+            "id": f"v6-reference-tail-{task.id}-{offset:03d}",
+            "requestor": action.requestor,
+            "name": action.name,
+            "arguments": deepcopy(action.arguments),
+        }
+        call_message, result = execute_call(environment, call)
+        if result.get("error") is True:
+            raise V6GenerationError(
+                f"reference tail action {action.action_id} returned a tool error"
+            )
+        suffix.extend((call_message, result))
+    completion_facts = list(criteria.communicate_info or [])
+    completion_facts.extend(criteria.nl_assertions or [])
+    suffix.append(
+        {
+            "role": "assistant",
+            "content": (
+                "\n".join(str(value) for value in completion_facts)
+                if completion_facts
+                else "The requested recovery has been completed."
+            ),
+        }
+    )
+    full = [*deepcopy(list(prompt)), *deepcopy(suffix)]
+    timestamp = "1970-01-01T00:00:00Z"
+    simulation = SimulationRun(
+        id=f"v6-reference-tail-{task.id}",
+        task_id=str(task.id),
+        timestamp=timestamp,
+        start_time=timestamp,
+        end_time=timestamp,
+        duration=0.0,
+        termination_reason=TerminationReason.USER_STOP,
+        messages=parse_messages(full),
+        seed=None,
+    )
+    simulation.reward_info = evaluate_simulation(
+        simulation=simulation,
+        task=task,
+        evaluation_type=EvaluationType.ALL,
+        solo_mode=False,
+        domain=domain,
+    )
+    return simulation, suffix, time.monotonic() - started
+
+
 def matched_recovery(
     args: argparse.Namespace,
     *,
@@ -1039,6 +1135,61 @@ def matched_recovery(
     )
     if not isinstance(reference_call, dict):
         raise V6GenerationError("branch lacks registered corrective call")
+    if (
+        getattr(args, "recovery_continuation_mode", "fresh_teacher")
+        == "deterministic_reference_tail"
+    ):
+        simulation, suffix, seconds = deterministic_reference_tail_simulation(
+            domain=domain,
+            task=task,
+            prompt=prompt,
+            forced_call=reference_call,
+        )
+        first = first_tool_call(suffix)
+        matched = (
+            first is not None
+            and call_semantics(first[1]) == call_semantics(reference_call)
+        )
+        attempt = {
+            "attempt": 1,
+            "seed": int(branch_slot["recovery_seed"]),
+            "official_reward": reward(simulation),
+            "wall_seconds": seconds,
+            "first_action": deepcopy(first[1]) if first is not None else None,
+            "first_action_matched": matched,
+            "continuation_mode": "deterministic_reference_tail",
+        }
+        if reward(simulation) != 1.0 or not matched:
+            raise V6GenerationError(
+                f"{branch_slot.get('branch_id')}: deterministic reference "
+                "tail did not produce a successful matched recovery"
+            )
+        mask = successful_assistant_labels(
+            suffix, include_text=True, reject_failed_tools=True
+        )
+        full = [*deepcopy(prompt), *deepcopy(suffix)]
+        replay = independent_replay(
+            domain=domain,
+            task=task,
+            full_messages=full,
+        )
+        return {
+            "recovery_seed": int(branch_slot["recovery_seed"]),
+            "prompt": deepcopy(prompt),
+            "prompt_sha256": semantic_sha256(prompt),
+            "fresh_recovery_suffix": suffix,
+            "fresh_recovery_suffix_sha256": semantic_sha256(suffix),
+            "full_recovery_messages": full,
+            "label_mask": [False] * len(prompt) + mask,
+            "failed_positive_labels": 0,
+            "first_recovery_action": first[1],
+            "first_recovery_action_key": (
+                f"{first[1]['name']}::{branch_slot['identifier_key']}"
+            ),
+            "official_task_success": 1.0,
+            "independent_replay": replay,
+            "attempts": [attempt],
+        }
     attempts: list[dict[str, Any]] = []
     base_seed = int(branch_slot["recovery_seed"])
     for attempt in range(args.recovery_attempts):
@@ -1133,6 +1284,40 @@ def forced_first_cell(
 ) -> dict[str, Any]:
     trials: list[dict[str, Any]] = []
     for seed in continuation_seeds:
+        if (
+            getattr(args, "recovery_continuation_mode", "fresh_teacher")
+            == "deterministic_reference_tail"
+        ):
+            simulation, continuation, seconds = (
+                deterministic_reference_tail_simulation(
+                    domain=domain,
+                    task=task,
+                    prompt=error_prompt,
+                    forced_call=forced_call,
+                )
+            )
+            full_messages = [
+                *deepcopy(error_prompt),
+                *deepcopy(continuation),
+            ]
+            replay = independent_replay(
+                domain=domain,
+                task=task,
+                full_messages=full_messages,
+            )
+            trials.append(
+                {
+                    "seed": seed,
+                    "task_success": reward(simulation),
+                    "forced_call": deepcopy(dict(forced_call)),
+                    "forced_result": continuation[1],
+                    "continuation_messages": continuation[2:],
+                    "continuation_sha256": semantic_sha256(continuation[2:]),
+                    "independent_replay": replay,
+                    "wall_seconds": seconds,
+                }
+            )
+            continue
         environment = initial_environment(domain, task, error_prompt)
         call_message, tool_result = execute_call(environment, forced_call)
         forced_history = [
@@ -1173,7 +1358,12 @@ def forced_first_cell(
         "parallel_tool_calls": PARALLEL_TOOL_CALLS,
     }
     policy = {
-        "agent": AGENT_NAME,
+        "agent": (
+            "deterministic_reference_tail"
+            if getattr(args, "recovery_continuation_mode", "fresh_teacher")
+            == "deterministic_reference_tail"
+            else AGENT_NAME
+        ),
         "teacher_model": args.teacher_model,
         "teacher_revision": args.teacher_revision,
     }

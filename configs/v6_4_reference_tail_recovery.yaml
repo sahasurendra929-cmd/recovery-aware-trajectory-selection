@@ -1,0 +1,406 @@
+experiment_name: v6_4_causal_recovery_reference_tail
+protocol: v6_4_forced_correction_reference_tail_v1
+design_version: "6.4"
+supersedes:
+  protocol: v6_3_deterministic_reference_clean_replay_v1
+  reason: >-
+    V6.3 passed deterministic clean replay, but both registered fresh recovery
+    continuations for the first candidate branch received reward zero after
+    changing dates, flights, and cabin state outside the reference resolution.
+  results_must_not_be_merged: true
+frozen_delta:
+  only_scientific_change: forced_correction_plus_deterministic_reference_tail
+  task_ids_changed: false
+  gates_changed: false
+  selectors_or_weights_changed: false
+  student_changed: false
+  user_simulator_or_judge_changed: false
+  seeds_changed: false
+  training_or_evaluation_changed: false
+  trajectory_teacher_changed_from_v6_1: false
+  recovery_suffix_agent_changed_from_v6_1: true
+  clean_source:
+    prefix_source: frozen_seed_teacher_rollout_before_first_assistant_tool_call
+    clean_future_source: deterministic_tau2_reference_action_execution
+    communicate_info_and_nl_assertions_used_only_in_deleted_clean_future: true
+    official_reward_must_equal: 1.0
+    clean_future_deleted_before_recovery: true
+  recovery_source:
+    first_action: frozen_branch_corrective_action
+    continuation: deterministic_reference_actions_after_forced_action_index
+    matched_and_crossed_use_identical_tail_policy: true
+    official_reward_recorded_for_every_cell: true
+    teacher_not_used_for_recovery_suffix: true
+research_question: >-
+  Under a fixed supervised-token and compute budget, which audited recovery
+  choice sets improve controlled-error end-to-end task success: random,
+  shortest, coverage, base-model hardness, causal necessity, or their frozen
+  combination?
+
+claim_boundary:
+  primary_contribution: recovery_trajectory_data_selection
+  data_generation_is_fixed_infrastructure: true
+  primary_training_objective: SFT
+  dpo_ppo_trpo_eto_in_primary_experiment: false
+  next_tool_call_metrics_are_diagnostic_only: true
+  primary_metric: controlled_error_end_to_end_official_task_success
+  positive_result_guaranteed: false
+
+models:
+  trajectory_teacher:
+    model: Qwen/Qwen2.5-72B-Instruct-AWQ
+    revision: 698703eae6604af048a3d2f509995dc302088217
+    serving: vllm_awq_tensor_parallel_2
+  user_simulator_and_strict_judge:
+    model: Qwen/Qwen2.5-14B-Instruct-AWQ
+    revision: 539535859b135b0244c91f3e59816150c8056698
+    serving: vllm_awq_tensor_parallel_1
+  directional_screen_student:
+    model: Qwen/Qwen2.5-7B-Instruct
+    revision: a09a35458c702b33eeacc393d103063234e8bc28
+    training: qlora_4bit
+  model_identifiers_and_revisions_common_across_all_selector_arms: true
+
+benchmark:
+  name: tau2
+  commit: fc0055dc4e0a316c3f83133267fbd6faaa770992
+  source_inner_train_tasks: 83
+  partition_seed: 20260722
+  partition_salt: v5.3-loss-validation
+  partition_sha256: c90255a2cf4100d8cf5b5fcf3e684144ed1a393fad1c214058146721c4ed6818
+  partition_created_before_v6_generation_outcomes: true
+  ground_truth_incompatible_task_ids:
+    - airline:0
+    - airline:10
+    - airline:28
+    - airline:34
+    - retail:24
+  arm_train:
+    tasks: 70
+    use: candidate_generation_scoring_and_training
+  loss_validation:
+    tasks: 8
+    use: training_loss_and_preregistered_development_only
+    task_ids:
+      - airline:15
+      - airline:47
+      - retail:22
+      - retail:23
+      - retail:52
+      - retail:63
+      - retail:96
+      - retail:103
+  official_test:
+    used_during_generation_scoring_selection_or_model_selection: false
+    sealed: true
+    ids_or_content_exported_to_generation_workers: false
+    unseal: >-
+      once, only after protocol, candidate pool, replay scores, selector
+      manifests, training runs, checkpoints, and model-selection decision are
+      frozen and hashed
+    changes_after_unseal_forbidden: true
+
+pilot:
+  registry_is_outcome_independent: true
+  exact_tasks: 24
+  domains: {retail: 18, airline: 6}
+  task_ids:
+    - airline:21
+    - airline:40
+    - airline:33
+    - airline:12
+    - airline:4
+    - airline:14
+    - retail:16
+    - retail:98
+    - retail:47
+    - retail:31
+    - retail:92
+    - retail:99
+    - retail:11
+    - retail:104
+    - retail:107
+    - retail:37
+    - retail:21
+    - retail:19
+    - retail:35
+    - retail:30
+    - retail:1
+    - retail:87
+    - retail:72
+    - retail:7
+  selection_rule: >-
+    among action-identifiable tasks with at least two distinct full reference
+    calls, sort within domain by sha256(
+    protocol|pilot|20260806|task_identity), take 18 retail and 6 airline
+  registry_sha256: 5170b139c6307a3f46e29ab9db2573b864181c7b8ff85e27452e14f591bf27c4
+  go_gate:
+    minimum_tasks_each_with_three_accepted_sibling_pairs: 12
+    minimum_total_accepted_sibling_pairs: 48
+    minimum_domains: 2
+    minimum_error_families: 3
+    zero_future_leakage: true
+    zero_failed_calls_as_positive_labels: true
+    matched_and_independent_replay_required: true
+    kappa_high:
+      threshold: 0.75
+      minimum_fraction: 0.20
+    kappa_low:
+      threshold: 0.25
+      maximum_definition: less_than_or_equal
+      minimum_fraction: 0.20
+    maximum_single_kappa_bucket_fraction: 0.80
+    action_switch_measurement: first_unretried_teacher_action_per_error_context
+    error_blind_balanced_pair_accuracy: 0.50
+    teacher_or_oracle_action_switch_accuracy_minimum: 0.80
+    teacher_minus_error_blind_action_switch_minimum: 0.20
+  fail_action: stop_before_formal_generation
+
+formal_pool:
+  minimum_tasks_each_with_three_accepted_sibling_pairs: 48
+  minimum_pairs_from_qualifying_tasks: 144
+  maximum_arm_train_tasks: 70
+  tasks_48_or_more: formal_selection_authorized_if_all_other_gates_pass
+  tasks_40_to_47: screen_only_no_formal_claim
+  tasks_below_40: stop
+  minimum_domains: 2
+  minimum_error_families: 3
+  identifiability_gate_same_as_pilot: true
+
+candidate_construction:
+  source: one_frozen_overcomplete_candidate_pool_shared_by_all_selectors
+  counterfactual_method: shared_prefix_environment_snapshot_branching
+  reuse_v5_4_principle: true
+  clean_future_deleted_before_recovery_generation: true
+  injected_error_must_be_observed_from_actual_tool_execution: true
+  unsupported_text_only_errors_forbidden: true
+  recovery_generated_fresh_after_error: true
+  full_recovery_suffix_supervised: true
+  failed_call_supervised: false
+  error_result_supervised: false
+  failed_call_and_error_result_are_context_only: true
+  end_to_end_task_success_and_final_state_required: true
+  independent_replay_required: true
+  freeze_pool_before_scoring: true
+  no_regeneration_per_selector: true
+
+structural_eligibility:
+  protocol: v6_safe_on_error_structural_eligibility_v1
+  canonical_payload_sha256: 002b5a2c5d83a4dab6dc8ce398d81bb8541bf7bfc6b25c04e62ce9ed179587f7
+  legacy_expected_sha256: 93cc882757b677c049e725a96540244d9988e79a326eb42a659a342729904dc3
+  legacy_hash_match: false
+  legacy_mismatch_acknowledged: true
+  source: pinned_tau2_reference_actions_from_70_arm_train_tasks
+  outcome_independent: true
+  minimum_distinct_corrective_families_per_task: 2
+  safe_on_error_reference_action:
+    read_or_write_allowed: true
+    failed_identifier_injection_must_return_real_tool_error: true
+    failed_identifier_injection_agent_db_hash_unchanged: true
+    failed_identifier_injection_user_db_hash_unchanged: true
+    successful_corrective_action_may_legitimately_change_state: true
+  strict_identifier_key_allowlist:
+    retail:
+      [email, item_id, order_id, payment_method_id, product_id, user_id]
+    airline: [flight_number, payment_id, reservation_id, user_id]
+  canonical_corrective_family: "tool_name::argument_key"
+  same_tool_different_argument_key_is_a_distinct_family: true
+  distinct_family_does_not_by_itself_prove_distinct_action: true
+  synthetic_or_unobserved_family_forbidden: true
+  wide_family_screen:
+    role: structural_upper_bound_only
+    eligible_task_counts: {retail: 48, airline: 12, total: 60}
+  action_identifiability_gate:
+    protocol: v6_distinct_reference_action_eligibility_v1
+    canonical_payload_sha256: fd47afd115fbe341ec2432533231545c24e0cf583b745e17f4862979263922aa
+    requirement: at_least_two_distinct_canonical_full_reference_calls
+    full_call_semantics: canonical_sha256_of_tool_name_and_all_arguments
+    candidate_pair_requires_two_distinct_full_calls: true
+    eligible_task_counts: {retail: 39, airline: 11, total: 50}
+    exclusions:
+      airline: ["11"]
+      retail: ["75", "82", "83", "84", "85", "89", "93", "105", "106"]
+    exclusion_reason: FEWER_THAN_TWO_DISTINCT_REFERENCE_ACTIONS
+  registry_recomputes_full_canonical_payload: true
+  payload_contains:
+    - protocol
+    - tau2_commit
+    - partition_sha256
+    - minimum_distinct_families
+    - failed_injection_state_unchanged_requirement
+    - sorted_identifier_keys_by_domain
+    - sorted_eligible_task_ids_by_domain
+    - corrective_families_by_task
+  rejection_reason_codes:
+    - TASK_NOT_IN_ARM_TRAIN
+    - NO_COMMON_PREFIX
+    - NO_COMMON_ENVIRONMENT_SNAPSHOT
+    - FEWER_THAN_TWO_SAFE_ON_ERROR_ACTION_FAMILIES
+    - DUPLICATE_ACTION_FAMILY
+    - IDENTIFIER_FIELD_NOT_ALLOWLISTED
+    - IDENTIFIER_MUTATION_NOT_TYPE_PRESERVING
+    - IDENTIFIER_MUTATION_DID_NOT_CHANGE_VALUE
+    - FEWER_THAN_TWO_DISTINCT_REFERENCE_ACTIONS
+    - REAL_ERROR_NOT_OBSERVED
+    - ERROR_CHANGED_ENVIRONMENT_STATE
+    - CORRECTIVE_FIRST_ACTION_NOT_MATCHED_REFERENCE
+    - MATCHED_RECOVERY_FAILED
+    - CROSS_REPLAY_INCOMPLETE
+    - FUTURE_LEAKAGE
+    - FAILED_POSITIVE_LABEL
+    - INDEPENDENT_REPLAY_MISSING
+    - OFFICIAL_TEST_ACCESSED
+
+selection_units:
+  accounting_unit: sibling_branch
+  selection_unit: candidate_pair
+  candidate_pair_definition: >-
+    exactly two sibling error branches from one shared task prefix and
+    environment snapshot, with two distinct canonical full reference calls;
+    family difference alone is insufficient; both branches need matched
+    successful recoveries and one forced-first four-cell kappa
+  choice_set_definition: >-
+    registry-only collection of candidate pairs sharing one task, prefix, and
+    environment snapshot; a choice set is not itself a selection atom
+  candidate_pairs_may_not_be_split_into_single_branches: true
+  primary_matched_task_selection: exactly_one_candidate_pair_per_task_per_selector
+  secondary_global_maximum_selected_candidate_pairs_per_task: 2
+  candidate_pair_id_and_choice_set_id_globally_unique: true
+  cost_fields:
+    c_sup: exact_supervised_target_tokens
+    c_nonpad: exact_nonpadding_tokens
+  candidate_pair_quality_schema:
+    real_error_executed: true
+    matched_recovery_replay_success: true
+    cross_replay_complete: true
+    no_future_leakage: true
+    failed_positive_labels: 0
+    independent_replay_audited: true
+    official_test_used: false
+
+forced_first_causal_score:
+  name: kappa
+  unit: candidate_pair
+  cells:
+    - q_e1_a1
+    - q_e1_a2
+    - q_e2_a1
+    - q_e2_a2
+  formula: "0.5 * ((R_ii + R_jj) - (R_ij + R_ji))"
+  reward: official_end_to_end_task_success_averaged_over_frozen_continuation_seeds
+  forced_content: first_recovery_tool_action_only
+  full_suffix_swap_forbidden: true
+  continuation_policy_common_across_four_cells: true
+  continuation_policy_checkpoint_frozen: true
+  continuation_seed_set_common: true
+  decoding_and_rollout_budget_common: true
+  continuation_sees_gold_recovery_suffix: false
+  score_range: [-1.0, 1.0]
+  no_full_recovery_suffix_cross_swap: true
+
+hardness:
+  model: frozen_unadapted_student_checkpoint
+  validation_or_test_outcomes_used: false
+  target: canonical_first_recovery_tool_call
+  log_probability: mean_per_target_token
+  sibling_negatives: other_first_recovery_action_in_same_candidate_pair
+  formula: >-
+    max_wrong_sibling_mean_logp - matched_action_mean_logp
+  interpretation: larger_is_harder
+  checkpoint_revision_tokenizer_revision_and_prompt_hash_required: true
+
+cost:
+  unit: exact_supervised_target_tokens
+  tokenizer: pinned_student_tokenizer
+  includes: complete_successful_recovery_suffix_target_tokens
+  excludes:
+    - prompt_tokens
+    - failed_action_tokens
+    - error_result_tokens
+    - padding_tokens
+  selector_uses_marginal_utility_per_cost: true
+  audit_actual_consumed_tokens_not_only_materialized_rows: true
+
+coverage:
+  diminishing_return: weighted_sum_log_one_plus_count
+  count_each_feature_value_at_most_once_per_candidate_pair: true
+  features:
+    domain: 1.0
+    failed_tool: 1.0
+    error_family: 1.0
+    corrective_action: 1.0
+    recovery_length_bin: 0.5
+    recovery_mode: 0.5
+  vocabulary_frozen_from_audited_candidate_pool_before_selector_execution: true
+  validation_or_test_outcomes_used: false
+
+selectors:
+  random_stratified_seeds: [20260806, 20260807, 20260808]
+  hardness_winsor_quantiles: [0.05, 0.95]
+  primary_baseline: random
+  primary_method: full_proposed
+  registry:
+    random:
+      rule: deterministic_sha256_order
+    shortest:
+      rule: ascending_exact_supervised_target_tokens
+    coverage_only:
+      rule: maximum_marginal_coverage_gain_per_token
+    hardness_only:
+      rule: maximum_frozen_base_hardness_per_token
+    causal_only:
+      rule: maximum_forced_first_kappa_per_token
+    causal_hardness:
+      rule: maximum_equal_weight_causal_plus_hardness_per_token
+    full_proposed:
+      rule: maximum_frozen_weighted_marginal_utility_per_token
+      weights: {causal: 0.50, hardness: 0.25, coverage: 0.25}
+  scores_normalized_from_candidate_pool_without_validation_or_test_outcomes: true
+  deterministic_tie_break: canonical_choice_set_id
+
+selection_stopping_and_matching:
+  recovery_token_budget_common_across_selectors: true
+  stop_when_no_complete_candidate_pair_fits_remaining_budget: true
+  split_candidate_pair_to_fill_budget: false
+  post_selection_swap_search_to_reduce_underfill: deterministic
+  maximum_realized_cross_arm_token_spread_fraction_of_budget: 0.005
+  if_spread_exceeds_limit: fail_closed_before_training
+  primary_matched_task_candidate_pairs_per_task: 1
+  secondary_global_task_cap: 2
+  same_clean_base_across_selector_arms: true
+  same_training_objective_and_hyperparameters: true
+  selector_or_weight_tuning_on_loss_validation_or_test: false
+  manifests_hashed_before_training: true
+
+training_and_evaluation_boundary:
+  directional_screen_arms:
+    - flawless_only
+    - random_stratified
+    - full_proposed
+  directional_screen_training_seeds: [20260722]
+  directional_screen_evaluation_seeds: [20260722, 20260723, 20260724]
+  seven_billion_model_role: pilot_and_screen
+  fourteen_billion_model_role: formal_primary
+  formal_training_seeds_minimum: 3
+  evaluation_seeds_minimum: 3
+  main_selector_objective: SFT_only
+  primary_contrast: full_proposed_minus_random
+  primary_estimand: paired_task_mean_controlled_error_success_delta
+  clean_noninferiority_margin: -0.05
+  task_id_is_independent_statistical_unit: true
+  repeated_rollouts_are_repeated_measures_not_new_tasks: true
+  task_cluster_bootstrap_replicates: 10000
+  next_call_em_logp_and_dpo_margin_are_mechanism_diagnostics_only: true
+
+outputs:
+  protocol_summary: artifacts/v6/protocol/v6_frozen_summary.json
+  candidate_pool: artifacts/v6/pool/candidate_choice_sets.jsonl
+  pair_audit: artifacts/v6/pool/pair_audit.jsonl
+  forced_first_replays: artifacts/v6/scores/forced_first_replays.jsonl
+  kappa_scores: artifacts/v6/scores/kappa.jsonl
+  hardness_scores: artifacts/v6/scores/hardness.jsonl
+  coverage_vocabulary: artifacts/v6/scores/coverage_vocabulary.json
+  pilot_decision: artifacts/v6/audit/pilot_go_no_go.json
+  formal_pool_decision: artifacts/v6/audit/formal_pool_gate.json
+  selector_manifests_root: artifacts/v6/manifests
+  global_hashes: artifacts/v6/hashes.json
