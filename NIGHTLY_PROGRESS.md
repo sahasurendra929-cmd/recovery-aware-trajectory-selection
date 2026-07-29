@@ -252,3 +252,14 @@ Pilot in a new versioned directory.
 - Full evidence: `V6_9_REFERENCE_SLOT_REPAIR_REPORT.md`.
 - Next: start a new full 24-task Pilot attempt without mixing artifacts from
   the earlier source commit.
+
+## V6.9 full Pilot attempt 2 started
+
+- Repair report commit `aa1a81d1c21328bb9dc550ffeea7fbba0c1b07ea`
+  was pushed and read back exactly.
+- The original frozen V6 branch remained unchanged at
+  `9f620d438884270f3231101924ff9ef2f6cc5d09`.
+- Started a fresh 24-task / 72-pair run in persistent session `v69_pilot2`.
+- Attempt 2 has its own output directory and reruns every task; no task JSON
+  from the prior source commit is copied or merged.
+- Official test remains sealed and training remains unauthorized.
