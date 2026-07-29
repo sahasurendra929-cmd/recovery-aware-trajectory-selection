@@ -17,6 +17,7 @@ ARMS = ("perfect_success", "repair_25_true", "repair_25_shuffled")
 RECOVERY_RATIO = {"perfect_success": 0.0, "repair_25_true": 0.25, "repair_25_shuffled": 0.25}
 SCHEDULE_ROWS = 512
 BLOCK_SIZE = 4
+MAX_SEQUENCE_TOKENS = 10_240
 BOOTSTRAP_REPLICATES = 10_000
 ALPHA = 0.05
 
@@ -38,6 +39,8 @@ def validate_design() -> None:
         raise ContextProtocolError("three-arm grid drift")
     if SCHEDULE_ROWS % BLOCK_SIZE or SCHEDULE_ROWS != 512:
         raise ContextProtocolError("schedule must consist of 128 four-row blocks")
+    if MAX_SEQUENCE_TOKENS != 10_240:
+        raise ContextProtocolError("V5.6 must retain the validated 10,240-token context contract")
     if RECOVERY_RATIO["perfect_success"] != 0.0 or any(
         RECOVERY_RATIO[arm] != 0.25 for arm in ARMS[1:]
     ):
@@ -61,6 +64,7 @@ def frozen_summary() -> dict[str, Any]:
         "primary_estimand": "mean_task_delta_context",
         "delta_context": "logp(correct_repair_action | true_error_context) - logp(correct_repair_action | shuffled_error_context)",
         "shuffle_rule": "deterministic within-domain task-derangement; donor task differs from target task",
+        "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
         "evaluation_split": "derived_validation_only",
         "official_test_used": False,
         "official_test_sealed": True,

@@ -7,6 +7,11 @@ from scripts import train_v5_sft_causal as trainer
 from tests.test_v5_5_full_sft_data import PrefixStableTokenizer, contexts, valid_pair
 
 
+def test_v5_6_uses_the_validated_reference_context_capacity():
+    assert trainer.V5_6_MAX_SEQUENCE_TOKENS == 10_240
+    assert data.protocol.MAX_SEQUENCE_TOKENS == trainer.V5_6_MAX_SEQUENCE_TOKENS
+
+
 def test_true_and_shuffled_schedules_are_exact_and_cross_task():
     token = PrefixStableTokenizer()
     source = v55.materialize_source_pairs(
@@ -18,6 +23,10 @@ def test_true_and_shuffled_schedules_are_exact_and_cross_task():
     assert {len(rows) for rows in schedules.values()} == {512}
     assert audit["arms"]["repair_25_true"]["realized_recovery_supervised_token_ratio"] == 0.25
     assert audit["arms"]["repair_25_shuffled"]["realized_recovery_supervised_token_ratio"] == 0.25
+    assert all(
+        arm_audit["max_sequence_tokens"] <= data.protocol.MAX_SEQUENCE_TOKENS
+        for arm_audit in audit["arms"].values()
+    )
     shuffled = next(row for row in schedules["repair_25_shuffled"] if row["metadata"]["source"] == "failure_rich")
     assert shuffled["metadata"]["error_context_matches_target"] is False
     assert shuffled["metadata"]["error_donor_task_identity"] != f"{shuffled['metadata']['domain']}:{shuffled['metadata']['task_id']}"

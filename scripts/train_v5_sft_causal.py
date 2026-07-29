@@ -36,6 +36,7 @@ MODEL = "Qwen/Qwen2.5-7B-Instruct"
 SEED = 20260722
 MAX_SEQUENCE_TOKENS = 8192
 V5_5_MAX_SEQUENCE_TOKENS = 10240
+V5_6_MAX_SEQUENCE_TOKENS = 10240
 FORMAL_STEPS = 64
 FORMAL_BATCH_SIZE = 1
 FORMAL_GRAD_ACCUM = 8
@@ -1129,6 +1130,7 @@ def validate_v5_6_training_data_provenance(
         or audit.get("train_validation_source_overlap") != 0
         or audit.get("training_mixture_basis") != "supervised_token_mass"
         or audit.get("same_source_pair_exposure_across_arms") is not True
+        or audit.get("max_sequence_tokens") != V5_6_MAX_SEQUENCE_TOKENS
         or arm not in expected_arms
     ):
         raise RuntimeError("V5.6 data audit protocol/leakage/arm drift")
@@ -1155,6 +1157,8 @@ def validate_v5_6_training_data_provenance(
     if (
         not isinstance(arm_audit, dict) or arm_audit.get("sha256") != train_sha
         or arm_audit.get("rows") != FORMAL_SCHEDULE_ROWS
+        or not isinstance(arm_audit.get("max_sequence_tokens"), int)
+        or arm_audit["max_sequence_tokens"] > V5_6_MAX_SEQUENCE_TOKENS
         or arm_audit.get("failed_action_label_messages") != 0
         or abs(float(arm_audit.get("realized_recovery_supervised_token_ratio", -1)) - expected_arms[arm]) > 1e-12
     ):
@@ -2126,6 +2130,8 @@ def main() -> None:
     effective_max_sequence_tokens = (
         V5_5_MAX_SEQUENCE_TOKENS
         if data_provenance.get("design_version") == V5_5_DESIGN_VERSION
+        else V5_6_MAX_SEQUENCE_TOKENS
+        if data_provenance.get("design_version") == V5_6_DESIGN_VERSION
         else MAX_SEQUENCE_TOKENS
     )
     formal_encoded = encode_rows(
