@@ -155,3 +155,18 @@ Pilot in a new versioned directory.
 - Full evidence: `V6_7_PILOT_NO_GO_REPORT.md`.
 - Next: preregister a separately versioned V6.8 explicit assertion renderer,
   then run targeted `retail:16` and `retail:104` smokes before a fresh Pilot.
+
+## V6.8 dual targeted smoke PASS
+
+- Preserved and published V6.7 Pilot NO-GO before preregistering V6.8.
+- V6.8 changes only deterministic final-message rendering: assertions and
+  communicate values are explicitly marked as statements directly to the user.
+- Local and remote code-only suites passed: 150 tests and 6 subtests.
+- Fresh registry: 24 Pilot tasks / 72 Pilot pairs and 50 formal tasks /
+  150 formal pairs; official test remains sealed.
+- Both `retail:16` and `retail:104` smokes passed with 3 pairs, 6 branches,
+  12 forced-first cells, and 36 continuation trials each.
+- Every clean, matched, cell, and trial task-success value was 1.0; all replay
+  and label audits passed.
+- Full evidence: `V6_8_DUAL_SMOKE_PASS_REPORT.md`.
+- Next: start the complete 24-task V6.8 Pilot in a fresh persistent session.
