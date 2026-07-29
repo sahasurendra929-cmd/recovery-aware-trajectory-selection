@@ -18,10 +18,25 @@ Agent should provide the tracking number 286422338955.
 
 No V6.6 Pilot was authorized and the official test remained sealed.
 
+## Pre-outcome clarification
+
+Before implementation or any V6.7 outcome, code-path audit showed that the
+same legacy meta-assertion renderer is called by both deterministic clean
+replay and deterministic recovery completion. Applying the new renderer only
+to clean would knowingly reproduce the identical defect in matched recovery.
+
+Accordingly, the frozen V6.7 delta is one shared deterministic completion
+renderer applied to the final assistant confirmation of both clean replay and
+recovery completion. This clarification was committed before implementation
+and before smoke. It does not change any tool action, ordering, prompt prefix,
+label mask, seed, reward criterion, or selection design.
+
 ## Only scientific change
 
-V6.7 changes only the renderer for the **deleted deterministic clean future's
-final assistant message**.
+V6.7 changes only the shared renderer for deterministic clean/recovery final
+assistant confirmation messages. The clean message remains deleted before
+recovery; the recovery confirmation remains part of the successful recovery
+suffix under the already-frozen full-suffix SFT objective.
 
 The renderer:
 
@@ -32,8 +47,11 @@ The renderer:
 3. never copies a remaining `Agent`, `agent`, `Check that`, `should`, or
    evaluator-instruction phrase into assistant speech;
 4. fails closed on an assertion shape not covered by the frozen rewrite table;
-5. does not expose the rendered message or any other clean future content to
-   recovery prompts or SFT inputs.
+5. does not expose the clean rendered message or any other clean future
+   content to recovery prompts or SFT inputs;
+6. uses the same renderer for the fresh deterministic recovery completion,
+   whose assistant confirmation remains supervised exactly as required by the
+   existing full-suffix objective.
 
 The rewrite table is frozen from the syntax of `nl_assertions` in the
 outcome-independent registered 24 Pilot and 50 formal task sets, inspected
@@ -63,7 +81,7 @@ Everything else remains identical to V6.6:
 - single-turn assistant-greeting/first-user-response prefix;
 - user simulator model, revision, seed, decoding, and stop boundary;
 - deterministic clean reference actions and official reward requirement;
-- V6.5 deterministic forced-correction/reference-completion recovery;
+- V6.5 deterministic forced-correction/reference-action ordering and cells;
 - task IDs, registry pairs, injected errors, and continuation seeds;
 - teacher, judge, student, tokenizer, and all revisions;
 - Pilot/formal gates, token and hardness definitions;
