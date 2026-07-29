@@ -4,8 +4,8 @@ Updated: 2026-07-30 (Asia/Shanghai)
 
 ## Current protocol
 
-V6.4 (`v6_4_forced_correction_reference_tail_v1`) is active. V6 through V6.3
-remain preserved NO-GO results and are not pooled.
+V6.5 (`v6_5_forced_correction_reference_completion_v1`) is active. V6 through
+V6.4 remain preserved NO-GO results and are not pooled.
 
 ## Completed
 
@@ -23,13 +23,18 @@ remain preserved NO-GO results and are not pooled.
 
 ## Running
 
-The complete fixed 24-task / 72-pair V6.4 Pilot is running in a persistent
-remote session. GPU model services remain healthy.
+The complete fixed 24-task / 72-pair V6.5 Pilot is running in a persistent
+remote session. Seven task receipts have been written (all six airline Pilot
+tasks and `retail:1`), each with three candidate pairs. Intermediate audit
+shows clean and matched-recovery rewards of `1.0`, passing independent
+replays, shared sibling prefixes and environment snapshots, and no official
+test use. GPU model services remain healthy.
 
 ## Next
 
-Run the complete fixed 24-task Pilot, validate all 72 pairs and receipts, then
-perform token/hardness measurement and the preregistered Pilot gate audit.
+Complete the remaining 17 fixed Pilot tasks, validate all 72 pairs and
+receipts, then perform token/hardness measurement and the preregistered Pilot
+gate audit.
 # 2026-07-30 — V6.4 Pilot NO-GO
 
 - Restored SSH access after the RunPod migration using the existing local
@@ -70,3 +75,13 @@ perform token/hardness measurement and the preregistered Pilot gate audit.
 - Completion is determined from the process state, atomic generation receipt,
   and 24 task receipts; directory existence alone is not accepted.
 - Official test remains sealed; no training is authorized yet.
+
+## V6.5 full Pilot checkpoint
+
+- Seven of 24 task receipts are complete, representing 21 of 72 candidate
+  pairs.
+- Completed: `airline:4`, `airline:12`, `airline:14`, `airline:21`,
+  `airline:33`, `airline:40`, and `retail:1`.
+- The persistent process is currently working on `retail:104`.
+- Intermediate receipt audit passes; this is not yet a stage-completion
+  decision because the atomic merged generation receipt has not been emitted.
