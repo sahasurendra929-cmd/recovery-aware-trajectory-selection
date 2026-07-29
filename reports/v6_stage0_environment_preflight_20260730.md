@@ -39,8 +39,8 @@ The exact revision URLs returned HTTP 206 and were therefore reachable:
 ## Storage and access observations
 
 - `/workspace` is mounted and writable.
-- The RunPod SSH endpoint changed after migration from port `49941` to
-  `40205`; the new endpoint was verified.
+- The RunPod SSH endpoint changed after migration; the replacement endpoint
+  was verified without publishing remote-access details.
 - The persistent volume contains historical V5 artifacts but no completed V6
   artifacts. A new isolated V6 run directory was therefore created.
 - GitHub read access works from RunPod.
@@ -53,4 +53,3 @@ The exact revision URLs returned HTTP 206 and were therefore reachable:
 Environment, benchmark identity, model revisions, CUDA availability, GPU
 count, and bfloat16 support satisfy the V6 directional-screen preconditions.
 Proceed to the code-only V6 unit-test and syntax preflight.
-

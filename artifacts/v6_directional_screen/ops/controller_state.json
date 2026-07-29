@@ -1,0 +1,86 @@
+{
+  "protocol": "v6_nightly_controller_state_v1",
+  "updated_at": "2026-07-30T02:00:00+08:00",
+  "source_commit": "9f620d438884270f3231101924ff9ef2f6cc5d09",
+  "tau2_commit": "fc0055dc4e0a316c3f83133267fbd6faaa770992",
+  "official_test_used": false,
+  "official_test_unsealed": false,
+  "models": {
+    "teacher_revision": "5c7cb76a268fc6cfbb9c4777eb24ba6e27f9ee6c",
+    "user_judge_revision": "539535859b135b0244c91f3e59816150c8056698",
+    "student_revision": "a09a35458c702b33eeacc393d103063234e8bc28"
+  },
+  "hardware": {
+    "gpu_count": 3,
+    "gpu_model": "NVIDIA RTX PRO 4500 Blackwell",
+    "vram_mib_per_gpu": 32623,
+    "driver": "580.173.02"
+  },
+  "stages": {
+    "environment_preflight": {
+      "state": "PASS",
+      "attempts": 1,
+      "exit_code": 0,
+      "next_stage_authorized": true
+    },
+    "code_preflight": {
+      "state": "PASS",
+      "attempts": 1,
+      "exit_code": 0,
+      "tests_passed": 83,
+      "next_stage_authorized": true
+    },
+    "pilot_registry": {
+      "state": "PASS",
+      "attempts": 1,
+      "exit_code": 0,
+      "registry_sha256": "453d93e64cec3fbb0de4e99955c4f62da2ca8051038ff074f9e68d42919525ed",
+      "registry_file_sha256": "7e7ea772f44a109e818ce8de73812b4d4ba42da6e0595cdd92ff1770a093a136",
+      "pilot_tasks": 24,
+      "registered_candidate_pairs": 72,
+      "next_stage_authorized": true
+    },
+    "candidate_generation": {
+      "state": "FAILED_TERMINAL",
+      "attempts": 1,
+      "exit_code": 1,
+      "error_class": "SCIENTIFIC_DATA_SUPPLY_FAILURE",
+      "failed_task": "airline:12",
+      "clean_attempts": 2,
+      "successful_clean_attempts": 0,
+      "candidate_pairs_emitted": 0,
+      "run_contract_file_sha256": "e571842eb359821e33686dfcfa7182d8a0f793120702ae9b4e30b906778bb36e",
+      "log_sha256": "a789793cd66ec61b429efabf24ef94fdaa77c016e6731562a2f0abe6266c347b",
+      "next_stage_authorized": false
+    },
+    "token_hardness_measurement": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "pilot_audit": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "scoring": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "selector_manifests": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "sft_materialization": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "smoke_training": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "formal_training": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "checkpoint_registry": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "end_to_end_evaluation": {"state": "NOT_STARTED", "next_stage_authorized": false},
+    "statistics_and_final_report": {"state": "NO_GO", "next_stage_authorized": false}
+  },
+  "diagnostics": {
+    "clean8": {
+      "state": "SUPERSEDED",
+      "scientific_use_authorized": false,
+      "reason": "Launched after observing frozen V6 failure; not preregistered as a formal protocol.",
+      "clean_attempts": 8,
+      "successful_clean_attempts": 0,
+      "candidate_pairs_emitted": 0,
+      "run_contract_file_sha256": "3a9e59b7eadf9d75e2740838e55a5030a5cf5073c133f51acb60586e9845211c",
+      "log_sha256": "e0be5a68cdf4e92d34235b1a93617b877163f835d00ab56d5467adc24ffae02a"
+    }
+  },
+  "terminal_decision": {
+    "state": "NO_GO",
+    "reason": "The fixed Pilot cannot construct the first required successful clean source trajectory.",
+    "gpu_shutdown_authorized": true,
+    "pod_deletion_authorized": false
+  }
+}
+
