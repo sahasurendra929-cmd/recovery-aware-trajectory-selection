@@ -240,3 +240,15 @@ Pilot in a new versioned directory.
 - Next: publish this NO-GO, diagnose reference-slot identity, regression-test
   an implementation repair if the scientific protocol remains unchanged, and
   run a fresh versioned attempt.
+
+## V6.9 registered-reference-slot repair PASS
+
+- `retail:31` contains legitimate repeated read-only reference calls.
+- The registry had already frozen unique action indices; runtime now preserves
+  those indices through matched recovery and all four forced-first cells.
+- Local and remote suites passed 157 tests plus 6 subtests.
+- A fresh `retail:31` regression passed 3 pairs, 6 branches, 12 cells, and 36
+  trials with all task-success and replay checks passing.
+- Full evidence: `V6_9_REFERENCE_SLOT_REPAIR_REPORT.md`.
+- Next: start a new full 24-task Pilot attempt without mixing artifacts from
+  the earlier source commit.
