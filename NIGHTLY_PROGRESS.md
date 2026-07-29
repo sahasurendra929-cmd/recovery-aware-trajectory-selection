@@ -60,3 +60,13 @@ perform token/hardness measurement and the preregistered Pilot gate audit.
   label audits passed. This repairs the exact V6.4 missing-action failure.
 - Full evidence: `V6_5_SMOKE_PASS_REPORT.md`.
 - Next: complete fixed 24-task V6.5 Pilot in a fresh output directory.
+
+## V6.5 full Pilot started
+
+- Started the complete fixed 24-task / 72-pair Pilot in the persistent
+  `v65-pilot` RunPod session.
+- Output directory:
+  `/workspace/v6_5_20260730/artifacts/v6_5_directional_screen/generation/pilot`
+- Completion is determined from the process state, atomic generation receipt,
+  and 24 task receipts; directory existence alone is not accepted.
+- Official test remains sealed; no training is authorized yet.
