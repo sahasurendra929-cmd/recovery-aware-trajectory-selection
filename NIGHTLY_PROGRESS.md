@@ -210,3 +210,18 @@ Pilot in a new versioned directory.
   positive labels were zero.
 - Full evidence: `V6_9_TRIPLE_SMOKE_PASS_REPORT.md`.
 - Next: push/read back this stage and start a fresh complete V6.9 Pilot.
+
+## V6.9 full Pilot started
+
+- Targeted-smoke report commit
+  `717981b50db34a09f701ffd35d1ddccc8afa51bb` was pushed and read back
+  exactly from GitHub.
+- The original frozen V6 branch remained unchanged at
+  `9f620d438884270f3231101924ff9ef2f6cc5d09`.
+- Started a fresh 24-task / 72-pair Pilot in persistent session `v69_pilot`.
+- The run binds the V6.9 registry and semantic generation contract, the
+  pinned 72B/14B revisions, three frozen continuation seeds, and the
+  `explicit_user_direct_v3` renderer.
+- V6.7, V6.8, and targeted-smoke outcomes are not inputs to this run.
+- Official test remains sealed. Training remains unauthorized until the
+  complete Pilot generation, measurement, scoring, and audit gates pass.
