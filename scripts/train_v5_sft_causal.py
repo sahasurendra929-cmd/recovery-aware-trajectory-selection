@@ -2076,10 +2076,13 @@ def main() -> None:
             V5_3_12H_DESIGN_VERSION,
             V5_3_LOW_SUPPORT_DESIGN_VERSION,
             V5_5_DESIGN_VERSION,
+            V5_6_DESIGN_VERSION,
         }
     )
     no_eval_reason = (
-        "fixed_steps_v5_5"
+        "fixed_steps_v5_6"
+        if data_provenance.get("design_version") == V5_6_DESIGN_VERSION
+        else "fixed_steps_v5_5"
         if data_provenance.get("design_version") == V5_5_DESIGN_VERSION
         else "fixed_steps_exploratory"
     )
