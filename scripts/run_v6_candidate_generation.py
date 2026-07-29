@@ -60,7 +60,11 @@ SEMANTIC_GENERATION_CONTRACT_PROTOCOL = (
 )
 AGENT_NAME = "v6_fresh_recovery_agent"
 REFERENCE_GUIDED_CLEAN_AGENT_NAME = "llm_agent_gt"
-CLEAN_AGENT_MODES = ("standard", "reference_guided")
+CLEAN_AGENT_MODES = (
+    "standard",
+    "reference_guided",
+    "deterministic_reference_replay",
+)
 SFT_SYSTEM_INSTRUCTION = """\
 You are a customer service agent that helps the user according to the <policy> provided below.
 In each turn you can either:
@@ -211,7 +215,11 @@ def semantic_generation_contract(
         "clean_agent_name": (
             REFERENCE_GUIDED_CLEAN_AGENT_NAME
             if clean_agent_mode == "reference_guided"
-            else AGENT_NAME
+            else (
+                "deterministic_tau2_reference_replay"
+                if clean_agent_mode == "deterministic_reference_replay"
+                else AGENT_NAME
+            )
         ),
         "system_instruction_sha256": sha256(SFT_SYSTEM_INSTRUCTION),
         "teacher_model": args.teacher_model,
@@ -420,6 +428,7 @@ def verify_registry(payload: Mapping[str, Any]) -> str:
         protocol.PROTOCOL,
         registry_contract.V6_1_72B_TEACHER_PROTOCOL,
         registry_contract.V6_2_REFERENCE_GUIDED_CLEAN_PROTOCOL,
+        registry_contract.V6_3_DETERMINISTIC_CLEAN_REPLAY_PROTOCOL,
     ):
         raise V6GenerationError("candidate registry design protocol drift")
     if (
@@ -837,6 +846,18 @@ def clean_rollout(
         )
         observed = messages(simulation)
         tool_index = first_assistant_tool_index(observed)
+        if (
+            args.clean_agent_mode == "deterministic_reference_replay"
+            and tool_index is not None
+        ):
+            simulation = deterministic_reference_clean_simulation(
+                simulation=simulation,
+                domain=domain,
+                task=task,
+                prefix=observed[:tool_index],
+            )
+            observed = messages(simulation)
+            tool_index = first_assistant_tool_index(observed)
         attempts.append(
             {
                 "attempt": attempt + 1,
@@ -940,6 +961,65 @@ def independent_replay(
         "second_final_state": second_hashes,
         "full_messages_sha256": semantic_sha256(full_messages),
     }
+
+
+def deterministic_reference_clean_simulation(
+    *,
+    simulation: Any,
+    domain: str,
+    task: Any,
+    prefix: Sequence[Mapping[str, Any]],
+) -> Any:
+    """Replace the deleted clean future with a deterministic reference replay.
+
+    The conversational prefix is retained only through the point before the
+    first assistant tool action. Reference actions and evaluation text are
+    confined to the clean future, which candidate construction deletes before
+    generating any fresh recovery suffix.
+    """
+    from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
+
+    criteria = task.evaluation_criteria
+    if criteria is None or not criteria.actions:
+        raise V6GenerationError("deterministic clean replay requires reference actions")
+    environment = initial_environment(domain, task, prefix)
+    observed = [deepcopy(dict(row)) for row in prefix]
+    for index, action in enumerate(criteria.actions):
+        call = {
+            "id": f"v6-reference-clean-{task.id}-{index:03d}",
+            "requestor": action.requestor,
+            "name": action.name,
+            "arguments": deepcopy(action.arguments),
+        }
+        call_message, result = execute_call(environment, call)
+        if result.get("error") is True:
+            raise V6GenerationError(
+                f"reference action {action.action_id} returned a tool error"
+            )
+        observed.extend((call_message, result))
+    deleted_future_facts = list(criteria.communicate_info or [])
+    deleted_future_facts.extend(criteria.nl_assertions or [])
+    observed.append(
+        {
+            "role": "assistant",
+            "content": (
+                "\n".join(str(value) for value in deleted_future_facts)
+                if deleted_future_facts
+                else "The requested changes have been completed."
+            ),
+        }
+    )
+    replayed = simulation.model_copy(
+        update={"messages": parse_messages(observed), "reward_info": None}
+    )
+    replayed.reward_info = evaluate_simulation(
+        simulation=replayed,
+        task=task,
+        evaluation_type=EvaluationType.ALL,
+        solo_mode=False,
+        domain=domain,
+    )
+    return replayed
 
 
 def matched_recovery(

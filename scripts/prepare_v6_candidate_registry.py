@@ -36,11 +36,15 @@ except ModuleNotFoundError:
 REGISTRY_PROTOCOL = "v6_candidate_pair_registry_v1"
 V6_1_72B_TEACHER_PROTOCOL = "v6_1_causal_recovery_selection_72b_teacher_v1"
 V6_2_REFERENCE_GUIDED_CLEAN_PROTOCOL = "v6_2_reference_guided_clean_source_v1"
+V6_3_DETERMINISTIC_CLEAN_REPLAY_PROTOCOL = (
+    "v6_3_deterministic_reference_clean_replay_v1"
+)
 ALLOWED_DESIGN_PROTOCOLS = frozenset(
     {
         protocol.PROTOCOL,
         V6_1_72B_TEACHER_PROTOCOL,
         V6_2_REFERENCE_GUIDED_CLEAN_PROTOCOL,
+        V6_3_DETERMINISTIC_CLEAN_REPLAY_PROTOCOL,
     }
 )
 REGISTRY_VERSION = "1.0"
