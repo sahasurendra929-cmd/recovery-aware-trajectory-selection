@@ -225,3 +225,18 @@ Pilot in a new versioned directory.
 - V6.7, V6.8, and targeted-smoke outcomes are not inputs to this run.
 - Official test remains sealed. Training remains unauthorized until the
   complete Pilot generation, measurement, scoring, and audit gates pass.
+
+## V6.9 Pilot generation NO-GO
+
+- Fourteen tasks / 42 pairs completed with per-task PASS artifacts.
+- Both prior full-Pilot blockers, `retail:16` and `retail:19`, passed.
+- Generation then failed closed at `retail:31`: the forced recovery call
+  matched a non-singleton number of frozen reference actions.
+- No merged JSONL or final generation receipt was emitted. Official test
+  remains sealed and training remains unauthorized.
+- The 14 task files, ordered hash list, run contract, and full diagnostic log
+  are retained on RunPod.
+- Full evidence: `V6_9_PILOT_NO_GO_REPORT.md`.
+- Next: publish this NO-GO, diagnose reference-slot identity, regression-test
+  an implementation repair if the scientific protocol remains unchanged, and
+  run a fresh versioned attempt.
