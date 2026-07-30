@@ -172,7 +172,7 @@ with an absolute Python executable in isolated mode (`python -I -m ...`) and
 this exact flag sequence:
 `--model`, `--revision`, `--served-model-name`, `--quantization awq`,
 `--dtype float16`, explicit `--tensor-parallel-size`, `--load-format
-safetensors`, `--max-model-len 8192`, `--gpu-memory-utilization 0.9`,
+safetensors`, `--max-model-len 32768`, `--gpu-memory-utilization 0.9`,
 `--host 127.0.0.1`, and `--port`. Set
 `CUDA_VISIBLE_DEVICES` explicitly and capture the actual Python server PID
 from `$!`; wrapper-shell or unrelated PIDs are invalid.
@@ -210,7 +210,7 @@ CUDA_VISIBLE_DEVICES=0,1 nohup "$RUNTIME_PYTHON" -I -m \
   --revision 698703eae6604af048a3d2f509995dc302088217 \
   --served-model-name Qwen/Qwen2.5-72B-Instruct-AWQ \
   --quantization awq --dtype float16 --tensor-parallel-size 2 \
-  --load-format safetensors --max-model-len 8192 \
+  --load-format safetensors --max-model-len 32768 \
   --gpu-memory-utilization 0.9 \
   --enable-auto-tool-choice --tool-call-parser hermes \
   --host 127.0.0.1 --port 8101 \
@@ -223,7 +223,7 @@ CUDA_VISIBLE_DEVICES=2 nohup "$RUNTIME_PYTHON" -I -m \
   --revision 539535859b135b0244c91f3e59816150c8056698 \
   --served-model-name Qwen/Qwen2.5-14B-Instruct-AWQ \
   --quantization awq --dtype float16 --tensor-parallel-size 1 \
-  --load-format safetensors --max-model-len 8192 \
+  --load-format safetensors --max-model-len 32768 \
   --gpu-memory-utilization 0.9 \
   --enable-auto-tool-choice --tool-call-parser hermes \
   --host 127.0.0.1 --port 8201 \
@@ -248,11 +248,11 @@ kill -0 "$TEACHER_PID"
 kill -0 "$USER_JUDGE_PID"
 ```
 
-If either 8192-token service fails to become healthy on the exact 3×RTX PRO
+If either 32768-token service fails to become healthy on the exact 3×RTX PRO
 4500 Blackwell topology, stop both PIDs and report a typed preflight failure. Do not silently
 reduce context length, change memory utilization, or begin generation.
 
-If an individual rollout later exhausts the frozen 8192-token context while
+If an individual rollout later exhausts the frozen 32768-token context while
 reserving the frozen 512-token output cap, publish that task atomically with
 `scientific_outcome=REJECTED` and
 `reason_code=CONTEXT_WINDOW_EXCEEDED`, then continue the shard. Do not truncate
@@ -275,9 +275,9 @@ python -c 'from pathlib import Path; from scripts.build_v6_10_runtime_receipts i
       "dtype": "float16",
       "tensor_parallel_size": 2,
       "gpu_uuids": ["GPU-TEACHER-0", "GPU-TEACHER-1"],
-      "max_model_len": 8192,
+      "max_model_len": 32768,
       "gpu_memory_utilization": 0.9,
-      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_72B_SNAPSHOT>", "--revision", "698703eae6604af048a3d2f509995dc302088217", "--served-model-name", "Qwen/Qwen2.5-72B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "2", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8101"],
+      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_72B_SNAPSHOT>", "--revision", "698703eae6604af048a3d2f509995dc302088217", "--served-model-name", "Qwen/Qwen2.5-72B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "2", "--load-format", "safetensors", "--max-model-len", "32768", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8101"],
       "server_pid": 12345,
       "tokenizer_or_config_sha256": "<64-lowercase-hex>"
     },
@@ -289,9 +289,9 @@ python -c 'from pathlib import Path; from scripts.build_v6_10_runtime_receipts i
       "dtype": "float16",
       "tensor_parallel_size": 1,
       "gpu_uuids": ["GPU-USER-JUDGE"],
-      "max_model_len": 8192,
+      "max_model_len": 32768,
       "gpu_memory_utilization": 0.9,
-      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_14B_SNAPSHOT>", "--revision", "539535859b135b0244c91f3e59816150c8056698", "--served-model-name", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "1", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8201"],
+      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_14B_SNAPSHOT>", "--revision", "539535859b135b0244c91f3e59816150c8056698", "--served-model-name", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "1", "--load-format", "safetensors", "--max-model-len", "32768", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8201"],
       "server_pid": 23456,
       "tokenizer_or_config_sha256": "<64-lowercase-hex>"
     },
@@ -303,9 +303,9 @@ python -c 'from pathlib import Path; from scripts.build_v6_10_runtime_receipts i
       "dtype": "float16",
       "tensor_parallel_size": 1,
       "gpu_uuids": ["GPU-USER-JUDGE"],
-      "max_model_len": 8192,
+      "max_model_len": 32768,
       "gpu_memory_utilization": 0.9,
-      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_14B_SNAPSHOT>", "--revision", "539535859b135b0244c91f3e59816150c8056698", "--served-model-name", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "1", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8201"],
+      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_14B_SNAPSHOT>", "--revision", "539535859b135b0244c91f3e59816150c8056698", "--served-model-name", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "1", "--load-format", "safetensors", "--max-model-len", "32768", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8201"],
       "server_pid": 23456,
       "tokenizer_or_config_sha256": "<same-14B-hash>"
     }

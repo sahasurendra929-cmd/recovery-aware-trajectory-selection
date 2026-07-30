@@ -82,6 +82,7 @@ V610_COMPATIBILITY_SEEDS = (20260806,)
 V610_SCIENTIFIC_SEEDS = (20260806, 20260807, 20260808)
 V610_MAX_STEPS = 60
 V610_MAX_TOKENS = 512
+V610_MODEL_MAX_LEN = 32768
 V610_MODEL_SERVER_RECEIPTS_PROTOCOL = "v6_10_model_server_receipts_v1"
 V610_SOURCE_CONTAINER_RECEIPT_PROTOCOL = (
     "v6_10_source_container_provenance_v1"
@@ -469,7 +470,7 @@ def load_model_server_receipts(
             or observed.get("dtype") != "float16"
             or observed.get("tensor_parallel_size")
             != expected.get("tensor_parallel_size")
-            or observed.get("max_model_len") != 8192
+            or observed.get("max_model_len") != V610_MODEL_MAX_LEN
             or observed.get("gpu_memory_utilization") != 0.90
             or not isinstance(gpu_uuids, list)
             or len(gpu_uuids) != expected.get("tensor_parallel_size")
@@ -4526,7 +4527,7 @@ def classify_task_local_rejection(error: Exception) -> str | None:
         and "maximum context length" in message
         and ("max_tokens" in message or "max_completion_tokens" in message)
     ):
-        # A trajectory that exhausts the preregistered 8192-token service
+        # A trajectory that exhausts the preregistered service context
         # context is a task-local scientific outcome.  Do not truncate its
         # history, reduce the frozen 512-token output cap, or abort unrelated
         # tasks in the shard.

@@ -722,7 +722,7 @@ class V6CandidateGenerationTests(unittest.TestCase):
                 "quantization": "awq",
                 "dtype": "float16",
                 "tensor_parallel_size": tensor_parallel_size,
-                "max_model_len": 8192,
+                "max_model_len": generation.V610_MODEL_MAX_LEN,
                 "gpu_memory_utilization": 0.90,
                 "gpu_uuids": gpu_uuids,
                 "launch_command": launch_command,
