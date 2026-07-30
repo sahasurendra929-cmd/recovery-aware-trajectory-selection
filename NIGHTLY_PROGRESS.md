@@ -278,3 +278,16 @@ Pilot in a new versioned directory.
 - Next: publish this NO-GO, add a regression fixture, repair expected reference
   error replay without changing the scientific protocol, run a fresh
   `retail:35` smoke, and then start a new complete Pilot attempt.
+
+## V6.9 retail:35 repair smoke follow-on NO-GO
+
+- The clean reference replay now retained and executed the expected failed
+  lookup correctly.
+- The fresh smoke reached the matched-recovery completion path, where a second
+  copy of the obsolete all-reference-actions-must-succeed invariant failed on
+  the same frozen action.
+- No candidate output was emitted. Official test remains sealed.
+- Evidence:
+  `artifacts/v6_directional_screen/ops/errors/20260730_v69_smoke35_reference_completion.md`.
+- Next: route all three reference replay paths through one regression-tested
+  helper while keeping the forced corrective action success gate intact.
