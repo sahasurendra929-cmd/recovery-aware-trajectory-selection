@@ -260,6 +260,39 @@ class V6DirectionalTrainerTests(unittest.TestCase):
         self.assertEqual(encoded["failed_context_messages"], 1)
         self.assertGreater(encoded["supervised_tokens"], 0)
 
+    def test_v610_sanitized_oracle_suffix_is_accepted_truthfully(self):
+        row = recovery_row()
+        row["metadata"].update(
+            {
+                "recovery_suffix_origin": (
+                    "sanitized_deterministic_reference_plan"
+                ),
+                "fresh_recovery_suffix": False,
+                "gold_reference_suffix_used": True,
+            }
+        )
+        validated = trainer.validate_row(row, arm="full_proposed")
+        encoded = trainer.encode_row(
+            FakeTokenizer(), validated, max_seq_len=100
+        )
+        self.assertGreater(encoded["supervised_tokens"], 0)
+
+    def test_v610_sanitized_oracle_suffix_provenance_drift_rejected(self):
+        row = recovery_row()
+        row["metadata"].update(
+            {
+                "recovery_suffix_origin": (
+                    "sanitized_deterministic_reference_plan"
+                ),
+                "fresh_recovery_suffix": True,
+                "gold_reference_suffix_used": True,
+            }
+        )
+        with self.assertRaisesRegex(
+            trainer.V6TrainingError, "sanitized-oracle suffix provenance"
+        ):
+            trainer.validate_row(row, arm="full_proposed")
+
     def test_structured_tool_result_uses_frozen_canonical_normalization(self):
         row = recovery_row()
         row["messages"][6]["content"] = {

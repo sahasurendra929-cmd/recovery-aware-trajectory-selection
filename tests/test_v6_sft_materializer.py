@@ -286,6 +286,50 @@ def test_recovery_manifest_materializes_both_sibling_branches():
         assert row["messages"][6]["role"] == "assistant"
         assert row["messages"][6]["content"] == "Your order is paid."
         assert row["label_mask"][6] is True
+        assert row["metadata"]["recovery_suffix_origin"] == (
+            "fresh_teacher_generation"
+        )
+        assert row["metadata"]["fresh_recovery_suffix"] is True
+        assert row["metadata"]["gold_reference_suffix_used"] is False
+
+
+def test_v610_sanitized_oracle_suffix_is_not_laundered_as_fresh():
+    manifest = recovery_manifest()
+    for branch in manifest["selected"][0]["candidate_pair"]["branches"]:
+        binding = {
+            "reference_preflight_receipt_sha256": digest("receipt"),
+            "reference_task_preflight_sha256": digest("task"),
+            "sanitized_reference_plan_sha256": digest("plan"),
+        }
+        branch["reference_preflight_binding"] = binding
+        branch["recovery_suffix_provenance"] = {
+            "protocol": "v6_10_audited_recovery_suffix_provenance_v1",
+            "origin": "sanitized_deterministic_reference_plan",
+            "fresh_recovery_generated": False,
+            "gold_suffix_used": True,
+            **binding,
+            "matched_recovery_evidence_sha256": digest("matched"),
+        }
+    rows, _ = run(manifest)
+    assert rows
+    for row in rows:
+        metadata = row["metadata"]
+        assert metadata["recovery_suffix_origin"] == (
+            "sanitized_deterministic_reference_plan"
+        )
+        assert metadata["fresh_recovery_suffix"] is False
+        assert metadata["gold_reference_suffix_used"] is True
+
+
+def test_v610_oracle_suffix_requires_truthful_producer_evidence():
+    manifest = recovery_manifest()
+    branch = manifest["selected"][0]["candidate_pair"]["branches"][0]
+    branch["reference_preflight_binding"] = {"protocol": "fixture-v610"}
+    with pytest.raises(
+        materialize.V6MaterializationError,
+        match="canonical audited sanitized-oracle provenance",
+    ):
+        run(manifest)
 
 
 def test_flawless_manifest_materializes_complete_matched_task_control():

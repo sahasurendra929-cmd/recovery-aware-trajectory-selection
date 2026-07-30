@@ -696,6 +696,42 @@ def structural_eligibility(candidate_pair: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def failed_injection_databases_unchanged(
+    branch: Mapping[str, Any],
+) -> bool:
+    """Validate real agent state and explicit optional user-state evidence."""
+
+    if not isinstance(branch, Mapping):
+        return False
+    agent_before = branch.get("agent_db_hash_before_error")
+    agent_after = branch.get("agent_db_hash_after_error")
+    agent_unchanged = (
+        "agent_db_hash_before_error" in branch
+        and "agent_db_hash_after_error" in branch
+        and isinstance(agent_before, str)
+        and bool(agent_before)
+        and agent_before == agent_after
+    )
+    if (
+        "user_db_hash_available" not in branch
+        or "user_db_hash_before_error" not in branch
+        or "user_db_hash_after_error" not in branch
+        or not isinstance(branch.get("user_db_hash_available"), bool)
+    ):
+        return False
+    user_before = branch.get("user_db_hash_before_error")
+    user_after = branch.get("user_db_hash_after_error")
+    if branch["user_db_hash_available"]:
+        user_unchanged = (
+            isinstance(user_before, str)
+            and bool(user_before)
+            and user_before == user_after
+        )
+    else:
+        user_unchanged = user_before is None and user_after is None
+    return agent_unchanged and user_unchanged
+
+
 def audit_candidate_pair(candidate_pair: Mapping[str, Any]) -> dict[str, bool]:
     """Recompute structural/runtime eligibility without producer acceptance."""
     branches = candidate_pair.get("branches")
@@ -726,14 +762,8 @@ def audit_candidate_pair(candidate_pair: Mapping[str, Any]) -> dict[str, bool]:
     actions = [branch.get("first_recovery_action_key") for branch in branches]
     references = [branch.get("reference_action_key") for branch in branches]
     failed_injection_state_unchanged = all(
-        isinstance(branch.get(before), str)
-        and bool(branch.get(before))
-        and branch.get(before) == branch.get(after)
+        failed_injection_databases_unchanged(branch)
         for branch in branches
-        for before, after in (
-            ("agent_db_hash_before_error", "agent_db_hash_after_error"),
-            ("user_db_hash_before_error", "user_db_hash_after_error"),
-        )
     )
     try:
         cost_valid = (

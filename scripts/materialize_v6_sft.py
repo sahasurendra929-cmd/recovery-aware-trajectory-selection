@@ -4,8 +4,11 @@
 The selector atom is a complete ``candidate_pair`` with exactly two sibling
 error branches.  A recovery manifest therefore produces two training rows per
 selected task.  The failed assistant tool call and its adjacent error result
-remain in the prompt as context only; every successful assistant tool call in
-the freshly generated recovery suffix is supervised.
+remain in the prompt as context only; every successful assistant output in the
+recovery suffix is supervised.  Legacy V6 suffixes are fresh policy rollouts;
+V6.10 suffixes are explicitly marked as sanitized deterministic oracle data.
+The materializer preserves that distinction instead of relabeling oracle data
+as freshly generated.
 
 ``flawless_only`` is a matched-task control.  Its selected records must carry
 the complete immutable ``clean_view`` (messages, label mask, tool schemas,
@@ -565,6 +568,9 @@ def _metadata(
     branch_id: str | None,
     clean_id: str | None,
     source_hashes: Mapping[str, Any],
+    recovery_suffix_origin: str = "not_applicable",
+    fresh_recovery_generated: bool = False,
+    gold_reference_suffix_used: bool = False,
 ) -> dict[str, Any]:
     try:
         task_id = task_identity.split(":", 1)[1]
@@ -620,11 +626,70 @@ def _metadata(
         "failed_action_label_messages": len(set(failed) & set(selected)),
         "full_nonfailed_assistant_suffix_supervised": True,
         "assistant_text_outputs_supervised": True,
-        "fresh_recovery_suffix": source != "perfect_success",
+        "fresh_recovery_suffix": fresh_recovery_generated,
+        "recovery_suffix_origin": recovery_suffix_origin,
+        "gold_reference_suffix_used": gold_reference_suffix_used,
         "future_clean_suffix_used": False,
         "official_test_used": False,
         "materialization_protocol": PROTOCOL,
     }
+
+
+def _recovery_suffix_provenance(
+    branch: Mapping[str, Any],
+    *,
+    label: str,
+) -> tuple[str, bool, bool]:
+    """Return truthful suffix provenance for legacy and V6.10 candidates."""
+
+    v610 = isinstance(branch.get("reference_preflight_binding"), Mapping)
+    if v610:
+        audited = branch.get("recovery_suffix_provenance")
+        binding = branch["reference_preflight_binding"]
+        if (
+            not isinstance(audited, Mapping)
+            or audited.get("protocol")
+            != "v6_10_audited_recovery_suffix_provenance_v1"
+            or audited.get("origin")
+            != "sanitized_deterministic_reference_plan"
+            or audited.get("fresh_recovery_generated") is not False
+            or audited.get("gold_suffix_used") is not True
+            or audited.get("reference_preflight_receipt_sha256")
+            != binding.get("reference_preflight_receipt_sha256")
+            or audited.get("reference_task_preflight_sha256")
+            != binding.get("reference_task_preflight_sha256")
+            or audited.get("sanitized_reference_plan_sha256")
+            != binding.get("sanitized_reference_plan_sha256")
+            or SHA256_RE.fullmatch(
+                str(audited.get("matched_recovery_evidence_sha256"))
+            )
+            is None
+        ):
+            raise V6MaterializationError(
+                f"{label}: V6.10 recovery suffix lacks canonical audited "
+                "sanitized-oracle provenance"
+            )
+        return (
+            "sanitized_deterministic_reference_plan",
+            False,
+            True,
+        )
+
+    producer = branch.get("producer_evidence")
+    matched = (
+        producer.get("matched_recovery")
+        if isinstance(producer, Mapping)
+        else None
+    )
+    if isinstance(matched, Mapping):
+        fresh = matched.get("fresh_recovery_generated")
+        gold = matched.get("gold_suffix_used")
+        if fresh is False or gold is True:
+            raise V6MaterializationError(
+                f"{label}: legacy recovery suffix unexpectedly uses oracle "
+                "provenance"
+            )
+    return "fresh_teacher_generation", True, False
 
 
 def _materialize_recovery_branch(
@@ -668,6 +733,11 @@ def _materialize_recovery_branch(
         )
     if not raw_suffix:
         raise V6MaterializationError(f"{label}: fresh recovery suffix is empty")
+    (
+        recovery_suffix_origin,
+        fresh_recovery_generated,
+        gold_reference_suffix_used,
+    ) = _recovery_suffix_provenance(branch, label=label)
     raw_mask = _recovery_source_mask(
         branch,
         prompt_length=len(raw_prompt),
@@ -789,6 +859,9 @@ def _materialize_recovery_branch(
             branch_id=branch_id,
             clean_id=None,
             source_hashes=source_hashes,
+            recovery_suffix_origin=recovery_suffix_origin,
+            fresh_recovery_generated=fresh_recovery_generated,
+            gold_reference_suffix_used=gold_reference_suffix_used,
         ),
         "token_contract": contract,
     }

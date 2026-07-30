@@ -89,6 +89,7 @@ def valid_candidate_pair(task: str, index: int, *, kappa: float | None = None):
                 "matched_task_success": True,
                 "agent_db_hash_before_error": f"agent-{task}",
                 "agent_db_hash_after_error": f"agent-{task}",
+                "user_db_hash_available": True,
                 "user_db_hash_before_error": f"user-{task}",
                 "user_db_hash_after_error": f"user-{task}",
             }

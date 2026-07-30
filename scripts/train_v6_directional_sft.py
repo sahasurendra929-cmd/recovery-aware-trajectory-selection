@@ -544,8 +544,28 @@ def validate_row(
             )
         if metadata.get("future_clean_suffix_used") is not False:
             raise V6TrainingError(f"{row_id}: future clean suffix leakage")
-        if metadata.get("fresh_recovery_suffix") is not True:
-            raise V6TrainingError(f"{row_id}: suffix is not marked freshly generated")
+        suffix_origin = metadata.get("recovery_suffix_origin")
+        if suffix_origin == "sanitized_deterministic_reference_plan":
+            if (
+                metadata.get("fresh_recovery_suffix") is not False
+                or metadata.get("gold_reference_suffix_used") is not True
+            ):
+                raise V6TrainingError(
+                    f"{row_id}: sanitized-oracle suffix provenance drift"
+                )
+        elif suffix_origin in (None, "fresh_teacher_generation"):
+            # ``None`` preserves the frozen legacy V6 materialization schema.
+            if (
+                metadata.get("fresh_recovery_suffix") is not True
+                or metadata.get("gold_reference_suffix_used") is True
+            ):
+                raise V6TrainingError(
+                    f"{row_id}: fresh recovery suffix provenance drift"
+                )
+        else:
+            raise V6TrainingError(
+                f"{row_id}: unsupported recovery suffix origin {suffix_origin!r}"
+            )
 
     tools = metadata.get("tool_schemas")
     if (
