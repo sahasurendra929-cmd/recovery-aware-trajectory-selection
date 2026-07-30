@@ -68,10 +68,14 @@ def model_role(
 def create_artifacts(root: Path, repository: Path) -> dict[str, Path]:
     hashes = frozen_hashes(repository)
     preflight = {
-        "source_commit": SOURCE_COMMIT,
-        "tau2_commit": generation.protocol.TAU2_COMMIT,
-        "config_sha256": hashes["config_sha256"],
-        "split_manifest_sha256": hashes["split_manifest_sha256"],
+        "provenance": {
+            "source": {"commit": SOURCE_COMMIT},
+            "tau2": {"commit": generation.protocol.TAU2_COMMIT},
+            "files": {
+                "config_sha256": hashes["config_sha256"],
+                "split_manifest_sha256": hashes["split_manifest_sha256"],
+            },
+        },
         "receipt_sha256": PREFLIGHT_SEMANTIC_SHA,
         "official_test_used": False,
     }

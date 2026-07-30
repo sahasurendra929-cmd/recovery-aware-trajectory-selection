@@ -234,6 +234,22 @@ def verify_reference_and_registry(
         if isinstance(binding, Mapping)
         else None
     )
+    preflight_provenance = preflight.get("provenance")
+    preflight_source = (
+        preflight_provenance.get("source")
+        if isinstance(preflight_provenance, Mapping)
+        else None
+    )
+    preflight_tau2 = (
+        preflight_provenance.get("tau2")
+        if isinstance(preflight_provenance, Mapping)
+        else None
+    )
+    preflight_files = (
+        preflight_provenance.get("files")
+        if isinstance(preflight_provenance, Mapping)
+        else None
+    )
     if (
         registry.get("design_protocol")
         != generation.V6_10_PIPELINE_CLOSURE_PROTOCOL
@@ -254,12 +270,15 @@ def verify_reference_and_registry(
         != preflight_file_sha256
         or registry_preflight.get("receipt_sha256")
         != semantic_receipt_hash
-        or preflight.get("source_commit") != source_commit
-        or preflight.get("tau2_commit")
+        or not isinstance(preflight_source, Mapping)
+        or preflight_source.get("commit") != source_commit
+        or not isinstance(preflight_tau2, Mapping)
+        or preflight_tau2.get("commit")
         != generation.protocol.TAU2_COMMIT
-        or preflight.get("config_sha256")
+        or not isinstance(preflight_files, Mapping)
+        or preflight_files.get("config_sha256")
         != frozen_hashes["config_sha256"]
-        or preflight.get("split_manifest_sha256")
+        or preflight_files.get("split_manifest_sha256")
         != frozen_hashes["split_manifest_sha256"]
         or preflight.get("official_test_used") is not False
     ):
