@@ -211,7 +211,9 @@ CUDA_VISIBLE_DEVICES=0,1 nohup "$RUNTIME_PYTHON" -I -m \
   --served-model-name Qwen/Qwen2.5-72B-Instruct-AWQ \
   --quantization awq --dtype float16 --tensor-parallel-size 2 \
   --load-format safetensors --max-model-len 8192 \
-  --gpu-memory-utilization 0.9 --host 127.0.0.1 --port 8101 \
+  --gpu-memory-utilization 0.9 \
+  --enable-auto-tool-choice --tool-call-parser hermes \
+  --host 127.0.0.1 --port 8101 \
   >"$RUNTIME_SESSION_DIR/model-logs/teacher.log" 2>&1 &
 TEACHER_PID=$!
 
@@ -222,7 +224,9 @@ CUDA_VISIBLE_DEVICES=2 nohup "$RUNTIME_PYTHON" -I -m \
   --served-model-name Qwen/Qwen2.5-14B-Instruct-AWQ \
   --quantization awq --dtype float16 --tensor-parallel-size 1 \
   --load-format safetensors --max-model-len 8192 \
-  --gpu-memory-utilization 0.9 --host 127.0.0.1 --port 8201 \
+  --gpu-memory-utilization 0.9 \
+  --enable-auto-tool-choice --tool-call-parser hermes \
+  --host 127.0.0.1 --port 8201 \
   >"$RUNTIME_SESSION_DIR/model-logs/user-judge.log" 2>&1 &
 USER_JUDGE_PID=$!
 
@@ -266,7 +270,7 @@ python -c 'from pathlib import Path; from scripts.build_v6_10_runtime_receipts i
       "gpu_uuids": ["GPU-TEACHER-0", "GPU-TEACHER-1"],
       "max_model_len": 8192,
       "gpu_memory_utilization": 0.9,
-      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_72B_SNAPSHOT>", "--revision", "698703eae6604af048a3d2f509995dc302088217", "--served-model-name", "Qwen/Qwen2.5-72B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "2", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--host", "127.0.0.1", "--port", "8101"],
+      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_72B_SNAPSHOT>", "--revision", "698703eae6604af048a3d2f509995dc302088217", "--served-model-name", "Qwen/Qwen2.5-72B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "2", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8101"],
       "server_pid": 12345,
       "tokenizer_or_config_sha256": "<64-lowercase-hex>"
     },
@@ -280,7 +284,7 @@ python -c 'from pathlib import Path; from scripts.build_v6_10_runtime_receipts i
       "gpu_uuids": ["GPU-USER-JUDGE"],
       "max_model_len": 8192,
       "gpu_memory_utilization": 0.9,
-      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_14B_SNAPSHOT>", "--revision", "539535859b135b0244c91f3e59816150c8056698", "--served-model-name", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "1", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--host", "127.0.0.1", "--port", "8201"],
+      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_14B_SNAPSHOT>", "--revision", "539535859b135b0244c91f3e59816150c8056698", "--served-model-name", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "1", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8201"],
       "server_pid": 23456,
       "tokenizer_or_config_sha256": "<64-lowercase-hex>"
     },
@@ -294,7 +298,7 @@ python -c 'from pathlib import Path; from scripts.build_v6_10_runtime_receipts i
       "gpu_uuids": ["GPU-USER-JUDGE"],
       "max_model_len": 8192,
       "gpu_memory_utilization": 0.9,
-      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_14B_SNAPSHOT>", "--revision", "539535859b135b0244c91f3e59816150c8056698", "--served-model-name", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "1", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--host", "127.0.0.1", "--port", "8201"],
+      "launch_command": ["<ABSOLUTE_RUNTIME_PYTHON>", "-I", "-m", "vllm.entrypoints.openai.api_server", "--model", "<ABSOLUTE_14B_SNAPSHOT>", "--revision", "539535859b135b0244c91f3e59816150c8056698", "--served-model-name", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--dtype", "float16", "--tensor-parallel-size", "1", "--load-format", "safetensors", "--max-model-len", "8192", "--gpu-memory-utilization", "0.9", "--enable-auto-tool-choice", "--tool-call-parser", "hermes", "--host", "127.0.0.1", "--port", "8201"],
       "server_pid": 23456,
       "tokenizer_or_config_sha256": "<same-14B-hash>"
     }
