@@ -4518,9 +4518,21 @@ TASK_LOCAL_REJECTION_PATTERNS = (
 
 
 def classify_task_local_rejection(error: Exception) -> str | None:
+    error_type = type(error)
+    message = str(error).lower()
+    if (
+        error_type.__module__.startswith("litellm.")
+        and error_type.__name__ == "ContextWindowExceededError"
+        and "maximum context length" in message
+        and ("max_tokens" in message or "max_completion_tokens" in message)
+    ):
+        # A trajectory that exhausts the preregistered 8192-token service
+        # context is a task-local scientific outcome.  Do not truncate its
+        # history, reduce the frozen 512-token output cap, or abort unrelated
+        # tasks in the shard.
+        return "CONTEXT_WINDOW_EXCEEDED"
     if not isinstance(error, V6GenerationError):
         return None
-    message = str(error).lower()
     for reason_code, patterns in TASK_LOCAL_REJECTION_PATTERNS:
         if any(pattern in message for pattern in patterns):
             return reason_code

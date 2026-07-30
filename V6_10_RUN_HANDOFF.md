@@ -252,6 +252,13 @@ If either 8192-token service fails to become healthy on the exact 3×RTX PRO
 4500 Blackwell topology, stop both PIDs and report a typed preflight failure. Do not silently
 reduce context length, change memory utilization, or begin generation.
 
+If an individual rollout later exhausts the frozen 8192-token context while
+reserving the frozen 512-token output cap, publish that task atomically with
+`scientific_outcome=REJECTED` and
+`reason_code=CONTEXT_WINDOW_EXCEEDED`, then continue the shard. Do not truncate
+the trajectory, reduce its output cap, or treat a different provider error as
+this task-local outcome.
+
 ```bash
 python -c 'from pathlib import Path; from scripts.build_v6_10_runtime_receipts import snapshot_identity; print(snapshot_identity(Path("'"$TEACHER_SNAPSHOT"'"), expected_model="Qwen/Qwen2.5-72B-Instruct-AWQ", expected_revision="698703eae6604af048a3d2f509995dc302088217")[1])'
 python -c 'from pathlib import Path; from scripts.build_v6_10_runtime_receipts import snapshot_identity; print(snapshot_identity(Path("'"$USER_JUDGE_SNAPSHOT"'"), expected_model="Qwen/Qwen2.5-14B-Instruct-AWQ", expected_revision="539535859b135b0244c91f3e59816150c8056698")[1])'

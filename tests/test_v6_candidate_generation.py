@@ -2959,5 +2959,58 @@ class V6CandidateGenerationTests(unittest.TestCase):
         self.assertFalse(result["trials"][0]["first_action_observed"])
 
 
+class V610TaskLocalRuntimeClassificationTests(unittest.TestCase):
+    def test_context_window_exhaustion_is_task_local_but_other_400_is_not(self):
+        context_error_type = type(
+            "ContextWindowExceededError",
+            (RuntimeError,),
+            {"__module__": "litellm.exceptions"},
+        )
+        context_error = context_error_type(
+            "'max_tokens' is too large: 512. This model's maximum context "
+            "length is 8192 tokens and the request has 7999 input tokens."
+        )
+        self.assertEqual(
+            generation.classify_task_local_rejection(context_error),
+            "CONTEXT_WINDOW_EXCEEDED",
+        )
+
+        other_bad_request_type = type(
+            "BadRequestError",
+            (RuntimeError,),
+            {"__module__": "litellm.exceptions"},
+        )
+        self.assertIsNone(
+            generation.classify_task_local_rejection(
+                other_bad_request_type("tool parser is disabled")
+            )
+        )
+
+    def test_context_window_classifier_is_fail_closed_on_message_and_origin(self):
+        same_name_wrong_origin = type(
+            "ContextWindowExceededError",
+            (RuntimeError,),
+            {"__module__": "untrusted"},
+        )
+        self.assertIsNone(
+            generation.classify_task_local_rejection(
+                same_name_wrong_origin(
+                    "maximum context length; max_tokens is too large"
+                )
+            )
+        )
+
+        correct_origin_wrong_message = type(
+            "ContextWindowExceededError",
+            (RuntimeError,),
+            {"__module__": "litellm.exceptions"},
+        )
+        self.assertIsNone(
+            generation.classify_task_local_rejection(
+                correct_origin_wrong_message("upstream request failed")
+            )
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
