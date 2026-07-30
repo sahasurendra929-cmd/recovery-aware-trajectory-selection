@@ -1243,6 +1243,8 @@ def execute_reference_actions(
     *,
     task_id: str | int,
     actions: Sequence[Any],
+    action_indices: Sequence[int] | None = None,
+    call_id_prefix: str = "v6-reference-clean",
 ) -> list[dict[str, Any]]:
     """Execute the frozen reference sequence, retaining expected tool errors.
 
@@ -1251,10 +1253,14 @@ def execute_reference_actions(
     is decided by the frozen official evaluator, not by requiring every
     intermediate reference tool result to be successful.
     """
+    if action_indices is None:
+        action_indices = list(range(len(actions)))
+    if len(action_indices) != len(actions):
+        raise V6GenerationError("reference action/index cardinality mismatch")
     observed: list[dict[str, Any]] = []
-    for index, action in enumerate(actions):
+    for index, action in zip(action_indices, actions):
         call = {
-            "id": f"v6-reference-clean-{task_id}-{index:03d}",
+            "id": f"{call_id_prefix}-{task_id}-{index:03d}",
             "requestor": action.requestor,
             "name": action.name,
             "arguments": deepcopy(action.arguments),
@@ -1354,21 +1360,16 @@ def deterministic_reference_tail_simulation(
     if forced_result.get("error") is True:
         raise V6GenerationError("frozen corrective action returned a tool error")
     suffix.extend((forced_message, forced_result))
-    for offset, action in enumerate(
-        criteria.actions[matching_indices[0] + 1 :], start=1
-    ):
-        call = {
-            "id": f"v6-reference-tail-{task.id}-{offset:03d}",
-            "requestor": action.requestor,
-            "name": action.name,
-            "arguments": deepcopy(action.arguments),
-        }
-        call_message, result = execute_call(environment, call)
-        if result.get("error") is True:
-            raise V6GenerationError(
-                f"reference tail action {action.action_id} returned a tool error"
-            )
-        suffix.extend((call_message, result))
+    tail_start = matching_indices[0] + 1
+    suffix.extend(
+        execute_reference_actions(
+            environment,
+            task_id=task.id,
+            actions=criteria.actions[tail_start:],
+            action_indices=list(range(tail_start, len(criteria.actions))),
+            call_id_prefix="v6-reference-tail",
+        )
+    )
     suffix.append(
         deterministic_completion_message(
             criteria,
@@ -1476,24 +1477,19 @@ def deterministic_reference_completion_simulation(
         raise V6GenerationError("frozen corrective action returned a tool error")
     suffix.extend((forced_message, forced_result))
     remaining = [
-        action
+        (index, action)
         for index, action in enumerate(criteria.actions)
         if index != forced_index
     ]
-    for offset, action in enumerate(remaining, start=1):
-        call = {
-            "id": f"v6-reference-completion-{task.id}-{offset:03d}",
-            "requestor": action.requestor,
-            "name": action.name,
-            "arguments": deepcopy(action.arguments),
-        }
-        call_message, result = execute_call(environment, call)
-        if result.get("error") is True:
-            raise V6GenerationError(
-                f"reference completion action {action.action_id} "
-                "returned a tool error"
-            )
-        suffix.extend((call_message, result))
+    suffix.extend(
+        execute_reference_actions(
+            environment,
+            task_id=task.id,
+            actions=[action for _, action in remaining],
+            action_indices=[index for index, _ in remaining],
+            call_id_prefix="v6-reference-completion",
+        )
+    )
     suffix.append(
         deterministic_completion_message(
             criteria,

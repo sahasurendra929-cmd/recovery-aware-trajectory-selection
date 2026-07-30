@@ -246,6 +246,29 @@ class V6CandidateGenerationTests(unittest.TestCase):
         self.assertFalse(observed[3]["error"])
         self.assertEqual(observed[1]["content"], "User not found")
 
+    def test_all_reference_replay_paths_use_expected_error_aware_helper(self):
+        for function in (
+            generation.deterministic_reference_clean_simulation,
+            generation.deterministic_reference_tail_simulation,
+            generation.deterministic_reference_completion_simulation,
+        ):
+            self.assertIn(
+                "execute_reference_actions",
+                __import__("inspect").getsource(function),
+            )
+
+    def test_reference_replay_rejects_action_index_cardinality_drift(self):
+        with self.assertRaisesRegex(
+            generation.V6GenerationError,
+            "cardinality mismatch",
+        ):
+            generation.execute_reference_actions(
+                object(),
+                task_id=35,
+                actions=[SimpleNamespace()],
+                action_indices=[],
+            )
+
     def test_training_system_message_binds_domain_policy(self):
         message = generation.training_system_message("Always verify the user.")
         self.assertEqual(message["role"], "system")
