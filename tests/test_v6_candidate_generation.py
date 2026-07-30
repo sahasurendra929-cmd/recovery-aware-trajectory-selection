@@ -4,6 +4,7 @@ from copy import deepcopy
 import hashlib
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from scripts import prepare_v6_candidate_registry as registry_contract
 from scripts import run_v6_candidate_generation as generation
@@ -209,6 +210,42 @@ def generation_args(**overrides) -> SimpleNamespace:
 
 
 class V6CandidateGenerationTests(unittest.TestCase):
+    def test_reference_replay_retains_expected_failed_lookup_before_correction(self):
+        actions = [
+            SimpleNamespace(
+                requestor="assistant",
+                name="find_user_id_by_email",
+                arguments={"email": "missing@example.com"},
+            ),
+            SimpleNamespace(
+                requestor="assistant",
+                name="find_user_id_by_email",
+                arguments={"email": "present@example.com"},
+            ),
+        ]
+        results = [
+            (
+                {"role": "assistant", "tool_calls": [{"name": actions[0].name}]},
+                {"role": "tool", "error": True, "content": "User not found"},
+            ),
+            (
+                {"role": "assistant", "tool_calls": [{"name": actions[1].name}]},
+                {"role": "tool", "error": False, "content": "user-1"},
+            ),
+        ]
+
+        with patch.object(generation, "execute_call", side_effect=results) as execute:
+            observed = generation.execute_reference_actions(
+                object(),
+                task_id=35,
+                actions=actions,
+            )
+
+        self.assertEqual(execute.call_count, 2)
+        self.assertTrue(observed[1]["error"])
+        self.assertFalse(observed[3]["error"])
+        self.assertEqual(observed[1]["content"], "User not found")
+
     def test_training_system_message_binds_domain_policy(self):
         message = generation.training_system_message("Always verify the user.")
         self.assertEqual(message["role"], "system")

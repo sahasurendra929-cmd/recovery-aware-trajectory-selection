@@ -1,8 +1,8 @@
 # V6.9 Pilot Attempt 2 NO-GO Report
 
-Date: 2026-07-30  
-Branch: `codex/v6.9-complementizer-normalization`  
-Source commit: `aa1a81d1c21328bb9dc550ffeea7fbba0c1b07ea`  
+Date: 2026-07-30
+Branch: `codex/v6.9-complementizer-normalization`
+Source commit: `aa1a81d1c21328bb9dc550ffeea7fbba0c1b07ea`
 Tau2 commit: `fc0055dc4e0a316c3f83133267fbd6faaa770992`
 
 ## Result
@@ -75,4 +75,3 @@ authorized only after:
 4. passing the complete code-only suite;
 5. running a fresh `retail:35` smoke in a new output directory; and
 6. starting the next complete Pilot in another fresh attempt directory.
-

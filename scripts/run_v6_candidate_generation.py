@@ -1238,6 +1238,32 @@ def independent_replay(
     }
 
 
+def execute_reference_actions(
+    environment: Any,
+    *,
+    task_id: str | int,
+    actions: Sequence[Any],
+) -> list[dict[str, Any]]:
+    """Execute the frozen reference sequence, retaining expected tool errors.
+
+    Tau2 reference trajectories can intentionally include a failed lookup
+    followed by a corrected lookup.  Whether the complete trajectory is valid
+    is decided by the frozen official evaluator, not by requiring every
+    intermediate reference tool result to be successful.
+    """
+    observed: list[dict[str, Any]] = []
+    for index, action in enumerate(actions):
+        call = {
+            "id": f"v6-reference-clean-{task_id}-{index:03d}",
+            "requestor": action.requestor,
+            "name": action.name,
+            "arguments": deepcopy(action.arguments),
+        }
+        call_message, result = execute_call(environment, call)
+        observed.extend((call_message, result))
+    return observed
+
+
 def deterministic_reference_clean_simulation(
     *,
     simulation: Any,
@@ -1261,19 +1287,13 @@ def deterministic_reference_clean_simulation(
         raise V6GenerationError("deterministic clean replay requires reference actions")
     environment = initial_environment(domain, task, prefix)
     observed = [deepcopy(dict(row)) for row in prefix]
-    for index, action in enumerate(criteria.actions):
-        call = {
-            "id": f"v6-reference-clean-{task.id}-{index:03d}",
-            "requestor": action.requestor,
-            "name": action.name,
-            "arguments": deepcopy(action.arguments),
-        }
-        call_message, result = execute_call(environment, call)
-        if result.get("error") is True:
-            raise V6GenerationError(
-                f"reference action {action.action_id} returned a tool error"
-            )
-        observed.extend((call_message, result))
+    observed.extend(
+        execute_reference_actions(
+            environment,
+            task_id=task.id,
+            actions=criteria.actions,
+        )
+    )
     observed.append(
         deterministic_completion_message(
             criteria,
