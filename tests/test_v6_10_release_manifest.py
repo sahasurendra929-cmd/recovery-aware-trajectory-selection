@@ -33,6 +33,9 @@ def frozen_hashes(repository: Path) -> dict[str, str]:
         "preregistration_sha256": runtime.file_sha256(
             repository / release.PREREGISTRATION_PATH
         ),
+        "evaluation_preregistration_sha256": runtime.file_sha256(
+            repository / release.EVALUATION_PREREGISTRATION_PATH
+        ),
         "split_manifest_sha256": runtime.file_sha256(
             repository / release.SPLIT_MANIFEST_PATH
         ),
@@ -377,6 +380,7 @@ class ReleaseManifestTests(unittest.TestCase):
                 {
                     release.CONFIG_PATH.as_posix(),
                     release.PREREGISTRATION_PATH.as_posix(),
+                    release.EVALUATION_PREREGISTRATION_PATH.as_posix(),
                     *release.RELEVANT_SCRIPTS,
                 },
             )

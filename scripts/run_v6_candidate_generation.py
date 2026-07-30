@@ -108,10 +108,17 @@ V610_REQUIRED_RELEASE_SCRIPTS = frozenset(
         "scripts/score_v6_candidates.py",
         "scripts/build_v6_selector_manifests.py",
         "scripts/build_v6_checkpoint_registry.py",
+        "scripts/build_v6_official_unseal_receipt.py",
         "scripts/preflight_v6_reference_traces.py",
         "scripts/prepare_v6_10_registry.py",
         "scripts/build_v6_10_runtime_receipts.py",
         "scripts/build_v6_10_release_manifest.py",
+        "scripts/run_v6_end_to_end_eval.py",
+        "scripts/summarize_v6_task_clusters.py",
+        "scripts/run_v5_5_end_to_end_eval.py",
+        "scripts/run_v5_sft_causal_eval.py",
+        "scripts/prepare_v5_stage1_manifests.py",
+        "scripts/v5_strict_nl_judge.py",
         "scripts/v6_10_selection_protocol.py",
         "scripts/v6_reference_contract.py",
     }
@@ -120,6 +127,7 @@ V610_PARENT_ARTIFACT_HASH_KEYS = frozenset(
     {
         "config_sha256",
         "preregistration_sha256",
+        "evaluation_preregistration_sha256",
         "split_manifest_sha256",
         "reference_preflight_receipt_sha256",
         "registry_file_sha256",
@@ -1255,6 +1263,7 @@ def load_release_manifest(
         "tau2_commit",
         "config_sha256",
         "preregistration_sha256",
+        "evaluation_preregistration_sha256",
         "split_manifest_sha256",
         "reference_preflight_receipt_sha256",
         "registry_file_sha256",
@@ -1360,6 +1369,15 @@ def load_release_manifest(
         relative="V6_10_CLOSURE_PREREGISTRATION.md",
         expected_sha256=expected_fields["preregistration_sha256"],
         label="release-manifest frozen preregistration",
+    )
+    verify_committed_source_file(
+        source_root=resolved_root,
+        source_commit=expected_fields["source_commit"],
+        relative="V6_10_EVALUATION_FREEZE_PREREGISTRATION.md",
+        expected_sha256=expected_fields[
+            "evaluation_preregistration_sha256"
+        ],
+        label="release-manifest frozen evaluation preregistration",
     )
     normalized_scripts: dict[str, str] = {}
     for relative, expected_script_sha256 in sorted(scripts.items()):
@@ -1850,6 +1868,9 @@ def v610_runtime_provenance(
     preregistration_path = (
         source_root / "V6_10_CLOSURE_PREREGISTRATION.md"
     )
+    evaluation_preregistration_path = (
+        source_root / "V6_10_EVALUATION_FREEZE_PREREGISTRATION.md"
+    )
     split_manifest_path = (
         source_root
         / "artifacts"
@@ -1864,6 +1885,7 @@ def v610_runtime_provenance(
     required_parent_paths = (
         config_path,
         preregistration_path,
+        evaluation_preregistration_path,
         split_manifest_path,
         runtime_receipt_hashes_path,
     )
@@ -1874,6 +1896,9 @@ def v610_runtime_provenance(
     parent_artifact_hashes = {
         "config_sha256": sha256_file(config_path),
         "preregistration_sha256": sha256_file(preregistration_path),
+        "evaluation_preregistration_sha256": sha256_file(
+            evaluation_preregistration_path
+        ),
         "split_manifest_sha256": sha256_file(split_manifest_path),
         "reference_preflight_receipt_sha256": sha256_file(
             receipt_path.resolve()
@@ -1907,6 +1932,11 @@ def v610_runtime_provenance(
             "preregistration_sha256": parent_artifact_hashes[
                 "preregistration_sha256"
             ],
+            "evaluation_preregistration_sha256": (
+                parent_artifact_hashes[
+                    "evaluation_preregistration_sha256"
+                ]
+            ),
             "split_manifest_sha256": parent_artifact_hashes[
                 "split_manifest_sha256"
             ],
@@ -4068,6 +4098,7 @@ def v610_explicit_receipt_fields(
         "tau2_commit",
         "config_sha256",
         "preregistration_sha256",
+        "evaluation_preregistration_sha256",
         "split_manifest_sha256",
         "reference_preflight_receipt_sha256",
         "registry_file_sha256",

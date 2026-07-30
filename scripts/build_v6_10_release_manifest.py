@@ -34,8 +34,15 @@ RELEVANT_SCRIPTS = (
     "scripts/score_v6_candidates.py",
     "scripts/build_v6_selector_manifests.py",
     "scripts/build_v6_checkpoint_registry.py",
+    "scripts/build_v6_official_unseal_receipt.py",
     "scripts/materialize_v6_sft.py",
     "scripts/train_v6_directional_sft.py",
+    "scripts/run_v6_end_to_end_eval.py",
+    "scripts/summarize_v6_task_clusters.py",
+    "scripts/run_v5_5_end_to_end_eval.py",
+    "scripts/run_v5_sft_causal_eval.py",
+    "scripts/prepare_v5_stage1_manifests.py",
+    "scripts/v5_strict_nl_judge.py",
     "scripts/preflight_v6_reference_traces.py",
     "scripts/prepare_v6_10_registry.py",
     "scripts/build_v6_10_runtime_receipts.py",
@@ -45,6 +52,9 @@ RELEVANT_SCRIPTS = (
 )
 CONFIG_PATH = Path("configs/v6_10_closure.yaml")
 PREREGISTRATION_PATH = Path("V6_10_CLOSURE_PREREGISTRATION.md")
+EVALUATION_PREREGISTRATION_PATH = Path(
+    "V6_10_EVALUATION_FREEZE_PREREGISTRATION.md"
+)
 SPLIT_MANIFEST_PATH = Path(
     "artifacts/v5_stage0/manifests/split_manifest.json"
 )
@@ -92,6 +102,9 @@ def frozen_source_paths(source_root: Path) -> dict[str, Path]:
     paths = {
         "config": root / CONFIG_PATH,
         "preregistration": root / PREREGISTRATION_PATH,
+        "evaluation_preregistration": (
+            root / EVALUATION_PREREGISTRATION_PATH
+        ),
         "split_manifest": root / SPLIT_MANIFEST_PATH,
     }
     missing = [name for name, path in paths.items() if not path.is_file()]
@@ -143,6 +156,9 @@ def verify_frozen_config(paths: Mapping[str, Path]) -> dict[str, str]:
         "preregistration_sha256": _file_sha256(
             paths["preregistration"]
         ),
+        "evaluation_preregistration_sha256": _file_sha256(
+            paths["evaluation_preregistration"]
+        ),
         "split_manifest_sha256": _file_sha256(
             paths["split_manifest"]
         ),
@@ -177,6 +193,9 @@ def verify_committed_release_sources(
         CONFIG_PATH.as_posix(): frozen_hashes["config_sha256"],
         PREREGISTRATION_PATH.as_posix(): frozen_hashes[
             "preregistration_sha256"
+        ],
+        EVALUATION_PREREGISTRATION_PATH.as_posix(): frozen_hashes[
+            "evaluation_preregistration_sha256"
         ],
         **dict(script_hashes),
     }
@@ -458,6 +477,7 @@ def release_validator_expected(
         "tau2_commit",
         "config_sha256",
         "preregistration_sha256",
+        "evaluation_preregistration_sha256",
         "split_manifest_sha256",
         "reference_preflight_receipt_sha256",
         "registry_file_sha256",
@@ -589,6 +609,9 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "preregistration_sha256": frozen_hashes[
             "preregistration_sha256"
         ],
+        "evaluation_preregistration_sha256": frozen_hashes[
+            "evaluation_preregistration_sha256"
+        ],
         "split_manifest_sha256": frozen_hashes[
             "split_manifest_sha256"
         ],
@@ -617,6 +640,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "tau2_commit",
         "config_sha256",
         "preregistration_sha256",
+        "evaluation_preregistration_sha256",
         "split_manifest_sha256",
         "relevant_scripts",
         "reference_preflight_receipt_sha256",

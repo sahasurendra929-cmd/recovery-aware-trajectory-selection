@@ -1,9 +1,10 @@
 # V6.10 run handoff
 
 Status: **compatibility-ready only after every closure gate in this document
-passes**. This is not prospective-Pilot or official-evaluation ready: the V6
-end-to-end evaluator and task-cluster statistical summarizer are still
-required, tested, hashed, and frozen before prospective Pilot authorization.
+passes**. The checkpoint registry, one-time official-test unseal builder,
+end-to-end evaluator, and task-cluster statistical summarizer are implemented
+and release-hashed. Prospective Pilot is still authorized only by a
+source-bound compatibility audit from the same committed release.
 
 Canonical protocol:
 
@@ -999,11 +1000,11 @@ Training starts only when all three arm manifests and materialization audits
 are frozen. If one arm fails training, the comparison stops; do not alter only
 that arm.
 
-Prospective Pilot remains unauthorized until the repository contains, tests,
-and freezes:
+The release must contain, test, and hash:
 
 ```text
 V6 checkpoint registry
+V6 one-time official-test unseal builder
 V6 end-to-end evaluator
 V6 task-cluster statistical summarizer
 ```
@@ -1015,6 +1016,42 @@ seeds. If the evaluator or summarizer is added after compatibility, that
 tracked source change invalidates the old release and requires the full
 static→registry→runtime→release→compatibility rebuild from Section 7. No
 change is allowed after unseal.
+
+The frozen implementations are:
+
+```text
+V6_10_EVALUATION_FREEZE_PREREGISTRATION.md
+scripts/build_v6_official_unseal_receipt.py
+scripts/run_v6_end_to_end_eval.py
+scripts/summarize_v6_task_clusters.py
+```
+
+Compatibility pipeline closure alone does not authorize official-test access.
+After selection, materialization, training, and checkpoint registration pass,
+the unseal builder binds the release, formal pool, scoring audit, all selector
+manifests and materialization audits, all three training manifests, checkpoint
+registry, evaluator, summarizer, split population, seeds, and statistical
+contract. The evaluator recomputes every bound file hash before loading
+official tasks.
+
+Official evaluation is exactly 18 jobs:
+
+```text
+3 arms x 3 evaluation seeds x 2 canonical task shards
+```
+
+Each job writes 60 rows: 30 tasks under both clean and controlled-error
+conditions. Run shard 0 and shard 1 concurrently against identical 7B agent
+services on GPU 0 and GPU 2, with the shared 14B user/judge service on GPU 1.
+After all 18 shard receipts pass, give their common parent directory to
+`summarize_v6_task_clusters.py --rows`. The summarizer requires the complete
+1,080-row grid and exactly 18 hash-valid shard receipts.
+
+If any evaluator or summarizer byte changes after compatibility, that tracked
+source change invalidates the old release and requires the full
+static -> registry -> runtime -> release -> compatibility rebuild from
+Section 7. No source, artifact, checkpoint, prompt, or statistical change is
+allowed after unseal.
 
 ## 13. Resume rules
 
@@ -1079,7 +1116,8 @@ materialization_audits/
 training_run_manifests/
 checkpoint_registry.json
 official_test_unseal_receipt.json
-per_task_evaluation.jsonl
+official_evaluation/*/*/shard-*/rows.jsonl
+official_evaluation/*/*/shard-*/evaluation_receipt.json
 statistical_summary.json
 console_logs/
 ```

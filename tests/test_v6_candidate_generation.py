@@ -285,6 +285,9 @@ class V6CandidateGenerationTests(unittest.TestCase):
             "tau2_commit": "4" * 40,
             "config_sha256": digest("config"),
             "preregistration_sha256": digest("preregistration"),
+            "evaluation_preregistration_sha256": digest(
+                "evaluation-preregistration"
+            ),
             "split_manifest_sha256": digest("split"),
             "reference_preflight_receipt_sha256": digest("preflight"),
             "registry_file_sha256": digest("registry"),
@@ -307,6 +310,17 @@ class V6CandidateGenerationTests(unittest.TestCase):
             identity["config_sha256"] = generation.sha256_file(config_path)
             identity["preregistration_sha256"] = generation.sha256_file(
                 preregistration_path
+            )
+            evaluation_preregistration_path = (
+                source_root
+                / "V6_10_EVALUATION_FREEZE_PREREGISTRATION.md"
+            )
+            evaluation_preregistration_path.write_text(
+                "# Frozen V6 evaluation test\n",
+                encoding="utf-8",
+            )
+            identity["evaluation_preregistration_sha256"] = (
+                generation.sha256_file(evaluation_preregistration_path)
             )
             scripts = {}
             for relative in sorted(
@@ -665,6 +679,11 @@ class V6CandidateGenerationTests(unittest.TestCase):
                     "utc_now",
                     return_value="2026-07-30T00:00:00Z",
                 ),
+                patch.object(
+                    generation,
+                    "acquire_v610_run_lock",
+                    return_value=object(),
+                ),
                 patch("builtins.print"),
             ):
                 generation.main()
@@ -704,12 +723,15 @@ class V6CandidateGenerationTests(unittest.TestCase):
                     "model-00001-of-00001.safetensors": "a" * 64,
                 },
             }
+            model_snapshot_path = str(
+                (Path.cwd() / "models" / model / revision).resolve()
+            )
             launch_command = [
                 runtime_python,
                 "-m",
                 "vllm.entrypoints.openai.api_server",
                 "--model",
-                f"/models/{model}/{revision}",
+                model_snapshot_path,
                 "--tensor-parallel-size",
                 str(tensor_parallel_size),
             ]
@@ -734,7 +756,7 @@ class V6CandidateGenerationTests(unittest.TestCase):
                 "observed_cmdline_sha256": generation.sha256(launch_command),
                 "observed_executable_path": runtime_python,
                 "observed_executable_sha256": runtime_python_sha256,
-                "model_snapshot_path": f"/models/{model}/{revision}",
+                "model_snapshot_path": model_snapshot_path,
                 "snapshot_identity_files": snapshot_identity,
                 "snapshot_identity_files_sha256": generation.sha256(
                     snapshot_identity
