@@ -35,7 +35,7 @@ def gpu_inventory() -> list[dict]:
     return [
         {
             "index": index,
-            "model": "NVIDIA GeForce RTX 5090",
+            "model": receipts.FROZEN_GPU_MODEL,
             "uuid": f"GPU-{index}",
             "total_memory_bytes": 32 * 1024**3,
         }
@@ -238,6 +238,31 @@ def fake_process_evidence(spec, *, inventory, expected_runtime_python):
 
 
 class RuntimeReceiptTests(unittest.TestCase):
+    def test_gpu_inventory_freezes_pro4500_topology(self):
+        raw = "\n".join(
+            f"{index}, {receipts.FROZEN_GPU_MODEL}, GPU-{index}, "
+            "32623, 580.88"
+            for index in range(3)
+        )
+        with patch.object(receipts, "run_checked", return_value=raw):
+            inventory, driver = receipts.capture_gpu_inventory()
+        self.assertEqual(driver, "580.88")
+        self.assertEqual(
+            [row["model"] for row in inventory],
+            [receipts.FROZEN_GPU_MODEL] * 3,
+        )
+
+    def test_gpu_inventory_rejects_unregistered_model(self):
+        raw = "\n".join(
+            f"{index}, NVIDIA GeForce RTX 5090, GPU-{index}, 32623, 580.88"
+            for index in range(3)
+        )
+        with (
+            patch.object(receipts, "run_checked", return_value=raw),
+            self.assertRaises(receipts.RuntimeReceiptError),
+        ):
+            receipts.capture_gpu_inventory()
+
     def test_live_process_snapshot_gpu_and_socket_identity_is_observed(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

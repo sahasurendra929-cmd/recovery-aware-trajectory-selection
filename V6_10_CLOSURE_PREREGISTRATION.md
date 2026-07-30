@@ -96,9 +96,10 @@ tokenizer/config/weight-blob identity, safe launch command, live PID and
 socket owner, GPU visibility, and the declared pinned container digest.
 The services use `max_model_len=8192` and
 `gpu_memory_utilization=0.90`; compatibility generation remains unauthorized
-unless the exact live 3×32 GiB RTX 5090 topology passes the >=4096-input-token
-plus 128-generation-token probe. These values are not evidence that a
-2×24 GiB teacher topology is feasible.
+unless the exact live 3×RTX PRO 4500 Blackwell topology, with at least
+32,000 MiB per GPU, passes the >=4096-input-token
+plus 128-generation-token probe. This hardware-only compatibility revision
+does not change models, TP layout, task populations, seeds, or estimands.
 
 The official test remains sealed through compatibility work, prospective
 Pilot, formal candidate generation, measurement, scoring, selection,

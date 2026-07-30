@@ -71,6 +71,8 @@ VLLM_SERVER_MODULE = "vllm.entrypoints.openai.api_server"
 FROZEN_MODEL_DTYPE = "float16"
 FROZEN_MAX_MODEL_LEN = 8192
 FROZEN_GPU_MEMORY_UTILIZATION = 0.90
+FROZEN_GPU_MODEL = "NVIDIA RTX PRO 4500 Blackwell"
+FROZEN_MIN_GPU_MEMORY_MIB = 32_000
 SNAPSHOT_REQUIRED_IDENTITY_FILES = {
     "config.json",
     "tokenizer_config.json",
@@ -271,6 +273,17 @@ def capture_gpu_inventory() -> tuple[list[dict[str, Any]], str]:
     ):
         raise RuntimeReceiptError(
             "GPU indices, UUIDs, or driver versions are inconsistent"
+        )
+    if any(row["model"] != FROZEN_GPU_MODEL for row in inventory):
+        raise RuntimeReceiptError(
+            f"V6.10 PRO 4500 compatibility freezes exactly three "
+            f"{FROZEN_GPU_MODEL} GPUs"
+        )
+    minimum_bytes = FROZEN_MIN_GPU_MEMORY_MIB * 1024 * 1024
+    if any(row["total_memory_bytes"] < minimum_bytes for row in inventory):
+        raise RuntimeReceiptError(
+            "V6.10 PRO 4500 compatibility requires at least "
+            f"{FROZEN_MIN_GPU_MEMORY_MIB} MiB on every GPU"
         )
     return inventory, next(iter(drivers))
 

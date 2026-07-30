@@ -120,7 +120,8 @@ An attempt number is not a protocol version.
 ## 3. Canonical model-service topology
 
 The model services must expose the frozen model revisions from the config.
-For the currently observed single Pod with three RTX 5090 GPUs, the intended
+For the observed single Pod with three NVIDIA RTX PRO 4500 Blackwell GPUs
+(at least 32,000 MiB each), the frozen
 topology is:
 
 - two GPUs in one tensor-parallel service for the 72B AWQ teacher;
@@ -243,8 +244,8 @@ kill -0 "$TEACHER_PID"
 kill -0 "$USER_JUDGE_PID"
 ```
 
-If either 8192-token service fails to become healthy on the exact 3×32 GiB
-topology, stop both PIDs and report a typed preflight failure. Do not silently
+If either 8192-token service fails to become healthy on the exact 3×RTX PRO
+4500 Blackwell topology, stop both PIDs and report a typed preflight failure. Do not silently
 reduce context length, change memory utilization, or begin generation.
 
 ```bash
