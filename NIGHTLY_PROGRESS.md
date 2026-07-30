@@ -263,3 +263,18 @@ Pilot in a new versioned directory.
 - Attempt 2 has its own output directory and reruns every task; no task JSON
   from the prior source commit is copied or merged.
 - Official test remains sealed and training remains unauthorized.
+
+## V6.9 Pilot attempt 2 NO-GO
+
+- Fifteen tasks / 45 pairs completed with per-task PASS artifacts.
+- The repaired repeated-reference task `retail:31` passed in the complete
+  Pilot.
+- Generation then failed closed at `retail:35` because its frozen reference
+  trajectory intentionally starts with an unsuccessful email lookup, while the
+  deterministic replay incorrectly prohibited every reference tool error.
+- No merged JSONL or generation receipt was emitted. Official test remains
+  sealed and training remains unauthorized.
+- Full evidence: `V6_9_PILOT_ATTEMPT2_NO_GO_REPORT.md`.
+- Next: publish this NO-GO, add a regression fixture, repair expected reference
+  error replay without changing the scientific protocol, run a fresh
+  `retail:35` smoke, and then start a new complete Pilot attempt.
