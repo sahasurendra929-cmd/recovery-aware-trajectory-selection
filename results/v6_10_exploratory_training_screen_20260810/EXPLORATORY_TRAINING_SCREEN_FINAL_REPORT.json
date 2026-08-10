@@ -1,0 +1,44 @@
+{
+  "checkpoint_manifests": [
+    {
+      "path": "training_runs/random/checkpoint-epoch-1/CHECKPOINT_MANIFEST.json",
+      "sha256": "9877eba793575c90eee047e39bd72fea41a2095a35708c785b4d941e9f31561d"
+    },
+    {
+      "path": "training_runs/random/checkpoint-epoch-2/CHECKPOINT_MANIFEST.json",
+      "sha256": "a73e9cedd5b7b5ab272c47d99006d875ca640b8d55366357fd1254303ba8d4fb"
+    },
+    {
+      "path": "training_runs/rank/checkpoint-epoch-1/CHECKPOINT_MANIFEST.json",
+      "sha256": "7ae1dadb9f9722816cbd5d3b7a0b9f5e935125a987e86309d1754eeb22730e0b"
+    },
+    {
+      "path": "training_runs/rank/checkpoint-epoch-2/CHECKPOINT_MANIFEST.json",
+      "sha256": "3a8930587263663ae63d8d6391486834cdcf6e0416a3b182e10933770c6194bd"
+    }
+  ],
+  "classification": "EXPLORATORY_NOT_FOR_FORMAL_GATE",
+  "evaluation_block_sha256": "c1ab89ed1d312cc07e03b6c00142e225afd21b359cb210984d6e17286dcffbd9",
+  "findings": [
+    "Both arms completed two epochs / 96 steps.",
+    "All four checkpoint manifests passed their stored file-hash verification.",
+    "Training losses are optimization diagnostics, not held-out task quality."
+  ],
+  "formal_authorization": false,
+  "inputs": {
+    "materialized_candidate_pairs": 48,
+    "sessions": [
+      "A08",
+      "A12"
+    ],
+    "train_pairs_per_arm": 24,
+    "train_rows_per_arm": 48
+  },
+  "next_formalizable_step": "Run a separately contracted evaluation with an explicitly exploratory evaluator, or rerun a formal compatible pipeline; do not reuse the formal evaluator by bypassing its receipts.",
+  "paper_authorization": false,
+  "pilot_authorization": false,
+  "protocol": "v6_10_exploratory_training_screen_report_v1",
+  "status": "EXPLORATORY_ANALYSIS_COMPLETE_WITH_EVALUATION_BLOCK",
+  "training_comparison_authorization": false,
+  "training_completion_audit_sha256": "d768399ef9e0884fb433055397bf6cd0b149364b26fb49d2ff59dd58bee4f01d"
+}
