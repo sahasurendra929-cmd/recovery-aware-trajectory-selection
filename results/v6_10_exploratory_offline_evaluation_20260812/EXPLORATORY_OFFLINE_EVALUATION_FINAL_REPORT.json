@@ -1,0 +1,42 @@
+{
+  "classification": "EXPLORATORY_NOT_FOR_FORMAL_GATE",
+  "decision": "NO_OFFLINE_EXPLORATORY_SIGNAL",
+  "findings": {
+    "interpretation": "Ranked selection improved the offline syntax/valid-tool-call and recorded-suffix NLL diagnostics, but substantially increased repeated known failures and did not improve first-action reference agreement. It is not a promising recovery-selection signal under this diagnostic.",
+    "rank_vs_random": {
+      "reference_agreement_rate": {
+        "random": 0.020833333333333332,
+        "rank": 0.020833333333333332
+      },
+      "repeated_known_failure_rate": {
+        "random": 0.4166666666666667,
+        "rank": 0.7291666666666666
+      },
+      "suffix_nll": {
+        "random": 0.549550898373127,
+        "rank": 0.5171860915919145
+      },
+      "valid_tool_call_rate": {
+        "random": 0.625,
+        "rank": 0.8958333333333334
+      }
+    }
+  },
+  "formal_authorization": false,
+  "limitations": [
+    "Offline metrics are not environment task success.",
+    "A08/A12 are cross-session exploratory inputs.",
+    "No official test, formal evaluator, Pilot, or paper conclusion is authorized."
+  ],
+  "next_design_recommendation": [
+    "Do not promote the current forced-first contrast rank as a formal selector.",
+    "In a future formal continuous-runtime experiment, add an explicit repeated-failure penalty/exclusion to selector scoring and preregister end-to-end task success as the primary endpoint.",
+    "Keep random stratified selection as the exploratory comparator."
+  ],
+  "paper_authorization": false,
+  "pilot_authorization": false,
+  "protocol": "v6_10_exploratory_offline_evaluation_report_v1",
+  "status": "EXPLORATORY_ANALYSIS_COMPLETE",
+  "summary_sha256": "aa0320ea132de9cee966ade41fac93f4ec1d69c91e41627622b11efef4c0f7a4",
+  "training_comparison_authorization": false
+}
